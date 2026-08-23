@@ -1,0 +1,52 @@
+from rest_framework import serializers
+
+from accounts.serializers import UserSerializer
+from .models import Comment, Task
+
+
+class CommentSerializer(serializers.ModelSerializer):
+    author_detail = UserSerializer(source="author", read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ["id", "task", "author", "author_detail", "body", "created_at"]
+        read_only_fields = ["id", "author", "created_at"]
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            validated_data["author"] = request.user
+        return super().create(validated_data)
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    assignee_detail = UserSerializer(source="assignee", read_only=True)
+    created_by_detail = UserSerializer(source="created_by", read_only=True)
+    comments = CommentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Task
+        fields = [
+            "id",
+            "project",
+            "title",
+            "description",
+            "status",
+            "priority",
+            "assignee",
+            "assignee_detail",
+            "created_by",
+            "created_by_detail",
+            "order",
+            "comments",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_by", "created_at", "updated_at"]
+
+    def create(self, validated_data):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            validated_data["created_by"] = request.user
+            validated_data["organization"] = request.user.organization
+        return super().create(validated_data)

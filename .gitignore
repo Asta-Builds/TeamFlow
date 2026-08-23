@@ -1,0 +1,23 @@
+# Python / Django
+.venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+db.sqlite3
+backend/staticfiles/
+backend/server.log
+.env
+!.env.example
+
+# Node / Next.js
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/dev.log
+.env.local
+frontend/.env*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
