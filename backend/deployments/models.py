@@ -11,6 +11,7 @@ class Deployment(models.Model):
         SUCCESS = "success", "Success"
         FAILED = "failed", "Failed"
         ROLLED_BACK = "rolled_back", "Rolled Back"
+        CANCELLED = "cancelled", "Cancelled"
 
     class Environment(models.TextChoices):
         DEV = "dev", "Development"
@@ -27,6 +28,9 @@ class Deployment(models.Model):
     )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.QUEUED)
     commit_sha = models.CharField(max_length=40, blank=True)
+    branch = models.CharField(max_length=100, default="main", blank=True)
+    logs = models.TextField(blank=True)
+    duration_seconds = models.PositiveIntegerField(default=0)
     triggered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

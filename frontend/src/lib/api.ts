@@ -101,6 +101,15 @@ export async function login(email: string, password: string) {
   return data;
 }
 
+export async function loginWithKeycloakToken(token: string) {
+  const data = await apiFetch<{ access: string; refresh: string }>(
+    "/auth/keycloak/",
+    { method: "POST", body: { token }, auth: false }
+  );
+  setTokens(data.access, data.refresh);
+  return data;
+}
+
 export async function register(payload: {
   email: string;
   name: string;
@@ -145,3 +154,32 @@ export async function mockConfirmSubscription(tier: string) {
     }
   );
 }
+
+// --- Multi-Agent Orchestration & RAG ---
+
+export async function dispatchAgentSwarm(taskId: number) {
+  return apiFetch<{
+    message: string;
+    trace: import("./types").AgentExecutionTrace;
+    task_status: import("./types").TaskStatus;
+  }>(`/agents/dispatch/${taskId}/`, {
+    method: "POST",
+  });
+}
+
+export async function getAgentTraces(taskId?: number) {
+  const path = taskId ? `/agents/traces/${taskId}/` : "/agents/traces/";
+  return apiFetch<import("./types").AgentExecutionTrace[]>(path);
+}
+
+export async function ingestRAGKnowledge(projectId?: number) {
+  return apiFetch<{ message: string; chunks_ingested: number }>("/agents/ingest-rag/", {
+    method: "POST",
+    body: projectId ? { project_id: projectId } : {},
+  });
+}
+
+export async function getAgentClusterStatus() {
+  return apiFetch<import("./types").AgentClusterStatus>("/agents/status/");
+}
+

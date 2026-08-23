@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teamflow-frontend
+  namespace: teamflow
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: teamflow-frontend
+  template:
+    metadata:
+      labels:
+        app: teamflow-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ghcr.io/yourorg/teamflow-frontend:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: teamflow-config
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: teamflow
+spec:
+  type: ClusterIP
+  selector:
+    app: teamflow-frontend
+  ports:
+    - port: 3000
+      targetPort: 3000

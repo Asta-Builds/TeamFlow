@@ -1,0 +1,83 @@
+services:
+  # Django REST API Backend Service
+  - type: web
+    name: teamflow-backend
+    runtime: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    plan: starter
+    healthCheckPath: /api/health/
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://teamflow-frontend.onrender.com,http://localhost:3000"
+      - key: CSRF_TRUSTED_ORIGINS
+        value: "https://teamflow-frontend.onrender.com,https://teamflow-backend.onrender.com"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: teamflow-db
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: teamflow-redis
+          property: connectionString
+
+  # Next.js Frontend Web Service
+  - type: web
+    name: teamflow-frontend
+    runtime: docker
+    dockerContext: ./frontend
+    dockerfilePath: ./frontend/Dockerfile
+    plan: starter
+    dockerBuildArgs:
+      NEXT_PUBLIC_API_URL: "https://teamflow-backend.onrender.com/api"
+    envVars:
+      - key: PORT
+        value: "3000"
+      - key: NEXT_PUBLIC_API_URL
+        value: "https://teamflow-backend.onrender.com/api"
+
+  # Celery Background Worker
+  - type: worker
+    name: teamflow-celery
+    runtime: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerCommand: celery -A teamflow worker --loglevel=info
+    plan: starter
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        fromService:
+          type: web
+          name: teamflow-backend
+          property: envVars.SECRET_KEY
+      - key: DATABASE_URL
+        fromDatabase:
+          name: teamflow-db
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          type: redis
+          name: teamflow-redis
+          property: connectionString
+
+  # Redis Cache & Broker
+  - type: redis
+    name: teamflow-redis
+    plan: starter
+    ipAllowList: []
+
+databases:
+  # Managed PostgreSQL Database
+  - name: teamflow-db
+    plan: starter
+    databaseName: teamflow
+    user: teamflow

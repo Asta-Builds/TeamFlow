@@ -1,5 +1,8 @@
+import csv
+import json
 from django.db.models import Q
-from rest_framework import permissions, viewsets
+from django.http import HttpResponse
+from rest_framework import decorators, permissions, response, viewsets
 
 from teamflow.permissions import IsOwnerOrPrivileged
 from .models import Project
@@ -23,13 +26,69 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated or user.organization is None:
             return Project.objects.none()
 
-        qs = Project.objects.filter(organization=user.organization).select_related("owner").prefetch_related("members")
+        qs = Project.objects.filter(organization=user.organization).select_related("owner").prefetch_related("members", "tasks")
 
-        # Members can only view projects they are owner or member of
+        # Members can only view projects they are owner or member of unless privileged (CEO, Tech Lead, Admin)
         if not user.is_privileged:
             qs = qs.filter(Q(owner=user) | Q(members=user)).distinct()
 
         return qs
 
     def perform_create(self, serializer):
+        if not self.request.user.can_create_project:
+            raise permissions.exceptions.PermissionDenied("Only Tech Lead, CEO or Admin can create projects.")
         serializer.save(organization=self.request.user.organization, owner=self.request.user)
+
+    def perform_destroy(self, instance):
+        if not self.request.user.can_create_project:
+            raise permissions.exceptions.PermissionDenied("Only Tech Lead, CEO or Admin can delete or archive projects.")
+        instance.delete()
+
+    @decorators.action(detail=True, methods=["get"])
+    def export(self, request, pk=None):
+        """Export project and its tickets as CSV or JSON."""
+        project = self.get_object()
+        fmt = request.query_params.get("format", "json").lower()
+        tasks = project.tasks.all().select_related("assignee", "created_by")
+
+        if fmt == "csv":
+            response_http = HttpResponse(content_type="text/csv")
+            response_http["Content-Disposition"] = f'attachment; filename="{project.name}_tasks.csv"'
+            writer = csv.writer(response_http)
+            writer.writerow(["ID", "Title", "Type", "Status", "Priority", "Assignee", "Created By", "Due Date", "Created At"])
+            for t in tasks:
+                writer.writerow([
+                    t.id,
+                    t.title,
+                    t.task_type,
+                    t.status,
+                    t.priority,
+                    t.assignee.email if t.assignee else "",
+                    t.created_by.email if t.created_by else "",
+                    t.due_date or "",
+                    t.created_at.isoformat(),
+                ])
+            return response_http
+
+        data = {
+            "project": {
+                "id": project.id,
+                "name": project.name,
+                "description": project.description,
+                "status": project.status,
+            },
+            "tasks": [
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "description": t.description,
+                    "type": t.task_type,
+                    "status": t.status,
+                    "priority": t.priority,
+                    "assignee": t.assignee.email if t.assignee else None,
+                    "created_at": t.created_at.isoformat(),
+                }
+                for t in tasks
+            ]
+        }
+        return response.Response(data)

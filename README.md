@@ -16,7 +16,25 @@ TeamFlow/
 └─ Virtual_Tech_Company_Blueprint.md
 ```
 
-## Quick start
+## Quick start with Docker (Recommended)
+
+Run the entire stack (PostgreSQL database, Django API backend, Next.js frontend) with a single command:
+
+```bash
+docker compose up --build -d
+```
+
+- **Frontend App:** [http://localhost:3000](http://localhost:3000)
+- **Backend API & Swagger Docs:** [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/)
+- **Demo Login:** `lead@teamflow.dev` (or any `@teamflow.dev` email) with password `teamflow-demo-pw`
+
+To view logs or stop the containers:
+```bash
+docker compose logs -f
+docker compose down
+```
+
+## Manual Local Development
 
 ### 1. Backend (API on http://127.0.0.1:8000)
 
@@ -66,12 +84,39 @@ audits are privileged-write.
 ## Tests
 
 ```bash
+# Run backend test suite
 cd backend && python manage.py test
+
+# Run frontend build & lint
+cd frontend && npm run build
 ```
 
-## Roadmap (per the blueprint)
+## Production Deployment
 
-- Celery + Redis for async jobs (email, real SEO crawls, webhooks)
-- Postgres in staging/prod via `DATABASE_URL`
-- GitHub Actions CI/CD, Terraform infra, Grafana + Prometheus monitoring
-- Design system + marketing site (second frontend surface)
+TeamFlow is fully prepared for multi-environment deployment (Docker, Nginx, Kubernetes, Render, Railway, AWS):
+
+### 1. Full Production Stack with Docker Compose (Nginx + PostgreSQL + Redis + Celery + Django + Next.js)
+
+```bash
+# Windows
+.\scripts\deploy.ps1
+
+# Linux / macOS
+chmod +x ./scripts/deploy.sh
+./scripts/deploy.sh
+
+# Or directly with Docker Compose:
+docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+```
+
+### 2. Cloud Platforms
+
+- **Render:** Blueprint configured in [`render.yaml`](./render.yaml). Link your GitHub repository to Render for automatic 1-click deployment of database, Redis, Celery worker, backend API, and frontend.
+- **Railway:** Configuration in [`railway.json`](./railway.json).
+- **Kubernetes:** Production manifests located in [`k8s/`](./k8s/) (`namespace.yaml`, `configmap-secrets.yaml`, `backend-deployment.yaml`, `frontend-deployment.yaml`, `ingress.yaml`).
+- **Terraform / AWS:** Infrastructure as code scaffolding in [`terraform/`](./terraform/).
+
+### 3. CI/CD Pipelines
+
+- **CI Workflow:** [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) automatically runs Django unit tests, database migrations check, and Next.js typechecking on every push / pull request.
+- **CD Workflow:** [`.github/workflows/deploy.yml`](./.github/workflows/deploy.yml) packages and publishes production Docker images to GitHub Container Registry (GHCR).

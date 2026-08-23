@@ -1,0 +1,119 @@
+{
+  "id": "teamflow",
+  "realm": "teamflow",
+  "displayName": "TeamFlow",
+  "displayNameHtml": "<div class='kc-logo-text'><span>TF</span> TeamFlow</div>",
+  "enabled": true,
+  "loginTheme": "teamflow",
+  "accountTheme": "keycloak.v2",
+  "adminTheme": "keycloak.v2",
+  "emailTheme": "keycloak",
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "resetPasswordAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "ceo", "description": "Chief Executive Officer" },
+      { "name": "tech_lead", "description": "Tech Lead" },
+      { "name": "backend", "description": "Senior Backend Developer" },
+      { "name": "frontend", "description": "Senior Frontend Developer" },
+      { "name": "devops", "description": "DevOps Engineer" },
+      { "name": "qa", "description": "QA Engineer" },
+      { "name": "designer", "description": "UI/UX Designer" },
+      { "name": "seo", "description": "SEO Specialist" },
+      { "name": "admin", "description": "Administrator" },
+      { "name": "member", "description": "Standard Member" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "teamflow-app",
+      "name": "TeamFlow Web App",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "http://localhost:3000",
+      "redirectUris": [
+        "http://localhost:3000/*",
+        "http://localhost:8000/*",
+        "http://localhost/*",
+        "https://*"
+      ],
+      "webOrigins": ["*"],
+      "fullScopeAllowed": true
+    }
+  ],
+  "users": [
+    {
+      "username": "ceo@teamflow.dev",
+      "email": "ceo@teamflow.dev",
+      "firstName": "Abdelilah",
+      "lastName": "Dahou",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "teamflow-demo-pw",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ceo", "admin"]
+    },
+    {
+      "username": "lead@teamflow.dev",
+      "email": "lead@teamflow.dev",
+      "firstName": "Sarah",
+      "lastName": "Jenkins",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "teamflow-demo-pw",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["tech_lead", "admin"]
+    },
+    {
+      "username": "devops@teamflow.dev",
+      "email": "devops@teamflow.dev",
+      "firstName": "Joan",
+      "lastName": "Arc",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "teamflow-demo-pw",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["devops"]
+    },
+    {
+      "username": "qa@teamflow.dev",
+      "email": "qa@teamflow.dev",
+      "firstName": "Alan",
+      "lastName": "Turing",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "teamflow-demo-pw",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["qa"]
+    }
+  ]
+}

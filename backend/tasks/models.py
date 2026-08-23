@@ -9,13 +9,19 @@ class Task(models.Model):
         TODO = "todo", "To Do"
         IN_PROGRESS = "in_progress", "In Progress"
         IN_REVIEW = "in_review", "In Review"
+        QA = "qa", "QA / Ready for Test"
         DONE = "done", "Done"
+
+    class Type(models.TextChoices):
+        FEATURE = "feature", "Feature"
+        BUG = "bug", "Bug"
+        TASK = "task", "Task"
 
     class Priority(models.TextChoices):
         LOW = "low", "Low"
         MEDIUM = "medium", "Medium"
         HIGH = "high", "High"
-        URGENT = "urgent", "Urgent"
+        URGENT = "urgent", "Critical"
 
     project = models.ForeignKey(
         "projects.Project",
@@ -25,6 +31,7 @@ class Task(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.TODO)
+    task_type = models.CharField(max_length=20, choices=Type.choices, default=Type.TASK)
     priority = models.CharField(max_length=20, choices=Priority.choices, default=Priority.MEDIUM)
     assignee = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -37,8 +44,13 @@ class Task(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
+        blank=True,
         related_name="created_tasks",
     )
+    due_date = models.DateField(null=True, blank=True)
+    pr_url = models.URLField(blank=True, help_text="Linked GitHub Pull Request URL")
+    qa_rejected = models.BooleanField(default=False)
+    qa_rejection_reason = models.TextField(blank=True)
     order = models.PositiveIntegerField(default=0, help_text="Position within its board column")
     organization = models.ForeignKey(
         "organizations.Organization",
@@ -75,3 +87,24 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"Comment by {self.author} on {self.task}"
+
+
+class TaskActivity(models.Model):
+    """Audit log tracking history of changes on a task / ticket."""
+
+    task = models.ForeignKey("tasks.Task", on_delete=models.CASCADE, related_name="activities")
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="task_activities",
+    )
+    action = models.CharField(max_length=50) # created, status_changed, assigned, qa_validated, qa_rejected, commented
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.actor} {self.action} on {self.task} at {self.created_at}"

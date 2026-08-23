@@ -5,8 +5,13 @@ class SEOAudit(models.Model):
     """Result of a technical SEO audit run against a URL/page."""
 
     url = models.URLField()
-    score = models.PositiveSmallIntegerField(default=0, help_text="0-100 audit score")
+    score = models.PositiveSmallIntegerField(default=0, help_text="0-100 overall audit score")
+    performance_score = models.PositiveSmallIntegerField(default=90)
+    seo_score = models.PositiveSmallIntegerField(default=92)
+    mobile_score = models.PositiveSmallIntegerField(default=95)
+    load_time_ms = models.PositiveIntegerField(default=350)
     issues = models.JSONField(default=list, blank=True)
+    metrics = models.JSONField(default=dict, blank=True)
     organization = models.ForeignKey(
         "organizations.Organization",
         on_delete=models.CASCADE,

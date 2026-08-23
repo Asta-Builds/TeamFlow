@@ -4,40 +4,42 @@ from django.db import transaction
 
 from organizations.models import Organization
 from projects.models import Project
-from tasks.models import Comment, Task
+from tasks.models import Comment, Task, TaskActivity
 from deployments.models import Deployment
 from seo.models import SEOAudit
+from notifications.models import Notification
 
 User = get_user_model()
 
 TEAM = [
-    ("ceo@teamflow.dev", "Abdelilah Dahou", User.Role.ADMIN),
-    ("lead@teamflow.dev", "Sarah Jenkins (PM)", User.Role.ADMIN),
-    ("backend1@teamflow.dev", "Marcus Aurelius", User.Role.MEMBER),
-    ("backend2@teamflow.dev", "Julius Caesar", User.Role.MEMBER),
-    ("frontend1@teamflow.dev", "Cleopatra Philopator", User.Role.MEMBER),
-    ("frontend2@teamflow.dev", "Alexander Great", User.Role.MEMBER),
-    ("devops@teamflow.dev", "Joan Arc", User.Role.MEMBER),
-    ("qa@teamflow.dev", "Alan Turing", User.Role.MEMBER),
-    ("design@teamflow.dev", "Leonardo DaVinci", User.Role.MEMBER),
-    ("seo@teamflow.dev", "Ada Lovelace", User.Role.MEMBER),
+    ("ceo@teamflow.dev", "Abdelilah Dahou", User.Role.CEO, "Founder & CEO"),
+    ("lead@teamflow.dev", "Sarah Jenkins", User.Role.TECH_LEAD, "Tech Lead & Architecture"),
+    ("backend1@teamflow.dev", "Marcus Aurelius", User.Role.BACKEND, "Senior Backend Engineer"),
+    ("backend2@teamflow.dev", "Julius Caesar", User.Role.BACKEND, "Senior Backend Engineer"),
+    ("frontend1@teamflow.dev", "Cleopatra Philopator", User.Role.FRONTEND, "Senior Frontend Engineer"),
+    ("frontend2@teamflow.dev", "Alexander Great", User.Role.FRONTEND, "Senior Frontend Engineer"),
+    ("devops@teamflow.dev", "Joan Arc", User.Role.DEVOPS, "DevOps Engineer"),
+    ("qa@teamflow.dev", "Alan Turing", User.Role.QA, "QA Engineer"),
+    ("design@teamflow.dev", "Leonardo DaVinci", User.Role.DESIGNER, "UI/UX Designer"),
+    ("seo@teamflow.dev", "Ada Lovelace", User.Role.SEO, "SEO Specialist"),
 ]
 
 DEMO_PASSWORD = "teamflow-demo-pw"
 
 TASKS = [
-    ("Set up JWT auth endpoints", Task.Status.DONE, Task.Priority.HIGH, "backend1@teamflow.dev"),
-    ("Build the app shell + sidebar", Task.Status.IN_REVIEW, Task.Priority.HIGH, "frontend1@teamflow.dev"),
-    ("Design the Kanban board", Task.Status.IN_PROGRESS, Task.Priority.MEDIUM, "design@teamflow.dev"),
-    ("Projects & Tasks API", Task.Status.IN_PROGRESS, Task.Priority.HIGH, "backend2@teamflow.dev"),
-    ("CI pipeline on GitHub Actions", Task.Status.TODO, Task.Priority.MEDIUM, "devops@teamflow.dev"),
-    ("Write API integration tests", Task.Status.TODO, Task.Priority.MEDIUM, "qa@teamflow.dev"),
-    ("Technical SEO audit of landing", Task.Status.TODO, Task.Priority.LOW, "seo@teamflow.dev"),
+    ("Set up JWT auth endpoints", Task.Status.DONE, Task.Type.FEATURE, Task.Priority.HIGH, "backend1@teamflow.dev"),
+    ("Build the app shell + sidebar", Task.Status.IN_REVIEW, Task.Type.FEATURE, Task.Priority.HIGH, "frontend1@teamflow.dev"),
+    ("Automated End-to-End Test Suite", Task.Status.QA, Task.Type.TASK, Task.Priority.HIGH, "qa@teamflow.dev"),
+    ("Design the Kanban board & Ticket Modal", Task.Status.IN_PROGRESS, Task.Type.FEATURE, Task.Priority.MEDIUM, "design@teamflow.dev"),
+    ("Projects & Tasks API endpoints", Task.Status.IN_PROGRESS, Task.Type.FEATURE, Task.Priority.HIGH, "backend2@teamflow.dev"),
+    ("Fix token refresh race condition", Task.Status.TODO, Task.Type.BUG, Task.Priority.URGENT, "backend1@teamflow.dev"),
+    ("CI pipeline on GitHub Actions", Task.Status.TODO, Task.Type.TASK, Task.Priority.MEDIUM, "devops@teamflow.dev"),
+    ("Technical SEO audit of landing page", Task.Status.TODO, Task.Type.TASK, Task.Priority.LOW, "seo@teamflow.dev"),
 ]
 
 
 class Command(BaseCommand):
-    help = "Seed a demo TeamFlow SaaS workspace."
+    help = "Seed a demo TeamFlow SaaS workspace according to full functional specifications."
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -52,22 +54,24 @@ class Command(BaseCommand):
 
         # 2. Seed Team
         users = {}
-        for email, name, role in TEAM:
+        for email, name, role, bio in TEAM:
             user, created = User.objects.get_or_create(
                 email=email,
                 defaults={
                     "name": name,
                     "role": role,
+                    "bio": bio,
                     "organization": org,
+                    "user_status": User.Status.ACTIVE,
                 }
             )
-            if created:
+            user.organization = org
+            user.role = role
+            user.bio = bio
+            user.user_status = User.Status.ACTIVE
+            if created or not user.has_usable_password():
                 user.set_password(DEMO_PASSWORD)
-                user.save()
-            else:
-                user.organization = org
-                user.role = role
-                user.save()
+            user.save()
             users[email] = user
         self.stdout.write(self.style.SUCCESS(f"Team: {len(users)} users seeded under Organization '{org.name}'"))
 
@@ -76,7 +80,7 @@ class Command(BaseCommand):
             name="TeamFlow MVP",
             organization=org,
             defaults={
-                "description": "Internal project & ticket management platform.",
+                "description": "Internal project & ticket management platform (Virtual Tech Company).",
                 "owner": users["lead@teamflow.dev"],
                 "status": Project.Status.ACTIVE,
             },
@@ -84,17 +88,19 @@ class Command(BaseCommand):
         project.members.set(users.values())
 
         # 4. Seed Tasks (Tickets)
-        for order, (title, status, priority, assignee_email) in enumerate(TASKS):
+        for order, (title, status, task_type, priority, assignee_email) in enumerate(TASKS):
             task, created = Task.objects.get_or_create(
                 project=project,
                 title=title,
                 organization=org,
                 defaults={
                     "status": status,
+                    "task_type": task_type,
                     "priority": priority,
                     "assignee": users[assignee_email],
                     "created_by": users["lead@teamflow.dev"],
                     "order": order,
+                    "pr_url": "https://github.com/teamflow/teamflow/pull/42" if status in {Task.Status.IN_REVIEW, Task.Status.QA, Task.Status.DONE} else "",
                 },
             )
             if created:
@@ -102,6 +108,12 @@ class Command(BaseCommand):
                     task=task,
                     author=users["lead@teamflow.dev"],
                     body=f"Ticket assigned to {users[assignee_email].name}."
+                )
+                TaskActivity.objects.create(
+                    task=task,
+                    actor=users["lead@teamflow.dev"],
+                    action="created",
+                    details={"title": title, "status": status}
                 )
 
         # 5. Seed Deployment
@@ -112,7 +124,10 @@ class Command(BaseCommand):
             defaults={
                 "status": Deployment.Status.SUCCESS,
                 "commit_sha": "a1b2c3d4",
+                "branch": "main",
                 "triggered_by": users["devops@teamflow.dev"],
+                "duration_seconds": 45,
+                "logs": "=== Staging Deployment Pipeline ===\n[INFO] Tests passed: 100%\n[INFO] Docker image built successfully.\n[INFO] Staging environment healthy.",
             },
         )
 
@@ -122,16 +137,50 @@ class Command(BaseCommand):
             organization=org,
             defaults={
                 "score": 92,
+                "performance_score": 94,
+                "seo_score": 92,
+                "mobile_score": 95,
+                "load_time_ms": 320,
                 "issues": [
-                    {"severity": "medium", "message": "Landing page is missing meta description tag."},
-                    {"severity": "low", "message": "1 image asset is missing alt text attribute."}
-                ]
+                    {
+                        "severity": "medium",
+                        "category": "metadata",
+                        "message": "Landing page is missing meta description tag.",
+                        "recommendation": "Add descriptive meta tag in document head."
+                    },
+                    {
+                        "severity": "low",
+                        "category": "accessibility",
+                        "message": "1 image asset is missing alt text attribute.",
+                        "recommendation": "Provide alt text for all visual assets."
+                    }
+                ],
+                "metrics": {
+                    "fcp_ms": 780,
+                    "lcp_ms": 1420,
+                    "cls": 0.02,
+                    "fid_ms": 18,
+                    "canonical_detected": True,
+                }
+            }
+        )
+
+        # 7. Seed sample Notifications
+        Notification.objects.get_or_create(
+            recipient=users["lead@teamflow.dev"],
+            title="Ticket ready for QA: Automated End-to-End Test Suite",
+            organization=org,
+            defaults={
+                "actor": users["qa@teamflow.dev"],
+                "message": "Alan Turing moved Automated End-to-End Test Suite to QA.",
+                "link": f"/projects/{project.id}",
+                "is_read": False,
             }
         )
 
         self.stdout.write(
             self.style.SUCCESS(
                 f"Seeded TeamFlow SaaS Demo workspace successfully. "
-                f"Login with any @teamflow.dev email (e.g. lead@teamflow.dev) / password '{DEMO_PASSWORD}'."
+                f"Login with any @teamflow.dev email (e.g. lead@teamflow.dev, ceo@teamflow.dev) / password '{DEMO_PASSWORD}'."
             )
         )

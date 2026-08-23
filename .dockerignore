@@ -1,0 +1,6 @@
+.git
+.gitignore
+.venv
+node_modules
+.next
+*.log

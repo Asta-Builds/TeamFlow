@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teamflow-backend
+  namespace: teamflow
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: teamflow-backend
+  template:
+    metadata:
+      labels:
+        app: teamflow-backend
+    spec:
+      containers:
+        - name: backend
+          image: ghcr.io/yourorg/teamflow-backend:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: teamflow-config
+            - secretRef:
+                name: teamflow-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/health/
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health/
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: teamflow
+spec:
+  type: ClusterIP
+  selector:
+    app: teamflow-backend
+  ports:
+    - port: 8000
+      targetPort: 8000

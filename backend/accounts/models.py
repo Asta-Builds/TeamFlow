@@ -37,14 +37,30 @@ class User(AbstractUser):
     """TeamFlow user. Email is the login identifier; role scopes permissions."""
 
     class Role(models.TextChoices):
+        CEO = "ceo", "CEO"
+        TECH_LEAD = "tech_lead", "Tech Lead"
+        BACKEND = "backend", "Backend Developer"
+        FRONTEND = "frontend", "Frontend Developer"
+        DEVOPS = "devops", "DevOps Engineer"
+        QA = "qa", "QA Engineer"
+        DESIGNER = "designer", "UI/UX Designer"
+        SEO = "seo", "SEO Specialist"
         ADMIN = "admin", "Admin"
         MEMBER = "member", "Member"
+
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Active"
+        OFFLINE = "offline", "Offline"
+        PENDING = "pending", "Pending Approval"
+        DISABLED = "disabled", "Disabled"
 
     username = None
     email = models.EmailField("email address", unique=True)
     name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
+    user_status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
     avatar_url = models.URLField(blank=True)
+    bio = models.TextField(blank=True)
     organization = models.ForeignKey(
         "organizations.Organization",
         on_delete=models.CASCADE,
@@ -66,5 +82,25 @@ class User(AbstractUser):
 
     @property
     def is_privileged(self):
-        """Admin / staff can see and manage the whole workspace."""
-        return self.is_staff or self.role == self.Role.ADMIN
+        """CEO / Tech Lead / Admin / staff can manage projects, team members, and the workspace."""
+        return (
+            self.is_staff
+            or self.is_superuser
+            or self.role in {self.Role.ADMIN, self.Role.CEO, self.Role.TECH_LEAD}
+        )
+
+    @property
+    def can_create_project(self):
+        return self.is_privileged
+
+    @property
+    def can_deploy(self):
+        return self.is_privileged or self.role == self.Role.DEVOPS
+
+    @property
+    def can_audit_seo(self):
+        return self.is_privileged or self.role == self.Role.SEO
+
+    @property
+    def can_validate_qa(self):
+        return self.is_privileged or self.role == self.Role.QA
