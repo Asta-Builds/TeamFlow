@@ -132,16 +132,16 @@ class Command(BaseCommand):
         )
 
         # 6. Seed SEO Audit
-        SEOAudit.objects.get_or_create(
-            url="https://teamflow.dev",
-            organization=org,
-            defaults={
-                "score": 92,
-                "performance_score": 94,
-                "seo_score": 92,
-                "mobile_score": 95,
-                "load_time_ms": 320,
-                "issues": [
+        if not SEOAudit.objects.filter(url="https://teamflow.dev", organization=org).exists():
+            SEOAudit.objects.create(
+                url="https://teamflow.dev",
+                organization=org,
+                score=92,
+                performance_score=94,
+                seo_score=92,
+                mobile_score=95,
+                load_time_ms=320,
+                issues=[
                     {
                         "severity": "medium",
                         "category": "metadata",
@@ -155,15 +155,14 @@ class Command(BaseCommand):
                         "recommendation": "Provide alt text for all visual assets."
                     }
                 ],
-                "metrics": {
+                metrics={
                     "fcp_ms": 780,
                     "lcp_ms": 1420,
                     "cls": 0.02,
                     "fid_ms": 18,
                     "canonical_detected": True,
                 }
-            }
-        )
+            )
 
         # 7. Seed sample Notifications
         Notification.objects.get_or_create(
