@@ -92,3 +92,23 @@ class ProjectViewSet(viewsets.ModelViewSet):
             ]
         }
         return response.Response(data)
+
+    @decorators.action(detail=True, methods=["post"])
+    def pm_generate_tasks(self, request, pk=None):
+        """
+        AI Product Manager endpoint: Decomposes a user/CEO plan into
+        concrete engineering tickets, assigns them to specialist AI agents,
+        and generates inter-agent collaboration comments.
+        """
+        project = self.get_object()
+        plan_text = request.data.get("plan", "").strip()
+        if not plan_text:
+            return response.Response({"error": "A plan or feature prompt is required."}, status=400)
+
+        from agents.pm_service import decompose_plan_and_create_tasks
+        from tasks.serializers import TaskSerializer
+
+        res = decompose_plan_and_create_tasks(project, plan_text, request.user)
+        res["tasks_data"] = TaskSerializer(res["tasks"], many=True).data
+        res.pop("tasks", None)
+        return response.Response(res)

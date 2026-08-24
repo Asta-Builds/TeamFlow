@@ -78,6 +78,9 @@ export default function ProjectBoardPage() {
   const [newDueDate, setNewDueDate] = useState<string>("");
   const [newPrUrl, setNewPrUrl] = useState<string>("");
   const [ingestingRag, setIngestingRag] = useState(false);
+  const [showPmModal, setShowPmModal] = useState(false);
+  const [pmPlanText, setPmPlanText] = useState("");
+  const [generatingPmTasks, setGeneratingPmTasks] = useState(false);
 
   async function handleIngestRag() {
     setIngestingRag(true);
@@ -88,6 +91,29 @@ export default function ProjectBoardPage() {
       toast.error("Error ingesting RAG knowledge: " + String(err));
     } finally {
       setIngestingRag(false);
+    }
+  }
+
+  async function handlePmGenerateTasks(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    if (!pmPlanText.trim()) {
+      toast.error("Please provide a plan or feature roadmap");
+      return;
+    }
+    setGeneratingPmTasks(true);
+    try {
+      const res = await apiFetch<any>(`/projects/${projectId}/pm_generate_tasks/`, {
+        method: "POST",
+        body: JSON.stringify({ plan: pmPlanText.trim() }),
+      });
+      toast.success(res.pm_summary ? "PM Athena created sprint tickets with assigned agents!" : `Created ${res.tasks_created_count || 3} tickets!`);
+      setShowPmModal(false);
+      setPmPlanText("");
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to generate tasks with AI PM");
+    } finally {
+      setGeneratingPmTasks(false);
     }
   }
 
@@ -210,6 +236,15 @@ export default function ProjectBoardPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowPmModal(true)}
+            className="rounded-xl border border-violet-700/60 bg-violet-950/60 px-3.5 py-2 text-xs font-bold text-violet-200 hover:bg-violet-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="AI Product Manager: Decompose plan into Kanban tickets and assign AI specialists"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+            <span>Plan with AI PM</span>
+          </button>
+
           <button
             onClick={handleIngestRag}
             disabled={ingestingRag}
@@ -535,6 +570,99 @@ export default function ProjectBoardPage() {
             setSelected(updated);
           }}
         />
+      )}
+
+      {/* AI Product Manager Planning & Task Breakdown Modal */}
+      {showPmModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-xl rounded-2xl bg-slate-900 p-6 shadow-2xl border border-violet-800/50 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-violet-950 border border-violet-700/60 flex items-center justify-center text-violet-400">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    <span>Athena (AI) · Autonomous Product Manager</span>
+                  </h3>
+                  <p className="text-xs text-violet-300/80">
+                    Give a plan or user story — PM Athena will break it into tickets & assign specialist agents.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPmModal(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePmGenerateTasks} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  Feature Vision / Sprint Roadmap Plan
+                </label>
+                <textarea
+                  required
+                  rows={5}
+                  value={pmPlanText}
+                  onChange={(e) => setPmPlanText(e.target.value)}
+                  placeholder="e.g. Build an end-to-end Stripe billing integration with webhook listener, checkout button, pricing table view, and automated QA load testing."
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 p-3.5 text-xs text-slate-200 placeholder-slate-500 focus:border-violet-500 focus:outline-none leading-relaxed"
+                />
+              </div>
+
+              {/* Quick Templates */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+                  Quick Roadmap Templates:
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    "User Auth & Keycloak SSO with session refresh",
+                    "Stripe Subscription Billing & Webhook Dispatcher",
+                    "Real-Time Slack Notifications & Incident Alerting",
+                    "Automated CI/CD Deployment with Docker Staging & Rollbacks",
+                  ].map((tpl) => (
+                    <button
+                      key={tpl}
+                      type="button"
+                      onClick={() => setPmPlanText(tpl)}
+                      className="rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:border-violet-500 hover:text-violet-300 transition cursor-pointer"
+                    >
+                      {tpl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <Bot className="h-3.5 w-3.5 text-violet-400" />
+                  <span>Auto-assigns Backend, Frontend & QA with team chat</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPmModal(false)}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-400 hover:text-white transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={generatingPmTasks}
+                    className="rounded-xl bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-violet-600/30 hover:bg-violet-500 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>{generatingPmTasks ? "Decomposing & Creating Tickets…" : "Generate Tickets & Team Chat"}</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

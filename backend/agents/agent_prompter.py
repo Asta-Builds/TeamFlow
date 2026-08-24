@@ -148,7 +148,18 @@ def generate_llm_response(
     role_key = agent_info["role"]
     rag_snippet = f" (Referencing {rag_context[0][:60]}...)" if rag_context else ""
 
-    if role_key == User.Role.TECH_LEAD:
+    repo_name = getattr(task.project, "github_repo", "Asta-Builds/TeamFlow") or "Asta-Builds/TeamFlow"
+
+    if role_key == User.Role.PM:
+        return (
+            f"Understood, CEO. I have analyzed your product vision and decomposed it into sprint tickets.\n\n"
+            f"**Product Breakdown & Sprint Roadmap:**\n"
+            f"1. Created and assigned **[Backend API]** to `@backend` (Marcus Aurelius).\n"
+            f"2. Created and assigned **[Frontend UI]** to `@frontend` (Cleopatra).\n"
+            f"3. Created and assigned **[QA Test Suite]** to `@qa` (Alan Turing).\n\n"
+            f"All agents have been notified and initiated technical scoping in the Kanban board."
+        )
+    elif role_key == User.Role.TECH_LEAD:
         return (
             f"Understood, CEO. I have analyzed your request regarding ticket #{task.id} (`{task.title}`).\n\n"
             f"**Architecture & Swarm Plan{rag_snippet}:**\n"
@@ -161,9 +172,9 @@ def generate_llm_response(
         return (
             f"Acknowledged, CEO. Taking immediate ownership of backend services for ticket #{task.id}.\n\n"
             f"**Implementation Status:**\n"
-            f"- Created feature branch `feat/backend-ticket-{task.id}`.\n"
+            f"- Created feature branch `feat/ticket-{task.id}`.\n"
             f"- Implementing database serializer schema with validation and atomic transaction mutexes.\n"
-            f"- Opened GitHub Pull Request: `https://github.com/teamflow/teamflow/pull/{task.id + 100}`.\n"
+            f"- Opened GitHub Pull Request: `https://github.com/{repo_name}/tree/feat/ticket-{task.id}`.\n"
             f"- Handing off to `@tech_lead` for review."
         )
     elif role_key == User.Role.FRONTEND:
