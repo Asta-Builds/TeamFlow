@@ -4,6 +4,7 @@ import { Sparkles, Bug, CheckSquare, Shield, Code, Palette, Search, Terminal, Cr
 
 export const ROLE_LABELS: Record<Role, string> = {
   ceo: "CEO (Human Founder)",
+  pm: "AI Product Manager",
   tech_lead: "AI Tech Lead",
   backend: "AI Backend Engineer",
   frontend: "AI Frontend Engineer",
@@ -17,6 +18,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 
 export const ROLE_COLORS: Record<Role, string> = {
   ceo: "bg-purple-950/60 text-purple-300 border-purple-800/50",
+  pm: "bg-violet-950/60 text-violet-300 border-violet-800/50",
   tech_lead: "bg-indigo-950/60 text-indigo-300 border-indigo-800/50",
   backend: "bg-blue-950/60 text-blue-300 border-blue-800/50",
   frontend: "bg-cyan-950/60 text-cyan-300 border-cyan-800/50",

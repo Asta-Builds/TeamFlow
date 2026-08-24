@@ -38,6 +38,7 @@ class User(AbstractUser):
 
     class Role(models.TextChoices):
         CEO = "ceo", "CEO"
+        PM = "pm", "Product Manager"
         TECH_LEAD = "tech_lead", "Tech Lead"
         BACKEND = "backend", "Backend Developer"
         FRONTEND = "frontend", "Frontend Developer"

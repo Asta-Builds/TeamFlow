@@ -18,6 +18,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "status",
+            "github_repo",
             "owner",
             "owner_detail",
             "members",

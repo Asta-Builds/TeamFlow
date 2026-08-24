@@ -1,5 +1,6 @@
 export type Role =
   | "ceo"
+  | "pm"
   | "tech_lead"
   | "backend"
   | "frontend"

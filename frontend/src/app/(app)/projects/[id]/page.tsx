@@ -1069,6 +1069,7 @@ function TaskDetailPanel({
 
                   <div className="flex flex-wrap gap-1">
                     {[
+                      { tag: "@pm", label: "PM (Planner)", color: "hover:border-violet-500 hover:text-violet-300" },
                       { tag: "@tech_lead", label: "Tech Lead", color: "hover:border-indigo-500 hover:text-indigo-300" },
                       { tag: "@backend", label: "Backend", color: "hover:border-blue-500 hover:text-blue-300" },
                       { tag: "@frontend", label: "Frontend", color: "hover:border-cyan-500 hover:text-cyan-300" },

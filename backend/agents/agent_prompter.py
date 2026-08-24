@@ -12,6 +12,13 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 AGENT_TAG_MAP: Dict[str, Dict[str, str]] = {
+    "pm": {
+        "role": User.Role.PM,
+        "email": "pm@teamflow.dev",
+        "name": "Athena (AI)",
+        "title": "AI Product Manager & Feature Architect",
+        "specialty": "Requirement decomposition, feature roadmap planning, and automated Kanban ticket generation",
+    },
     "tech_lead": {
         "role": User.Role.TECH_LEAD,
         "email": "lead@teamflow.dev",

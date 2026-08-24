@@ -13,6 +13,7 @@ User = get_user_model()
 
 TEAM = [
     ("ceo@teamflow.dev", "Abdelilah Dahou", User.Role.CEO, "Human Founder & Executive Leader"),
+    ("pm@teamflow.dev", "Athena (AI)", User.Role.PM, "Autonomous AI Product Manager & Roadmap Architect"),
     ("lead@teamflow.dev", "Sarah Jenkins (AI)", User.Role.TECH_LEAD, "Autonomous AI Tech Lead & Swarm Orchestrator"),
     ("backend1@teamflow.dev", "Marcus Aurelius (AI)", User.Role.BACKEND, "Autonomous AI Senior Backend Engineer"),
     ("backend2@teamflow.dev", "Julius Caesar (AI)", User.Role.BACKEND, "Autonomous AI Senior Backend Engineer"),
