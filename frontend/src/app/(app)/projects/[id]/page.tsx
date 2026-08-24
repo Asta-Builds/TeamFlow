@@ -584,11 +584,12 @@ function TaskDetailPanel({
     setRunningSwarm(true);
     try {
       const res = await dispatchAgentSwarm(detail.id);
-      setTraces((prev) => [res.trace, ...prev.filter((t) => t.id !== res.trace.id)]);
+      const updated = await apiFetch<Task>(`/tasks/${detail.id}/`);
+      setDetail(updated);
+      onChanged(updated);
+      getAgentTraces(detail.id).then(setTraces);
       setActiveTab("agents");
-      refresh();
-      onChanged({ ...detail, status: res.task_status });
-      toast.success("Autonomous multi-agent swarm completed!");
+      toast.success(`Autonomous swarm completed! Ticket transitioned to ${updated.status}`);
     } catch (err) {
       toast.error("Error executing multi-agent swarm: " + String(err));
     } finally {
@@ -601,15 +602,23 @@ function TaskDetailPanel({
     if (!comment.trim()) return;
     setPosting(true);
     try {
-      await apiFetch(`/tasks/${task.id}/comments/`, {
+      const res = await apiFetch<any>(`/tasks/${task.id}/comments/`, {
         method: "POST",
         body: { body: comment },
       });
-      refresh();
+      const updated = await apiFetch<Task>(`/tasks/${task.id}/`);
+      setDetail(updated);
+      onChanged(updated);
+      getAgentTraces(task.id).then(setTraces);
       setComment("");
-      toast.success("Comment added");
+      if (res.agent_replies && res.agent_replies.length > 0) {
+        const agentName = res.agent_replies[0].agent_name || "AI Agent";
+        toast.success(`${agentName} responded & updated status to ${updated.status}!`);
+      } else {
+        toast.success("Comment added");
+      }
     } catch (err) {
-      toast.error("Failed to add comment");
+      toast.error("Failed to add comment: " + String(err));
     } finally {
       setPosting(false);
     }

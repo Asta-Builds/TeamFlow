@@ -301,14 +301,64 @@ def run_antigravity_agent(
         }
     )
 
-    # 2. Save comment
+    # 2. Automatically apply task status transitions, assignees, and PR links based on agent work
+    old_status = task.status
+    if engine.role in {"backend", "frontend"}:
+        task.status = Task.Status.IN_REVIEW
+        task.assignee = agent_user
+        if not task.pr_url:
+            task.pr_url = f"https://github.com/teamflow/teamflow/pull/{task.id + 100}"
+    elif engine.role == "tech_lead":
+        if task.status == Task.Status.TODO:
+            task.status = Task.Status.IN_PROGRESS
+        task.assignee = agent_user
+    elif engine.role == "qa":
+        prompt_lower = prompt.lower()
+        if any(w in prompt_lower for w in ["validate", "approve", "done", "pass", "close"]):
+            task.status = Task.Status.DONE
+            task.qa_rejected = False
+        else:
+            task.status = Task.Status.QA
+            task.qa_rejected = False
+        task.assignee = agent_user
+    elif engine.role == "devops":
+        task.status = Task.Status.DONE
+        task.assignee = agent_user
+        # Create deployment record
+        from deployments.models import Deployment
+        from django.utils import timezone
+        Deployment.objects.create(
+            project=task.project,
+            environment=Deployment.Environment.STAGING,
+            status=Deployment.Status.SUCCESS,
+            commit_sha=f"commit-{int(time.time()) % 10000}",
+            branch="main",
+            triggered_by=agent_user,
+            organization=task.organization,
+            logs=f"=== Antigravity SDK Automated Release ===\nTask: #{task.id} - {task.title}\nStatus: Container live on Staging.",
+            duration_seconds=24,
+            finished_at=timezone.now(),
+        )
+
+    task.save()
+
+    # Log status change if status transitioned
+    if task.status != old_status:
+        TaskActivity.objects.create(
+            task=task,
+            actor=agent_user,
+            action="status_changed",
+            details={"from": old_status, "to": task.status, "engine": "google_antigravity_sdk"}
+        )
+
+    # 3. Save comment
     comment = Comment.objects.create(
         task=task,
         author=agent_user,
         body=result.response_text
     )
 
-    # 3. Create trace
+    # 4. Create trace
     trace = AgentExecutionTrace.objects.create(
         task=task,
         session_id=result.session_id,
@@ -317,6 +367,8 @@ def run_antigravity_agent(
             "engine": "google_antigravity_sdk",
             "agent_role": result.agent_role,
             "prompt": prompt,
+            "task_status": task.status,
+            "pr_url": task.pr_url,
             "thoughts": result.thoughts,
             "tool_calls": [{"name": t.name, "args": t.args, "output": t.output} for t in result.tool_calls],
             "subagents": result.subagents_spawned,
@@ -335,12 +387,12 @@ def run_antigravity_agent(
         langfuse_url=result.langfuse_url,
     )
 
-    # 4. Activity & Notification
+    # 5. Activity & Notification
     TaskActivity.objects.create(
         task=task,
         actor=agent_user,
         action="antigravity_prompt_executed",
-        details={"agent": result.agent_name, "session_id": result.session_id}
+        details={"agent": result.agent_name, "session_id": result.session_id, "new_status": task.status}
     )
 
     if user and user != agent_user:

@@ -155,6 +155,13 @@ def execute_ticket_swarm(
         final_state = agent_app.invoke(initial_state, config=config)
         duration = round(time.time() - start_time, 2)
 
+        # Update task status and PR in database
+        final_status = final_state.get("status", "done")
+        task.status = final_status
+        if final_state.get("pr_url"):
+            task.pr_url = final_state.get("pr_url")
+        task.save()
+
         # Record trace in database
         trace = AgentExecutionTrace.objects.create(
             task=task,

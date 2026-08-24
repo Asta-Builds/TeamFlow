@@ -143,8 +143,12 @@ class TaskViewSet(viewsets.ModelViewSet):
                 organization=request.user.organization,
             )
 
+        task.refresh_from_db()
         return response.Response({
             **serializer.data,
+            "task_status": task.status,
+            "pr_url": task.pr_url,
+            "task": TaskSerializer(task, context={"request": request}).data,
             "agent_replies": agent_replies
         }, status=201)
 
@@ -180,8 +184,12 @@ class TaskViewSet(viewsets.ModelViewSet):
         from agents.agent_prompter import process_ceo_prompt
         agent_replies = process_ceo_prompt(task, prompt_text, request.user, specific_tag=agent_tag)
 
+        task.refresh_from_db()
         return response.Response({
             "task_id": task.id,
+            "task_status": task.status,
+            "pr_url": task.pr_url,
+            "task": TaskSerializer(task, context={"request": request}).data,
             "ceo_comment": CommentSerializer(ceo_comment, context={"request": request}).data,
             "agent_replies": agent_replies,
         })
