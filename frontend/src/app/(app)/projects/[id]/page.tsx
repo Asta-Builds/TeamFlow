@@ -104,7 +104,7 @@ export default function ProjectBoardPage() {
     try {
       const res = await apiFetch<any>(`/projects/${projectId}/pm_generate_tasks/`, {
         method: "POST",
-        body: JSON.stringify({ plan: pmPlanText.trim() }),
+        body: { plan: pmPlanText.trim() },
       });
       toast.success(res.pm_summary ? "PM Athena created sprint tickets with assigned agents!" : `Created ${res.tasks_created_count || 3} tickets!`);
       setShowPmModal(false);

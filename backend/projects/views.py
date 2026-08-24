@@ -101,7 +101,18 @@ class ProjectViewSet(viewsets.ModelViewSet):
         and generates inter-agent collaboration comments.
         """
         project = self.get_object()
-        plan_text = request.data.get("plan", "").strip()
+        data = request.data
+        if isinstance(data, str):
+            import json
+            try:
+                data = json.loads(data)
+            except Exception:
+                pass
+
+        if not isinstance(data, dict):
+            return response.Response({"error": "Invalid request body. Expected a JSON object."}, status=400)
+
+        plan_text = data.get("plan", "").strip()
         if not plan_text:
             return response.Response({"error": "A plan or feature prompt is required."}, status=400)
 
