@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY", "pk-lf-teamflow-demo")
 LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY", "sk-lf-teamflow-demo")
-LANGFUSE_HOST = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+LANGFUSE_HOST = os.environ.get("LANGFUSE_HOST", "http://localhost:3001")
 
 
 def get_langfuse_callback(session_id: str, tags: Optional[list] = None):

@@ -142,6 +142,15 @@ export default function DashboardPage() {
             <Bot className="h-3.5 w-3.5 text-indigo-400" />
             <span>Google Antigravity SDK Active</span>
           </div>
+          <a
+            href="http://localhost:3001"
+            target="_blank"
+            rel="noreferrer"
+            className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-600 transition"
+          >
+            <Activity className="h-3.5 w-3.5 text-purple-400" />
+            <span>Langfuse Observability</span>
+          </a>
           <Link
             href="/projects"
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-2 cursor-pointer"

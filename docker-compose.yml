@@ -70,7 +70,7 @@ services:
       KEYCLOAK_URL: "http://keycloak:8080/realms/teamflow"
       LANGFUSE_PUBLIC_KEY: "pk-lf-teamflow-demo"
       LANGFUSE_SECRET_KEY: "sk-lf-teamflow-demo"
-      LANGFUSE_HOST: "https://cloud.langfuse.com"
+      LANGFUSE_HOST: "http://langfuse:3000"
     ports:
       - "8000:8000"
     depends_on:
@@ -81,17 +81,36 @@ services:
     volumes:
       - backend_staticfiles:/app/staticfiles
 
+  langfuse:
+    image: langfuse/langfuse:2
+    container_name: teamflow-langfuse
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+    environment:
+      DATABASE_URL: "postgresql://teamflow:teamflow_password@db:5432/teamflow"
+      NEXTAUTH_URL: "http://localhost:3001"
+      NEXTAUTH_SECRET: "teamflow-langfuse-secret-key-32chars"
+      SALT: "teamflow-langfuse-salt-key-32chars"
+      ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      TELEMETRY_ENABLED: "false"
+
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: "http://localhost:8000/api"
+        NEXT_PUBLIC_LANGFUSE_URL: "http://localhost:3001"
     container_name: teamflow-frontend
     restart: unless-stopped
     environment:
       PORT: 3000
       NEXT_PUBLIC_API_URL: "http://localhost:8000/api"
+      NEXT_PUBLIC_LANGFUSE_URL: "http://localhost:3001"
       NEXT_PUBLIC_KEYCLOAK_URL: "http://localhost:8080"
       NEXT_PUBLIC_KEYCLOAK_REALM: "teamflow"
       NEXT_PUBLIC_KEYCLOAK_CLIENT_ID: "teamflow-app"
