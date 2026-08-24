@@ -14,26 +14,47 @@ import {
   TASK_STATUS_LABELS,
   TASK_TYPE_STYLES,
 } from "@/lib/ui";
+import {
+  FolderKanban,
+  ListTodo,
+  User,
+  Rocket,
+  Bot,
+  Sparkles,
+  ShieldCheck,
+  Activity,
+  ArrowRight,
+  Clock,
+  Crown,
+  Cpu,
+  Layers,
+  CheckCircle2,
+  AlertCircle,
+  Code2,
+  Calendar,
+} from "lucide-react";
 
 function SuperStatCard({
   label,
   value,
   subtitle,
-  icon,
+  icon: Icon,
   trend,
   color = "border-slate-800 bg-slate-900/90",
 }: {
   label: string;
   value: number | string;
   subtitle?: string;
-  icon?: string;
+  icon: React.ComponentType<{ className?: string }>;
   trend?: string;
   color?: string;
 }) {
   return (
     <div className={`rounded-2xl border p-5.5 shadow-sm transition-all duration-200 hover:border-slate-700 hover:-translate-y-0.5 ${color}`}>
       <div className="flex items-center justify-between">
-        <span className="text-2xl">{icon}</span>
+        <div className="p-2 rounded-xl bg-slate-800/80 text-indigo-400 border border-slate-700/50">
+          <Icon className="h-5 w-5" />
+        </div>
         {trend && (
           <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-full">
             {trend}
@@ -54,7 +75,6 @@ export default function DashboardPage() {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [seoAudits, setSeoAudits] = useState<SEOAudit[]>([]);
   const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
-  const [selectedProjectFilter, setSelectedProjectFilter] = useState<string>("");
   const [agentCluster, setAgentCluster] = useState<AgentClusterStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -89,10 +109,6 @@ export default function DashboardPage() {
       ? Math.round(seoAudits.reduce((acc, a) => acc + (a.score || 0), 0) / seoAudits.length)
       : 92;
 
-  const filteredFeed = selectedProjectFilter
-    ? activityFeed.filter((a) => String(a.project_id) === selectedProjectFilter)
-    : activityFeed;
-
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center text-slate-500 font-semibold text-xs tracking-wider uppercase">
@@ -103,12 +119,12 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      {/* 👑 SuperDesign Top Greeting Banner */}
+      {/* Top Greeting Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Welcome, {user?.name?.split(" ")[0] || "Team Member"} 👋
+              Welcome, {user?.name?.split(" ")[0] || "Team Member"}
             </h1>
             <span
               className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${ROLE_COLORS[user?.role || "member"]}`}
@@ -124,27 +140,30 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/projects"
-            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer"
+            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-2 cursor-pointer"
           >
             <span>Explore Projects</span>
-            <span>→</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       </div>
 
-      {/* 🎭 Role-Specific Action Center Banner */}
+      {/* Role-Specific Action Center Banner */}
       {user?.role === "ceo" && (
         <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900 border border-purple-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-bold text-purple-200 flex items-center gap-2">
-              <span>👑</span> Executive Overview — CEO Portal
-            </h3>
-            <p className="text-xs text-slate-300 mt-1">
-              All {projects.length} workspace projects active. Overall completion rate is{" "}
-              <strong className="text-white">
-                {tasks.length > 0 ? Math.round((tasks.filter((t) => t.status === "done").length / tasks.length) * 100) : 0}%
-              </strong>. Zero critical blocker escalations pending.
-            </p>
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-purple-900/40 border border-purple-700/50 text-purple-300">
+              <Crown className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-purple-200">Executive Overview — CEO Portal</h3>
+              <p className="text-xs text-slate-300 mt-1">
+                All {projects.length} workspace projects active. Overall completion rate is{" "}
+                <strong className="text-white">
+                  {tasks.length > 0 ? Math.round((tasks.filter((t) => t.status === "done").length / tasks.length) * 100) : 0}%
+                </strong>. Zero critical blocker escalations pending.
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge className="bg-purple-950 text-purple-300 border-purple-800/60 font-semibold">
@@ -159,70 +178,83 @@ export default function DashboardPage() {
 
       {user?.role === "tech_lead" && (
         <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950/50 via-slate-900 to-slate-900 border border-indigo-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-bold text-indigo-200 flex items-center gap-2">
-              <span>🎯</span> Tech Lead Action Center
-            </h3>
-            <p className="text-xs text-slate-300 mt-1">
-              <strong className="text-white">{inReviewTickets.length} tickets</strong> waiting for Code Review.{" "}
-              <strong className="text-white">{qaTickets.length} tickets</strong> ready for QA sign-off before release.
-            </p>
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-900/40 border border-indigo-700/50 text-indigo-300">
+              <Code2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-indigo-200">Tech Lead Action Center</h3>
+              <p className="text-xs text-slate-300 mt-1">
+                <strong className="text-white">{inReviewTickets.length} tickets</strong> waiting for Code Review.{" "}
+                <strong className="text-white">{qaTickets.length} tickets</strong> ready for QA sign-off before release.
+              </p>
+            </div>
           </div>
           <Link
             href="/projects"
-            className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition cursor-pointer flex items-center gap-1.5"
           >
-            Review Code & PRs →
+            <span>Review Code & PRs</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       )}
 
       {user?.role === "qa" && (
         <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-bold text-emerald-200 flex items-center gap-2">
-              <span>🧪</span> QA Validation Queue
-            </h3>
-            <p className="text-xs text-slate-300 mt-1">
-              There are <strong className="text-white">{qaTickets.length} tickets</strong> in the QA column waiting for verification & testing.
-            </p>
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-900/40 border border-emerald-700/50 text-emerald-300">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-emerald-200">QA Validation Queue</h3>
+              <p className="text-xs text-slate-300 mt-1">
+                There are <strong className="text-white">{qaTickets.length} tickets</strong> in the QA column waiting for verification & testing.
+              </p>
+            </div>
           </div>
           <Link
             href="/projects"
-            className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 transition cursor-pointer flex items-center gap-1.5"
           >
-            Open QA Board →
+            <span>Open QA Board</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       )}
 
       {user?.role === "devops" && (
         <div className="p-5 rounded-2xl bg-gradient-to-r from-orange-950/40 via-slate-900 to-slate-900 border border-orange-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-sm font-bold text-orange-200 flex items-center gap-2">
-              <span>🚀</span> DevOps Pipeline Monitor
-            </h3>
-            <p className="text-xs text-slate-300 mt-1">
-              Latest release: <strong className="text-white">{latestDeploy ? `${latestDeploy.project_name} (${latestDeploy.environment}) - ${latestDeploy.status.toUpperCase()}` : "No releases yet"}</strong>.
-            </p>
+          <div className="flex items-start gap-3">
+            <div className="p-2.5 rounded-xl bg-orange-900/40 border border-orange-700/50 text-orange-300">
+              <Rocket className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-orange-200">DevOps Pipeline Monitor</h3>
+              <p className="text-xs text-slate-300 mt-1">
+                Latest release: <strong className="text-white">{latestDeploy ? `${latestDeploy.project_name} (${latestDeploy.environment}) - ${latestDeploy.status.toUpperCase()}` : "No releases yet"}</strong>.
+              </p>
+            </div>
           </div>
           <Link
             href="/deployments"
-            className="px-3.5 py-2 rounded-xl bg-orange-600 text-white text-xs font-bold hover:bg-orange-500 transition cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-orange-600 text-white text-xs font-bold hover:bg-orange-500 transition cursor-pointer flex items-center gap-1.5"
           >
-            Manage Deployments →
+            <span>Manage Deployments</span>
+            <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>
       )}
 
-      {/* 🤖 Multi-Agent Orchestration & RAG Cluster Overview */}
+      {/* Multi-Agent Orchestration & RAG Cluster Overview */}
       {agentCluster && (
         <div className="rounded-2xl border border-indigo-900/60 bg-gradient-to-r from-indigo-950/70 via-slate-900 to-slate-900 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <h3 className="text-sm font-black text-white flex items-center gap-1.5">
-                <span>🤖</span> LangGraph Multi-Agent Cluster Active
+              <Bot className="h-4 w-4 text-indigo-400" />
+              <h3 className="text-sm font-black text-white">
+                LangGraph Multi-Agent Cluster Active
               </h3>
               <span className="text-[10px] font-bold text-indigo-300 bg-indigo-950 border border-indigo-700/60 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 {agentCluster.total_agent_seats} Specialist Seats
@@ -245,27 +277,29 @@ export default function DashboardPage() {
               href="/projects"
               className="rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer"
             >
-              <span>⚡</span> Run Swarms
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Run Swarms</span>
             </Link>
           </div>
         </div>
       )}
 
-      {/* 📊 Main SuperStat KPI Grid */}
+      {/* Main SuperStat KPI Grid */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <SuperStatCard label="Active Projects" value={projects.length} icon="📁" subtitle="All workspace initiatives" trend="+100%" />
-        <SuperStatCard label="Open Tickets" value={openTickets.length} icon="📌" subtitle={`${tasks.filter(t => t.status === 'done').length} completed`} trend="Agile" />
-        <SuperStatCard label="Assigned to Me" value={myTickets.length} icon="👤" subtitle="Your active backlog" color="border-indigo-800/60 bg-indigo-950/20" />
-        <SuperStatCard label="Deployments" value={deployments.length} icon="🚀" subtitle={latestDeploy ? `Last: ${latestDeploy.environment}` : "Staging & Prod"} trend="Live" />
+        <SuperStatCard label="Active Projects" value={projects.length} icon={FolderKanban} subtitle="All workspace initiatives" trend="+100%" />
+        <SuperStatCard label="Open Tickets" value={openTickets.length} icon={ListTodo} subtitle={`${tasks.filter(t => t.status === 'done').length} completed`} trend="Agile" />
+        <SuperStatCard label="Assigned to Me" value={myTickets.length} icon={User} subtitle="Your active backlog" color="border-indigo-800/60 bg-indigo-950/20" />
+        <SuperStatCard label="Deployments" value={deployments.length} icon={Rocket} subtitle={latestDeploy ? `Last: ${latestDeploy.environment}` : "Staging & Prod"} trend="Live" />
       </div>
 
-      {/* 2-Column SuperDesign Content Grid */}
+      {/* 2-Column Content Grid */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Left Column: Tickets Assigned to Me */}
         <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>📋</span> My Assigned Tickets
+              <ListTodo className="h-4 w-4 text-indigo-400" />
+              <span>My Assigned Tickets</span>
             </h2>
             <span className="text-xs font-bold text-indigo-400 bg-indigo-950 px-2.5 py-0.5 rounded-full border border-indigo-800/50">
               {myTickets.length} Total
@@ -273,10 +307,10 @@ export default function DashboardPage() {
           </div>
 
           {myTickets.length === 0 ? (
-            <div className="py-12 text-center border border-dashed border-slate-800 rounded-xl bg-slate-950/50">
-              <span className="text-3xl block">🎉</span>
-              <p className="text-xs font-bold text-slate-300 mt-2">All caught up!</p>
-              <p className="text-[11px] text-slate-500 mt-0.5">No open tickets assigned to you right now.</p>
+            <div className="py-12 text-center border border-dashed border-slate-800 rounded-xl bg-slate-950/50 space-y-1">
+              <CheckCircle2 className="h-6 w-6 text-emerald-400 mx-auto mb-1" />
+              <p className="text-xs font-bold text-slate-300">All caught up!</p>
+              <p className="text-[11px] text-slate-500">No open tickets assigned to you right now.</p>
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -290,13 +324,15 @@ export default function DashboardPage() {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs">{typeInfo.icon}</span>
+                        {typeInfo.icon}
                         <span className="truncate text-xs font-bold text-white">{t.title}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-[10px] text-slate-500 font-medium">{t.project_name || "Project"}</span>
                         {t.due_date && (
-                          <span className="text-[10px] text-amber-400 font-medium">📅 Due {t.due_date}</span>
+                          <span className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
+                            <Calendar className="h-3 w-3 inline" /> Due {t.due_date}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -317,7 +353,8 @@ export default function DashboardPage() {
         <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>⚡</span> Real-Time Audit Trail
+              <Activity className="h-4 w-4 text-emerald-400" />
+              <span>Real-Time Audit Trail</span>
             </h2>
             <span className="text-xs font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-md">
               Live Feed
@@ -325,10 +362,10 @@ export default function DashboardPage() {
           </div>
 
           <div className="max-h-96 overflow-y-auto space-y-2.5 pr-1">
-            {filteredFeed.length === 0 ? (
+            {activityFeed.length === 0 ? (
               <p className="text-xs text-slate-500 py-8 text-center">No recent activity logged.</p>
             ) : (
-              filteredFeed.slice(0, 8).map((a) => (
+              activityFeed.slice(0, 8).map((a) => (
                 <div
                   key={a.id}
                   className="p-3 rounded-xl border border-slate-800/80 bg-slate-950/50 flex items-start gap-3 text-xs"

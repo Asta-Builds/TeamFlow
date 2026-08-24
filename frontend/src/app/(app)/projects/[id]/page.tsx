@@ -25,6 +25,28 @@ import {
   TASK_STATUS_LABELS,
   TASK_TYPE_STYLES,
 } from "@/lib/ui";
+import { toast } from "sonner";
+import {
+  ArrowLeft,
+  Plus,
+  Search,
+  Bot,
+  Sparkles,
+  Database,
+  CheckCircle2,
+  XCircle,
+  GitPullRequest,
+  MessageSquare,
+  Activity,
+  AlertTriangle,
+  ExternalLink,
+  Code,
+  Terminal,
+  Cpu,
+  Layers,
+  Calendar,
+  X,
+} from "lucide-react";
 
 export default function ProjectBoardPage() {
   const params = useParams<{ id: string }>();
@@ -55,17 +77,14 @@ export default function ProjectBoardPage() {
   const [newDueDate, setNewDueDate] = useState<string>("");
   const [newPrUrl, setNewPrUrl] = useState<string>("");
   const [ingestingRag, setIngestingRag] = useState(false);
-  const [ragStatusMsg, setRagStatusMsg] = useState<string | null>(null);
 
   async function handleIngestRag() {
     setIngestingRag(true);
-    setRagStatusMsg(null);
     try {
       const res = await ingestRAGKnowledge(projectId);
-      setRagStatusMsg(res.message);
-      setTimeout(() => setRagStatusMsg(null), 4000);
+      toast.success(res.message || "RAG knowledge indexed in pgvector");
     } catch (err) {
-      alert("Error ingesting RAG knowledge: " + String(err));
+      toast.error("Error ingesting RAG knowledge: " + String(err));
     } finally {
       setIngestingRag(false);
     }
@@ -103,8 +122,10 @@ export default function ProjectBoardPage() {
         method: "PATCH",
         body: { status: toStatus },
       });
+      toast.info(`Moved ticket to ${TASK_STATUS_LABELS[toStatus]}`);
       load();
     } catch {
+      toast.error("Failed to move ticket");
       load();
     }
   }
@@ -112,27 +133,32 @@ export default function ProjectBoardPage() {
   async function handleCreateTask(e: React.FormEvent) {
     e.preventDefault();
     if (!newTitle.trim()) return;
-    const created = await apiFetch<Task>("/tasks/", {
-      method: "POST",
-      body: {
-        project: projectId,
-        title: newTitle,
-        description: newDescription,
-        status: targetColumn,
-        task_type: newType,
-        priority: newPriority,
-        assignee: newAssignee ? Number(newAssignee) : null,
-        due_date: newDueDate || null,
-        pr_url: newPrUrl || "",
-      },
-    });
-    setTasks((prev) => [...prev, created]);
-    setShowCreateModal(false);
-    setNewTitle("");
-    setNewDescription("");
-    setNewPrUrl("");
-    setNewDueDate("");
-    load();
+    try {
+      const created = await apiFetch<Task>("/tasks/", {
+        method: "POST",
+        body: {
+          project: projectId,
+          title: newTitle,
+          description: newDescription,
+          status: targetColumn,
+          task_type: newType,
+          priority: newPriority,
+          assignee: newAssignee ? Number(newAssignee) : null,
+          due_date: newDueDate || null,
+          pr_url: newPrUrl || "",
+        },
+      });
+      setTasks((prev) => [...prev, created]);
+      setShowCreateModal(false);
+      setNewTitle("");
+      setNewDescription("");
+      setNewPrUrl("");
+      setNewDueDate("");
+      toast.success("Created new ticket");
+      load();
+    } catch {
+      toast.error("Failed to create ticket");
+    }
   }
 
   // Filter tasks
@@ -163,12 +189,13 @@ export default function ProjectBoardPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* 🚀 Top SuperDesign Project Bar */}
+      {/* Top Project Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-sm">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <Link href="/projects" className="text-xs text-indigo-400 hover:underline font-semibold">
-              ← Projects
+            <Link href="/projects" className="text-xs text-indigo-400 hover:underline font-semibold flex items-center gap-1">
+              <ArrowLeft className="h-3 w-3" />
+              <span>Projects</span>
             </Link>
             <span className="text-slate-600">/</span>
             <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded-md">
@@ -188,7 +215,7 @@ export default function ProjectBoardPage() {
             className="rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             title="Ingest architecture documents & codebase chunks into pgvector"
           >
-            <span>{ingestingRag ? "⏳" : "📥"}</span>
+            <Database className="h-3.5 w-3.5 text-indigo-400" />
             <span>{ingestingRag ? "Ingesting pgvector…" : "Ingest RAG Knowledge"}</span>
           </button>
 
@@ -199,27 +226,22 @@ export default function ProjectBoardPage() {
             }}
             className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer"
           >
-            <span>+</span> New Ticket
+            <Plus className="h-3.5 w-3.5" />
+            <span>New Ticket</span>
           </button>
         </div>
       </div>
 
-      {ragStatusMsg && (
-        <div className="p-3 bg-emerald-950/60 border border-emerald-800/50 rounded-xl text-xs font-semibold text-emerald-300 animate-in fade-in flex items-center gap-2">
-          <span>✅</span>
-          <span>{ragStatusMsg}</span>
-        </div>
-      )}
-
-      {/* 🔍 SuperDesign Filters Toolbar */}
+      {/* Filters Toolbar */}
       <div className="flex flex-wrap items-center gap-3 bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800 shadow-xs">
-        <div className="flex-1 min-w-[200px]">
+        <div className="flex-1 min-w-[200px] relative">
+          <Search className="h-3.5 w-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search tickets by title..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-8.5 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
           />
         </div>
 
@@ -254,9 +276,9 @@ export default function ProjectBoardPage() {
           className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500"
         >
           <option value="all">All Types</option>
-          <option value="feature">Feature ✨</option>
-          <option value="bug">Bug 🐛</option>
-          <option value="task">Task 📌</option>
+          <option value="feature">Feature</option>
+          <option value="bug">Bug</option>
+          <option value="task">Task</option>
         </select>
 
         {(searchQuery || filterAssignee !== "all" || filterPriority !== "all" || filterType !== "all") && (
@@ -274,7 +296,7 @@ export default function ProjectBoardPage() {
         )}
       </div>
 
-      {/* 📋 5-Column SuperDesign Kanban Board */}
+      {/* 5-Column Kanban Board */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 items-start">
         {TASK_COLUMNS.map((col) => {
           const colTasks = filteredTasks
@@ -310,7 +332,7 @@ export default function ProjectBoardPage() {
                   className="h-6 w-6 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 flex items-center justify-center font-bold text-sm shadow-xs transition cursor-pointer"
                   title={`Add ticket to ${TASK_STATUS_LABELS[col]}`}
                 >
-                  +
+                  <Plus className="h-3.5 w-3.5" />
                 </button>
               </div>
 
@@ -344,19 +366,24 @@ export default function ProjectBoardPage() {
                       </div>
 
                       {t.qa_rejected && (
-                        <div className="mb-2 rounded-lg bg-rose-950/60 border border-rose-800/40 px-2 py-1 text-[10px] text-rose-300 font-semibold flex items-center gap-1">
-                          <span>❌</span> QA Rejected
+                        <div className="mb-2 rounded-lg bg-rose-950/60 border border-rose-800/40 px-2 py-1 text-[10px] text-rose-300 font-semibold flex items-center gap-1.5">
+                          <XCircle className="h-3 w-3 text-rose-400 shrink-0" />
+                          <span>QA Rejected</span>
                         </div>
                       )}
 
                       <div className="flex items-center justify-between border-t border-slate-800/80 pt-2 text-[10px] text-slate-500">
                         <div className="flex items-center gap-2">
                           {t.pr_url && (
-                            <span className="text-indigo-400 font-bold" title="GitHub PR Linked">
-                              🔗 PR
+                            <span className="text-indigo-400 font-bold flex items-center gap-1" title="GitHub PR Linked">
+                              <GitPullRequest className="h-3 w-3 inline" /> PR
                             </span>
                           )}
-                          {t.comments?.length > 0 && <span>💬 {t.comments.length}</span>}
+                          {t.comments?.length > 0 && (
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3 inline" /> {t.comments.length}
+                            </span>
+                          )}
                         </div>
                         {t.assignee_detail ? (
                           <div className="flex items-center gap-1.5">
@@ -384,13 +411,15 @@ export default function ProjectBoardPage() {
         })}
       </div>
 
-      {/* ➕ Create Ticket Modal */}
+      {/* Create Ticket Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <div className="w-full max-w-lg rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h2 className="text-base font-bold text-white">Create New Ticket</h2>
-              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white cursor-pointer">✕</button>
+              <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
             </div>
             <form onSubmit={handleCreateTask} className="space-y-4">
               <div>
@@ -424,9 +453,9 @@ export default function ProjectBoardPage() {
                     onChange={(e) => setNewType(e.target.value as TaskType)}
                     className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
                   >
-                    <option value="feature">Feature ✨</option>
-                    <option value="bug">Bug 🐛</option>
-                    <option value="task">Task 📌</option>
+                    <option value="feature">Feature</option>
+                    <option value="bug">Bug</option>
+                    <option value="task">Task</option>
                   </select>
                 </div>
 
@@ -493,7 +522,7 @@ export default function ProjectBoardPage() {
         </div>
       )}
 
-      {/* 🔍 Task Detail Drawer */}
+      {/* Task Detail Drawer */}
       {selected && (
         <TaskDetailPanel
           task={selected}
@@ -558,8 +587,9 @@ function TaskDetailPanel({
       setActiveTab("agents");
       refresh();
       onChanged({ ...detail, status: res.task_status });
+      toast.success("Autonomous multi-agent swarm completed!");
     } catch (err) {
-      alert("Error executing multi-agent swarm: " + String(err));
+      toast.error("Error executing multi-agent swarm: " + String(err));
     } finally {
       setRunningSwarm(false);
     }
@@ -576,8 +606,9 @@ function TaskDetailPanel({
       });
       refresh();
       setComment("");
+      toast.success("Comment added");
     } catch (err) {
-      console.error(err);
+      toast.error("Failed to add comment");
     } finally {
       setPosting(false);
     }
@@ -588,8 +619,9 @@ function TaskDetailPanel({
       const res = await apiFetch<Task>(`/tasks/${task.id}/qa_validate/`, { method: "POST" });
       setDetail(res);
       onChanged(res);
+      toast.success("Ticket QA Approved and marked Done!");
     } catch (err) {
-      alert("Error: QA validation failed.");
+      toast.error("QA validation failed.");
     }
   }
 
@@ -605,8 +637,9 @@ function TaskDetailPanel({
       onChanged(res);
       setRejectModal(false);
       setRejectReason("");
+      toast.warning("Ticket QA Rejected and sent back to In Progress.");
     } catch (err) {
-      alert("Error: QA rejection failed.");
+      toast.error("QA rejection failed.");
     }
   }
 
@@ -639,7 +672,9 @@ function TaskDetailPanel({
               </div>
               <h2 className="text-lg font-black text-white leading-tight">{detail.title}</h2>
             </div>
-            <button onClick={onClose} className="text-slate-400 hover:text-white text-lg cursor-pointer">✕</button>
+            <button onClick={onClose} className="text-slate-400 hover:text-white cursor-pointer">
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Autonomous Multi-Agent Swarm Banner */}
@@ -648,6 +683,7 @@ function TaskDetailPanel({
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
                   <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <Bot className="h-3.5 w-3.5 text-indigo-400" />
                   <span className="text-xs font-black uppercase tracking-wider text-indigo-300">
                     LangGraph Multi-Agent Swarm
                   </span>
@@ -663,7 +699,7 @@ function TaskDetailPanel({
                 disabled={runningSwarm}
                 className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-60 transition cursor-pointer"
               >
-                <span>{runningSwarm ? "⏳" : "⚡"}</span>
+                <Sparkles className="h-3.5 w-3.5" />
                 <span>{runningSwarm ? "Running Swarm…" : "Run Swarm"}</span>
               </button>
             </div>
@@ -671,11 +707,12 @@ function TaskDetailPanel({
 
           {/* QA Alert if Rejected */}
           {detail.qa_rejected && (
-            <div className="p-3.5 bg-rose-950/60 border border-rose-800/50 rounded-xl text-xs text-rose-300">
+            <div className="p-3.5 bg-rose-950/60 border border-rose-800/50 rounded-xl text-xs text-rose-300 space-y-1">
               <div className="font-bold flex items-center gap-1.5 text-rose-200">
-                <span>❌</span> QA Review Rejection Note
+                <XCircle className="h-3.5 w-3.5 text-rose-400" />
+                <span>QA Review Rejection Note</span>
               </div>
-              <p className="mt-1 leading-relaxed font-medium">{detail.qa_rejection_reason || "Rejection reason specified in comments."}</p>
+              <p className="leading-relaxed font-medium">{detail.qa_rejection_reason || "Rejection reason specified in comments."}</p>
             </div>
           )}
 
@@ -683,7 +720,7 @@ function TaskDetailPanel({
           {detail.status === "qa" && canPerformQa && (
             <div className="p-4 bg-purple-950/40 border border-purple-800/40 rounded-xl space-y-2">
               <span className="text-xs font-black text-purple-200 uppercase tracking-wider block">
-                🧪 QA Engineer Decision Gate
+                QA Engineer Decision Gate
               </span>
               <p className="text-xs text-slate-300">
                 Verify this ticket against acceptance criteria and PR review before approval.
@@ -691,15 +728,17 @@ function TaskDetailPanel({
               <div className="flex items-center gap-2 pt-1">
                 <button
                   onClick={handleQaValidate}
-                  className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition cursor-pointer"
+                  className="flex-1 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  ✓ Approve & Close (Done)
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Approve & Close</span>
                 </button>
                 <button
                   onClick={() => setRejectModal(true)}
-                  className="flex-1 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-500 transition cursor-pointer"
+                  className="flex-1 rounded-xl bg-rose-600 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-500 transition cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  ✕ Reject to In Progress
+                  <XCircle className="h-3.5 w-3.5" />
+                  <span>Reject to In Progress</span>
                 </button>
               </div>
             </div>
@@ -740,7 +779,9 @@ function TaskDetailPanel({
             {detail.due_date && (
               <div>
                 <span className="text-slate-400 block font-semibold mb-0.5">Due Date</span>
-                <span className="font-bold text-slate-200">📅 {detail.due_date}</span>
+                <span className="font-bold text-slate-200 flex items-center gap-1">
+                  <Calendar className="h-3 w-3 inline text-slate-400" /> {detail.due_date}
+                </span>
               </div>
             )}
 
@@ -753,7 +794,9 @@ function TaskDetailPanel({
                   rel="noreferrer"
                   className="font-bold text-indigo-400 hover:underline inline-flex items-center gap-1"
                 >
-                  GitHub PR ↗
+                  <GitPullRequest className="h-3 w-3" />
+                  <span>GitHub PR</span>
+                  <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               </div>
             )}
@@ -824,7 +867,7 @@ function TaskDetailPanel({
                     : "text-slate-500 hover:text-slate-300"
                 }`}
               >
-                <span>🤖</span>
+                <Bot className="h-3.5 w-3.5" />
                 <span>Multi-Agent Traces ({traces.length})</span>
               </button>
             </div>
@@ -870,7 +913,8 @@ function TaskDetailPanel({
                           rel="noreferrer"
                           className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1"
                         >
-                          View Session in Langfuse ↗
+                          <span>View Session in Langfuse</span>
+                          <ExternalLink className="h-2.5 w-2.5" />
                         </a>
                       </div>
                     </div>
@@ -888,19 +932,7 @@ function TaskDetailPanel({
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-sm">
-                                  {step.node === "tech_lead"
-                                    ? "🎯"
-                                    : step.node === "backend"
-                                    ? "💻"
-                                    : step.node === "frontend"
-                                    ? "🎨"
-                                    : step.node === "qa"
-                                    ? "🧪"
-                                    : step.node === "devops"
-                                    ? "🚀"
-                                    : "✨"}
-                                </span>
+                                <Bot className="h-3.5 w-3.5 text-indigo-400" />
                                 <span className="font-bold text-white">{step.agent_role}</span>
                               </div>
                               <span className="text-[10px] text-slate-500 font-mono">
@@ -920,7 +952,8 @@ function TaskDetailPanel({
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-400 bg-indigo-950/60 border border-indigo-800/40 px-2 py-0.5 rounded-md hover:text-indigo-300"
                                 >
-                                  <span>🔗</span> {step.pr_url}
+                                  <GitPullRequest className="h-3 w-3" />
+                                  <span>{step.pr_url}</span>
                                 </a>
                               </div>
                             )}
@@ -933,8 +966,11 @@ function TaskDetailPanel({
                     {latestTrace.graph_state?.retrieved_context && latestTrace.graph_state.retrieved_context.length > 0 && (
                       <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 space-y-1.5 text-xs">
                         <div className="flex items-center justify-between text-slate-400 font-bold text-[10px] uppercase tracking-wider">
-                          <span>🔍 RAG Context Retrieved ({latestTrace.graph_state.retrieved_context.length} chunks)</span>
-                          <span>pgvector</span>
+                          <span className="flex items-center gap-1.5">
+                            <Database className="h-3 w-3 text-indigo-400" />
+                            <span>RAG Context Retrieved ({latestTrace.graph_state.retrieved_context.length} chunks)</span>
+                          </span>
+                          <span className="font-mono">pgvector</span>
                         </div>
                         <div className="max-h-28 overflow-y-auto space-y-1 text-[11px] text-slate-400 font-mono bg-slate-900 p-2 rounded-lg border border-slate-800">
                           {latestTrace.graph_state.retrieved_context.map((chunk, cIdx) => (
@@ -948,7 +984,7 @@ function TaskDetailPanel({
                   </div>
                 ) : (
                   <div className="p-6 text-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/50 space-y-3">
-                    <span className="text-3xl block">🤖</span>
+                    <Bot className="h-8 w-8 text-slate-600 mx-auto" />
                     <h4 className="text-xs font-bold text-white">No Multi-Agent Swarm Executed Yet</h4>
                     <p className="text-xs text-slate-400 max-w-xs mx-auto">
                       Run the autonomous LangGraph swarm on this ticket to decompose tasks, write code, run QA, and trigger deployments.
@@ -957,9 +993,10 @@ function TaskDetailPanel({
                       type="button"
                       onClick={handleRunSwarm}
                       disabled={runningSwarm}
-                      className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 transition cursor-pointer"
+                      className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 transition cursor-pointer flex items-center gap-1.5 mx-auto"
                     >
-                      {runningSwarm ? "Executing Swarm…" : "⚡ Trigger Autonomous Swarm Now"}
+                      <Sparkles className="h-3.5 w-3.5" />
+                      <span>{runningSwarm ? "Executing Swarm…" : "Trigger Autonomous Swarm Now"}</span>
                     </button>
                   </div>
                 )}
@@ -1012,7 +1049,7 @@ function TaskDetailPanel({
               <div className="max-h-72 overflow-y-auto space-y-2.5 text-xs pr-1">
                 {detail.activities?.map((a) => (
                   <div key={a.id} className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
-                    <span className="text-sm mt-0.5">⚡</span>
+                    <Activity className="h-4 w-4 text-slate-500 mt-0.5" />
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-white">{a.actor_detail?.name || "System"}</span>

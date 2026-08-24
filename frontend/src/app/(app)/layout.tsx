@@ -7,14 +7,34 @@ import { useAuth } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import type { Notification, Role } from "@/lib/types";
 import { Avatar, ROLE_COLORS, ROLE_LABELS } from "@/lib/ui";
+import { toast } from "sonner";
+import {
+  LayoutDashboard,
+  Kanban,
+  Users,
+  Rocket,
+  SearchCheck,
+  Settings,
+  CreditCard,
+  Bell,
+  LogOut,
+  UserCog,
+  Building2,
+  ShieldCheck,
+  CheckCircle2,
+  Sparkles,
+  ExternalLink,
+  ChevronRight,
+  X,
+} from "lucide-react";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: "📊", shortcut: "G D" },
-  { href: "/projects", label: "Projects & Kanban", icon: "📋", shortcut: "G P" },
-  { href: "/team", label: "Team & Seats", icon: "👥", shortcut: "G T" },
-  { href: "/deployments", label: "Deployments", icon: "🚀", shortcut: "G E" },
-  { href: "/compliance", label: "SEO Audits", icon: "🔍", shortcut: "G S" },
-  { href: "/settings", label: "Workspace Settings", icon: "⚙️", shortcut: "G W" },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/projects", label: "Projects & Kanban", icon: Kanban },
+  { href: "/team", label: "Team & Seats", icon: Users },
+  { href: "/deployments", label: "Deployments", icon: Rocket },
+  { href: "/compliance", label: "SEO Audits", icon: SearchCheck },
+  { href: "/settings", label: "Workspace Settings", icon: Settings },
 ];
 
 const DEMO_PERSONAS: Array<{ email: string; label: string; role: Role; desc: string }> = [
@@ -55,7 +75,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     try {
       await apiFetch("/notifications/read_all/", { method: "POST" });
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    } catch {}
+      toast.success("All notifications marked as read");
+    } catch {
+      toast.error("Failed to mark notifications as read");
+    }
   };
 
   const markSingleRead = async (id: number) => {
@@ -72,9 +95,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     try {
       await login(email, "teamflow-demo-pw");
       setShowRoleSwitcher(false);
+      toast.success(`Switched role to ${email}`);
       router.refresh();
     } catch (err) {
-      alert("Error switching persona: " + String(err));
+      toast.error("Error switching persona: " + String(err));
     } finally {
       setSwitchingRole(false);
     }
@@ -87,7 +111,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white font-extrabold shadow-lg shadow-indigo-600/30 animate-pulse">
             TF
           </div>
-          <span className="text-xs font-semibold tracking-wider uppercase text-slate-500">Initializing SuperDesign Workspace…</span>
+          <span className="text-xs font-semibold tracking-wider uppercase text-slate-500">Loading Workspace…</span>
         </div>
       </div>
     );
@@ -97,18 +121,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const navItems = [...NAV];
   if (user.role === "admin" || user.role === "ceo") {
-    navItems.push({ href: "/billing", label: "Billing & Plans", icon: "💳", shortcut: "G B" });
+    navItems.push({ href: "/billing", label: "Billing & Plans", icon: CreditCard });
   }
 
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
-      {/* 🧭 SuperDesign Sleek Dark Sidebar */}
+      {/* 🧭 SuperDesign Dark Sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-800/80 bg-slate-950 p-4 md:flex justify-between">
         <div className="space-y-5">
           {/* Workspace Brand Header */}
           <div className="flex items-center gap-3 px-2 py-1">
             <Link href="/dashboard" className="flex items-center gap-2.5 group">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-sm font-extrabold text-white shadow-md shadow-indigo-600/40 group-hover:scale-105 transition">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-xs font-extrabold text-white shadow-md shadow-indigo-600/40 group-hover:scale-105 transition">
                 TF
               </div>
               <div>
@@ -131,7 +155,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Active Workspace Selector Card */}
           <div className="px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/70 text-xs text-slate-300 flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-2 truncate">
-              <span className="text-sm">🏢</span>
+              <Building2 className="h-4 w-4 text-indigo-400 shrink-0" />
               <span className="font-semibold text-white truncate">{user.organization_name || "Workspace"}</span>
             </div>
             <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" title="System Online"></span>
@@ -143,6 +167,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               Workspace Platform
             </div>
             {navItems.map((item) => {
+              const Icon = item.icon;
               const active =
                 pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
@@ -157,7 +182,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="text-sm">{item.icon}</span>
+                    <Icon className="h-4 w-4 shrink-0" />
                     <span>{item.label}</span>
                   </div>
                   {active && (
@@ -176,7 +201,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             className="w-full flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
           >
             <div className="flex items-center gap-2">
-              <span>🎭</span>
+              <UserCog className="h-3.5 w-3.5 text-indigo-400" />
               <span>Switch Persona</span>
             </div>
             <span className="text-[10px] text-indigo-400 font-bold uppercase">{ROLE_LABELS[user.role]?.split(" ")[0]}</span>
@@ -186,7 +211,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             onClick={logout}
             className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition cursor-pointer"
           >
-            <span>🚪</span>
+            <LogOut className="h-3.5 w-3.5" />
             <span>Sign out</span>
           </button>
         </div>
@@ -194,7 +219,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main App Content Viewport */}
       <div className="flex min-w-0 flex-1 flex-col bg-slate-900">
-        {/* 🌟 SuperDesign App Header */}
+        {/* SuperDesign App Header */}
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/80 px-6 backdrop-blur-md">
           {/* Left: Breadcrumbs / Title */}
           <div className="flex items-center gap-3">
@@ -217,7 +242,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
               title="Test the app from different role perspectives"
             >
-              <span>🎭</span>
+              <UserCog className="h-3.5 w-3.5 text-indigo-400" />
               <span>Switch Role</span>
             </button>
 
@@ -228,7 +253,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 className="relative p-2 rounded-xl text-slate-400 hover:bg-slate-900 hover:text-white transition cursor-pointer"
                 title="Notifications"
               >
-                <span className="text-base">🔔</span>
+                <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
                   <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
                     {unreadCount}
@@ -300,20 +325,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="flex-1 overflow-auto p-6 lg:p-8 bg-slate-900 text-slate-100">{children}</main>
       </div>
 
-      {/* 🎭 Quick Role Impersonator Modal */}
+      {/* Quick Role Impersonator Modal */}
       {showRoleSwitcher && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4" onClick={() => setShowRoleSwitcher(false)}>
           <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <span>🎭</span> Quick Role Switcher
+                  <UserCog className="h-4 w-4 text-indigo-400" />
+                  <span>Quick Role Switcher</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
                   Test the SuperDesign UI instantly from different organizational perspectives.
                 </p>
               </div>
-              <button onClick={() => setShowRoleSwitcher(false)} className="text-slate-400 hover:text-white text-base cursor-pointer">✕</button>
+              <button onClick={() => setShowRoleSwitcher(false)} className="text-slate-400 hover:text-white text-base cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
             <div className="space-y-2">

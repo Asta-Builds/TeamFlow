@@ -4,17 +4,29 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ApiError, register } from "@/lib/api";
+import { toast } from "sonner";
+import {
+  Lock,
+  Crown,
+  Code2,
+  Rocket,
+  ShieldCheck,
+  SearchCheck,
+  UserCheck,
+  Building2,
+  CheckCircle2,
+} from "lucide-react";
 
 const KEYCLOAK_URL = process.env.NEXT_PUBLIC_KEYCLOAK_URL || "http://localhost:8080";
 const KEYCLOAK_REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || "teamflow";
 const KEYCLOAK_CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "teamflow-app";
 
 const DEMO_ACCOUNTS = [
-  { label: "👑 CEO", email: "ceo@teamflow.dev", name: "Abdelilah Dahou" },
-  { label: "🎯 Tech Lead", email: "lead@teamflow.dev", name: "Sarah Jenkins" },
-  { label: "🚀 DevOps", email: "devops@teamflow.dev", name: "Joan Arc" },
-  { label: "🧪 QA", email: "qa@teamflow.dev", name: "Alan Turing" },
-  { label: "🔍 SEO", email: "seo@teamflow.dev", name: "Ada Lovelace" },
+  { label: "CEO", email: "ceo@teamflow.dev", name: "Abdelilah Dahou", icon: Crown },
+  { label: "Tech Lead", email: "lead@teamflow.dev", name: "Sarah Jenkins", icon: Code2 },
+  { label: "DevOps", email: "devops@teamflow.dev", name: "Joan Arc", icon: Rocket },
+  { label: "QA", email: "qa@teamflow.dev", name: "Alan Turing", icon: ShieldCheck },
+  { label: "SEO", email: "seo@teamflow.dev", name: "Ada Lovelace", icon: SearchCheck },
 ];
 
 export default function LoginPage() {
@@ -26,7 +38,6 @@ export default function LoginPage() {
   const [name, setName] = useState("");
   const [organizationName, setOrganizationName] = useState("");
   const [password, setPassword] = useState("teamflow-demo-pw");
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -35,7 +46,6 @@ export default function LoginPage() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     setSubmitting(true);
     try {
       if (mode === "register") {
@@ -45,8 +55,10 @@ export default function LoginPage() {
           password,
           organization_name: organizationName || undefined,
         });
+        toast.success("Account created successfully!");
       }
       await login(email, password);
+      toast.success(`Welcome back, ${email}!`);
       router.replace("/dashboard");
     } catch (err) {
       if (err instanceof ApiError) {
@@ -55,9 +67,9 @@ export default function LoginPage() {
           (data && (data.detail as string)) ||
           (data && Object.values(data).flat().join(" ")) ||
           "Invalid credentials. Please try again.";
-        setError(String(detail));
+        toast.error(String(detail));
       } else {
-        setError("Network error — please verify server status.");
+        toast.error("Network error — please verify server status.");
       }
     } finally {
       setSubmitting(false);
@@ -71,71 +83,63 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full lg:grid lg:grid-cols-2">
-      {/* Left hero pane (shadcn style) */}
-      <div className="relative hidden h-full flex-col justify-between bg-zinc-950 p-10 text-white lg:flex border-r border-zinc-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/40 via-zinc-950 to-zinc-950 pointer-events-none" />
-        
-        {/* Subtle grid pattern background */}
-        <div
-          className="absolute inset-0 opacity-15"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0)`,
-            backgroundSize: "24px 24px",
-          }}
-        />
+    <div className="min-h-screen w-full lg:grid lg:grid-cols-2 bg-slate-950 text-slate-100">
+      {/* Left hero pane */}
+      <div className="relative hidden h-full flex-col justify-between bg-slate-950 p-10 lg:flex border-r border-slate-800">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/40 via-slate-950 to-slate-950 pointer-events-none" />
 
         {/* Brand Header */}
-        <div className="relative z-20 flex items-center gap-2.5 text-lg font-semibold tracking-tight">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-xs font-bold text-white shadow-md shadow-indigo-600/30">
+        <div className="relative z-20 flex items-center gap-2.5 text-lg font-bold tracking-tight">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-xs font-black text-white shadow-md shadow-indigo-600/30">
             TF
           </div>
-          <span>TeamFlow Inc.</span>
+          <span className="text-white">TeamFlow Inc.</span>
         </div>
 
         {/* Testimonial Quote */}
         <div className="relative z-20 max-w-md space-y-4">
           <blockquote className="space-y-2">
-            <p className="text-base text-zinc-300 font-normal leading-relaxed">
+            <p className="text-sm text-slate-300 font-normal leading-relaxed">
               &ldquo;TeamFlow has completely transformed how our virtual tech teams ship production software, coordinate autonomous engineering roles, and manage sprint deliverables seamlessly.&rdquo;
             </p>
-            <footer className="text-xs text-zinc-400 font-medium pt-2">
-              <span className="font-semibold text-white block text-sm">Sofia Davis</span>
+            <footer className="text-xs text-slate-400 font-medium pt-2">
+              <span className="font-bold text-white block text-sm">Sarah Jenkins</span>
               VP of Engineering at CloudScale
             </footer>
           </blockquote>
 
-          <div className="flex items-center gap-4 pt-4 text-xs text-zinc-500">
+          <div className="flex items-center gap-4 pt-4 text-xs text-slate-400">
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
               <span>All systems operational</span>
             </div>
             <span>•</span>
-            <div className="flex items-center gap-1">
-              <span>🛡️ Keycloak SSO Active</span>
+            <div className="flex items-center gap-1.5 text-indigo-400">
+              <Lock className="h-3.5 w-3.5" />
+              <span>Keycloak SSO Active</span>
             </div>
           </div>
         </div>
 
         {/* Footer Meta */}
-        <div className="relative z-20 flex justify-between text-xs text-zinc-500">
+        <div className="relative z-20 flex justify-between text-xs text-slate-500 font-mono">
           <span>Enterprise Virtual Tech Management</span>
           <span>v2.0 Standalone</span>
         </div>
       </div>
 
-      {/* Right form pane (shadcn form style) */}
-      <div className="flex min-h-screen flex-col items-center justify-center p-6 lg:p-12 bg-white">
+      {/* Right form pane */}
+      <div className="flex min-h-screen flex-col items-center justify-center p-6 lg:p-12 bg-slate-900">
         <div className="w-full max-w-[360px] space-y-6">
           {/* Header */}
           <div className="flex flex-col space-y-1.5 text-center">
-            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-sm font-bold text-white shadow-md shadow-indigo-600/30 lg:hidden">
+            <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-sm font-black text-white shadow-md shadow-indigo-600/30 lg:hidden">
               TF
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-900">
+            <h1 className="text-2xl font-black tracking-tight text-white">
               {mode === "login" ? "Welcome back" : "Create an account"}
             </h1>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-slate-400">
               {mode === "login"
                 ? "Enter your email or use Single Sign-On to continue"
                 : "Enter your workspace details to get started"}
@@ -147,17 +151,15 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={loginWithKeycloak}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 text-xs font-semibold text-zinc-800 shadow-xs hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-950 transition"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 text-xs font-bold text-slate-200 shadow-xs hover:bg-slate-700 hover:text-white transition cursor-pointer"
             >
-              <svg className="h-4 w-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-              </svg>
+              <Lock className="h-3.5 w-3.5 text-indigo-400" />
               <span>Continue with Keycloak (SSO)</span>
             </button>
 
             <div className="relative flex items-center justify-center">
-              <div className="w-full border-t border-zinc-200"></div>
-              <span className="bg-white px-2 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+              <div className="w-full border-t border-slate-800"></div>
+              <span className="bg-slate-900 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Or continue with
               </span>
             </div>
@@ -168,7 +170,7 @@ export default function LoginPage() {
             {mode === "register" && (
               <>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-700 leading-none">
+                  <label className="text-xs font-bold text-slate-300">
                     Full Name
                   </label>
                   <input
@@ -177,12 +179,12 @@ export default function LoginPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Sarah Jenkins"
-                    className="flex h-9 w-full rounded-md border border-zinc-300 bg-transparent px-3 py-1 text-xs shadow-xs transition-colors placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-600 focus:border-indigo-600"
+                    className="flex h-9 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1 text-xs text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-700 leading-none">
+                  <label className="text-xs font-bold text-slate-300">
                     Company / Organization
                   </label>
                   <input
@@ -191,14 +193,14 @@ export default function LoginPage() {
                     value={organizationName}
                     onChange={(e) => setOrganizationName(e.target.value)}
                     placeholder="Acme Corp"
-                    className="flex h-9 w-full rounded-md border border-zinc-300 bg-transparent px-3 py-1 text-xs shadow-xs transition-colors placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-600 focus:border-indigo-600"
+                    className="flex h-9 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1 text-xs text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
                   />
                 </div>
               </>
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-medium text-zinc-700 leading-none">
+              <label className="text-xs font-bold text-slate-300">
                 Email
               </label>
               <input
@@ -206,37 +208,29 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="flex h-9 w-full rounded-md border border-zinc-300 bg-transparent px-3 py-1 text-xs shadow-xs transition-colors placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-600 focus:border-indigo-600"
+                placeholder="name@teamflow.dev"
+                className="flex h-9 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1 text-xs text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-zinc-700 leading-none">
-                  Password
-                </label>
-              </div>
+              <label className="text-xs font-bold text-slate-300">
+                Password
+              </label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="flex h-9 w-full rounded-md border border-zinc-300 bg-transparent px-3 py-1 text-xs shadow-xs transition-colors placeholder:text-zinc-400 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-600 focus:border-indigo-600"
+                className="flex h-9 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1 text-xs text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
               />
             </div>
-
-            {error && (
-              <div className="rounded-md bg-rose-50 border border-rose-200 p-2.5 text-xs font-medium text-rose-700 animate-in fade-in duration-150">
-                {error}
-              </div>
-            )}
 
             <button
               type="submit"
               disabled={submitting}
-              className="inline-flex h-9 w-full items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-indigo-700 disabled:pointer-events-none disabled:opacity-50 transition cursor-pointer"
+              className="inline-flex h-9 w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-50 transition cursor-pointer"
             >
               {submitting
                 ? "Processing..."
@@ -246,54 +240,52 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Quick Demo Switcher (shadcn pill style) */}
+          {/* Quick Demo Switcher */}
           <div className="pt-2">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1.5 text-center">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 text-center">
               Quick Switch Demo Roles
             </span>
-            <div className="flex flex-wrap items-center justify-center gap-1">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.email}
-                  type="button"
-                  onClick={() => {
-                    setEmail(acc.email);
-                    setPassword("teamflow-demo-pw");
-                    setMode("login");
-                  }}
-                  className={`px-2 py-1 rounded-md text-[11px] font-medium border transition cursor-pointer ${
-                    email === acc.email
-                      ? "bg-indigo-50 text-indigo-700 border-indigo-200 shadow-2xs font-semibold"
-                      : "bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100"
-                  }`}
-                >
-                  {acc.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
+              {DEMO_ACCOUNTS.map((acc) => {
+                const AccIcon = acc.icon;
+                return (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => {
+                      setEmail(acc.email);
+                      setPassword("teamflow-demo-pw");
+                      setMode("login");
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition flex items-center gap-1 cursor-pointer ${
+                      email === acc.email
+                        ? "bg-indigo-950 text-indigo-300 border-indigo-700 font-bold"
+                        : "bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-white"
+                    }`}
+                  >
+                    <AccIcon className="h-3 w-3 text-indigo-400" />
+                    <span>{acc.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           {/* Toggle Login / Register */}
-          <div className="text-center text-xs text-zinc-500">
+          <div className="text-center text-xs text-slate-400">
             {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               type="button"
-              onClick={() => {
-                setMode(mode === "login" ? "register" : "login");
-                setError(null);
-              }}
-              className="font-semibold text-indigo-600 hover:underline cursor-pointer"
+              onClick={() => setMode(mode === "login" ? "register" : "login")}
+              className="font-bold text-indigo-400 hover:underline cursor-pointer"
             >
               {mode === "login" ? "Sign up" : "Sign in"}
             </button>
           </div>
 
           {/* Terms Footer */}
-          <p className="px-4 text-center text-[11px] text-zinc-400 leading-relaxed">
-            By clicking continue, you agree to our{" "}
-            <span className="underline hover:text-zinc-600 cursor-pointer">Terms of Service</span>{" "}
-            and{" "}
-            <span className="underline hover:text-zinc-600 cursor-pointer">Privacy Policy</span>.
+          <p className="px-4 text-center text-[11px] text-slate-500 leading-relaxed">
+            By clicking continue, you agree to our Terms of Service and Privacy Policy.
           </p>
         </div>
       </div>

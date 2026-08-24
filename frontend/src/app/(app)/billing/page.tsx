@@ -3,18 +3,18 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { createCheckoutSession, createPortalSession, mockConfirmSubscription } from "@/lib/api";
+import { toast } from "sonner";
+import { CreditCard, CheckCircle2, XCircle, Zap, ShieldCheck } from "lucide-react";
 
 export default function BillingPage() {
   const { user, refreshUser } = useAuth();
   const [loadingTier, setLoadingTier] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const currentTier = user?.organization_tier || "growth";
   const currentStatus = user?.organization_status || "active";
 
   const handleSubscribe = async (tier: string) => {
     setLoadingTier(tier);
-    setError(null);
     try {
       const session = await createCheckoutSession(
         tier,
@@ -25,12 +25,12 @@ export default function BillingPage() {
       if (session.mock) {
         await mockConfirmSubscription(tier);
         await refreshUser();
-        alert(`Successfully upgraded to ${tier.toUpperCase()} plan (Developer Mock Mode).`);
+        toast.success(`Successfully upgraded to ${tier.toUpperCase()} plan (Developer Mock Mode).`);
       } else {
         window.location.href = session.url;
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to initiate subscription.");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Failed to initiate subscription.");
     } finally {
       setLoadingTier(null);
     }
@@ -38,16 +38,15 @@ export default function BillingPage() {
 
   const handleManagePortal = async () => {
     setLoadingTier("portal");
-    setError(null);
     try {
       const session = await createPortalSession(window.location.href);
       if (session.mock) {
-        alert("Redirecting to Mock Customer Portal (Stripe keys not set).");
+        toast.info("Redirecting to Customer Portal (Stripe test mode).");
       } else {
         window.location.href = session.url;
       }
-    } catch (err: any) {
-      setError(err.message || "Failed to load customer portal.");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Failed to load customer portal.");
     } finally {
       setLoadingTier(null);
     }
@@ -63,12 +62,6 @@ export default function BillingPage() {
           Manage workspace quotas, autonomous agent seats, and Stripe billing information.
         </p>
       </div>
-
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-950/60 border border-rose-800/50 text-xs font-semibold text-rose-300">
-          ⚠️ {error}
-        </div>
-      )}
 
       {/* Current Plan Overview Card */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm">
@@ -91,9 +84,10 @@ export default function BillingPage() {
             <button
               onClick={handleManagePortal}
               disabled={loadingTier !== null}
-              className="px-4 py-2 border border-slate-700 bg-slate-800 rounded-xl text-xs font-bold text-white hover:bg-slate-700 transition disabled:opacity-50 cursor-pointer shrink-0"
+              className="px-4 py-2 border border-slate-700 bg-slate-800 rounded-xl text-xs font-bold text-white hover:bg-slate-700 transition disabled:opacity-50 cursor-pointer shrink-0 flex items-center gap-1.5"
             >
-              {loadingTier === "portal" ? "Loading Portal..." : "Manage Subscription"}
+              <CreditCard className="h-3.5 w-3.5" />
+              <span>{loadingTier === "portal" ? "Loading Portal..." : "Manage Subscription"}</span>
             </button>
           )}
         </div>
@@ -116,10 +110,22 @@ export default function BillingPage() {
               <span className="text-slate-500 text-xs"> / month</span>
             </div>
             <ul className="text-xs text-slate-300 space-y-2.5 mb-6">
-              <li className="flex items-center gap-2">✓ 5 Workspace Projects</li>
-              <li className="flex items-center gap-2">✓ 3 Autonomous Agent Seats</li>
-              <li className="flex items-center gap-2">✓ 5-Stage Kanban Board</li>
-              <li className="flex items-center gap-2 text-slate-600">✕ Custom RAG Indexing</li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>5 Workspace Projects</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>3 Autonomous Agent Seats</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>5-Stage Kanban Board</span>
+              </li>
+              <li className="flex items-center gap-2 text-slate-600">
+                <XCircle className="h-3.5 w-3.5 text-slate-700 shrink-0" />
+                <span>Custom RAG Indexing</span>
+              </li>
             </ul>
           </div>
           <button
@@ -143,10 +149,22 @@ export default function BillingPage() {
               <span className="text-slate-500 text-xs"> / month</span>
             </div>
             <ul className="text-xs text-slate-300 space-y-2.5 mb-6">
-              <li className="flex items-center gap-2 font-bold text-white">✓ Unlimited Projects</li>
-              <li className="flex items-center gap-2 font-bold text-white">✓ All 9 Specialist Agent Seats</li>
-              <li className="flex items-center gap-2">✓ pgvector Codebase & ADR RAG</li>
-              <li className="flex items-center gap-2">✓ Production Deploys & Rollback</li>
+              <li className="flex items-center gap-2 font-bold text-white">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>Unlimited Projects</span>
+              </li>
+              <li className="flex items-center gap-2 font-bold text-white">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>All 9 Specialist Agent Seats</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>pgvector Codebase & ADR RAG</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>Production Deploys & Rollback</span>
+              </li>
             </ul>
           </div>
           <button
@@ -177,10 +195,22 @@ export default function BillingPage() {
               <span className="text-slate-500 text-xs"> / month</span>
             </div>
             <ul className="text-xs text-slate-300 space-y-2.5 mb-6">
-              <li className="flex items-center gap-2">✓ Everything in Growth</li>
-              <li className="flex items-center gap-2">✓ Dedicated Keycloak Realm</li>
-              <li className="flex items-center gap-2">✓ Unlimited Langfuse Tracing</li>
-              <li className="flex items-center gap-2">✓ 99.9% Uptime SLA Guarantee</li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>Everything in Growth</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>Dedicated Keycloak Realm</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>Unlimited Langfuse Tracing</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                <span>99.9% Uptime SLA Guarantee</span>
+              </li>
             </ul>
           </div>
           <button

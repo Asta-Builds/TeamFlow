@@ -6,6 +6,8 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Paginated, Project, ProjectStatus } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
+import { toast } from "sonner";
+import { LayoutGrid, Table, Plus, FolderKanban, X } from "lucide-react";
 
 const STATUS_STYLES: Record<ProjectStatus, string> = {
   active: "bg-emerald-950/70 text-emerald-300 border-emerald-800/50",
@@ -19,12 +21,11 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<ProjectStatus>("active");
-  const [error, setError] = useState<string | null>(null);
 
   const canCreate =
     user?.role === "ceo" ||
@@ -42,7 +43,6 @@ export default function ProjectsPage() {
 
   async function createProject(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
     try {
       const created = await apiFetch<Project>("/projects/", {
         method: "POST",
@@ -52,22 +52,23 @@ export default function ProjectsPage() {
       setName("");
       setDescription("");
       setCreating(false);
+      toast.success(`Project "${name}" created successfully`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
-        setError("Only CEO, Tech Lead or Admin can create projects.");
+        toast.error("Permission denied: Only CEO, Tech Lead or Admin can create projects.");
       } else {
-        setError("Could not create project.");
+        toast.error("Could not create project.");
       }
     }
   }
 
-  const filteredProjects = statusFilter
+  const filteredProjects = statusFilter !== "all"
     ? projects.filter((p) => p.status === statusFilter)
     : projects;
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* SuperDesign Projects Header */}
+      {/* Projects Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
@@ -83,28 +84,31 @@ export default function ProjectsPage() {
           <div className="flex rounded-xl bg-slate-900 border border-slate-800 p-1">
             <button
               onClick={() => setViewMode("grid")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                 viewMode === "grid" ? "bg-slate-800 text-white shadow-xs" : "text-slate-400 hover:text-white"
               }`}
             >
-              ▦ Grid
+              <LayoutGrid className="h-3.5 w-3.5" />
+              <span>Grid</span>
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                 viewMode === "table" ? "bg-slate-800 text-white shadow-xs" : "text-slate-400 hover:text-white"
               }`}
             >
-              ☰ Table
+              <Table className="h-3.5 w-3.5" />
+              <span>Table</span>
             </button>
           </div>
 
           {canCreate && (
             <button
               onClick={() => setCreating((c) => !c)}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition cursor-pointer"
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer"
             >
-              {creating ? "Cancel" : "+ New Project"}
+              <Plus className="h-3.5 w-3.5" />
+              <span>{creating ? "Cancel" : "New Project"}</span>
             </button>
           )}
         </div>
@@ -117,7 +121,7 @@ export default function ProjectsPage() {
           onChange={(e) => setStatusFilter(e.target.value)}
           className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 shadow-xs"
         >
-          <option value="">All Project Statuses</option>
+          <option value="all">All Project Statuses</option>
           <option value="active">Active</option>
           <option value="on_hold">On Hold</option>
           <option value="completed">Completed</option>
@@ -134,7 +138,12 @@ export default function ProjectsPage() {
           onSubmit={createProject}
           className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl animate-in fade-in duration-150"
         >
-          <h3 className="font-bold text-white text-sm">Create New Project</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-white text-sm">Create New Project</h3>
+            <button type="button" onClick={() => setCreating(false)} className="text-slate-400 hover:text-white cursor-pointer">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">Project Name *</label>
             <input
@@ -168,7 +177,6 @@ export default function ProjectsPage() {
               <option value="archived">Archived</option>
             </select>
           </div>
-          {error && <p className="text-xs font-semibold text-rose-400">{error}</p>}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
             <button
               type="button"
@@ -192,9 +200,9 @@ export default function ProjectsPage() {
           Loading projects…
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-800 p-12 text-center text-slate-500 bg-slate-900/50">
-          <span className="text-3xl block mb-2">📂</span>
-          No projects matching your criteria.
+        <div className="rounded-2xl border border-dashed border-slate-800 p-12 text-center text-slate-500 bg-slate-900/50 space-y-2">
+          <FolderKanban className="h-8 w-8 text-slate-600 mx-auto" />
+          <p className="text-xs">No projects matching your criteria.</p>
         </div>
       ) : viewMode === "grid" ? (
         /* Grid Mode */

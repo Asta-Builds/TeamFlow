@@ -11,6 +11,8 @@ import {
   ROLE_LABELS,
   USER_STATUS_STYLES,
 } from "@/lib/ui";
+import { toast } from "sonner";
+import { Users, UserPlus, Plus, Target, Edit2, X } from "lucide-react";
 
 export default function TeamPage() {
   const { user } = useAuth();
@@ -24,7 +26,6 @@ export default function TeamPage() {
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState<Role>("backend");
   const [newBio, setNewBio] = useState("");
-  const [inviteError, setInviteError] = useState<string | null>(null);
 
   const canManage =
     user?.role === "ceo" ||
@@ -42,7 +43,6 @@ export default function TeamPage() {
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
-    setInviteError(null);
     try {
       const created = await apiFetch<User>("/users/", {
         method: "POST",
@@ -58,11 +58,12 @@ export default function TeamPage() {
       setNewEmail("");
       setNewName("");
       setNewBio("");
+      toast.success(`Team member ${newName} added successfully`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
-        setInviteError("Only CEO, Tech Lead or Admin can add members.");
+        toast.error("Permission denied: Only CEO, Tech Lead or Admin can add members.");
       } else {
-        setInviteError("Failed to add member. Email may already exist.");
+        toast.error("Failed to add member. Email may already exist.");
       }
     }
   }
@@ -75,8 +76,9 @@ export default function TeamPage() {
       });
       setMembers((prev) => prev.map((m) => (m.id === memberId ? updated : m)));
       setEditingMember(null);
+      toast.success("Member role and status updated!");
     } catch (err) {
-      alert("Error updating member role/status.");
+      toast.error("Error updating member role/status.");
     }
   }
 
@@ -106,7 +108,8 @@ export default function TeamPage() {
             onClick={() => setShowInviteModal(true)}
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer"
           >
-            <span>+</span> Add Team Member
+            <UserPlus className="h-4 w-4" />
+            <span>Add Team Member</span>
           </button>
         )}
       </div>
@@ -148,15 +151,17 @@ export default function TeamPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-400 font-medium">
-                    🎯 <strong className="text-white">{m.open_tasks_count ?? 0}</strong> open
+                  <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
+                    <Target className="h-3 w-3 text-indigo-400" />
+                    <span><strong className="text-white">{m.open_tasks_count ?? 0}</strong> open</span>
                   </span>
                   {canManage && (
                     <button
                       onClick={() => setEditingMember(m)}
-                      className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline font-bold ml-1 cursor-pointer"
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline font-bold ml-1 cursor-pointer flex items-center gap-1"
                     >
-                      Edit
+                      <Edit2 className="h-2.5 w-2.5" />
+                      <span>Edit</span>
                     </button>
                   )}
                 </div>
@@ -171,8 +176,13 @@ export default function TeamPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h2 className="text-base font-bold text-white">Add Team Member</h2>
-              <button onClick={() => setShowInviteModal(false)} className="text-slate-400 hover:text-white cursor-pointer">✕</button>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-indigo-400" />
+                <span>Add Team Member</span>
+              </h2>
+              <button onClick={() => setShowInviteModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
             </div>
             <form onSubmit={handleInvite} className="space-y-4">
               <div>
@@ -224,7 +234,6 @@ export default function TeamPage() {
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
-              {inviteError && <p className="text-xs font-semibold text-rose-400">{inviteError}</p>}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
                 <button
                   type="button"
@@ -249,10 +258,15 @@ export default function TeamPage() {
       {editingMember && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <div className="w-full max-w-sm rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 space-y-4">
-            <h3 className="text-base font-bold text-white mb-1">
-              Edit Member: {editingMember.name}
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">{editingMember.email}</p>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white">
+                Edit Member: {editingMember.name}
+              </h3>
+              <button onClick={() => setEditingMember(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">{editingMember.email}</p>
 
             <div className="space-y-4">
               <div>

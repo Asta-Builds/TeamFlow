@@ -4,6 +4,8 @@ import { useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Avatar, ROLE_COLORS, ROLE_LABELS } from "@/lib/ui";
+import { toast } from "sonner";
+import { User, Shield, Building2, Download, Key, CheckCircle2 } from "lucide-react";
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -13,13 +15,11 @@ export default function SettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || "");
   const [bio, setBio] = useState(user?.bio || "");
   const [savingProfile, setSavingProfile] = useState(false);
-  const [profileMsg, setProfileMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Security / Password Form
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
-  const [passwordMsg, setPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Active tab
   const [activeTab, setActiveTab] = useState<"profile" | "security" | "workspace" | "export">("profile");
@@ -32,16 +32,15 @@ export default function SettingsPage() {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingProfile(true);
-    setProfileMsg(null);
     try {
       await apiFetch("/auth/me/", {
         method: "PATCH",
         body: { name, avatar_url: avatarUrl, bio },
       });
       await refreshUser();
-      setProfileMsg({ type: "success", text: "Profile updated successfully!" });
+      toast.success("Profile updated successfully!");
     } catch {
-      setProfileMsg({ type: "error", text: "Failed to update profile." });
+      toast.error("Failed to update profile.");
     } finally {
       setSavingProfile(false);
     }
@@ -50,17 +49,16 @@ export default function SettingsPage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setSavingPassword(true);
-    setPasswordMsg(null);
     try {
       await apiFetch("/auth/change-password/", {
         method: "POST",
         body: { old_password: oldPassword, new_password: newPassword },
       });
-      setPasswordMsg({ type: "success", text: "Password changed successfully!" });
+      toast.success("Password changed successfully!");
       setOldPassword("");
       setNewPassword("");
     } catch {
-      setPasswordMsg({ type: "error", text: "Failed to change password. Check old password." });
+      toast.error("Failed to change password. Please check your current password.");
     } finally {
       setSavingPassword(false);
     }
@@ -68,15 +66,16 @@ export default function SettingsPage() {
 
   const handleExportData = async (format: "json" | "csv") => {
     try {
-      const data = await apiFetch<any>(`/projects/`);
+      const data = await apiFetch<unknown>(`/projects/`);
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `teamflow_workspace_export.${format}`;
       a.click();
+      toast.success(`Exported workspace records as .${format}`);
     } catch {
-      alert("Error exporting workspace data.");
+      toast.error("Error exporting workspace data.");
     }
   };
 
@@ -96,43 +95,47 @@ export default function SettingsPage() {
       <div className="flex items-center gap-2 border-b border-slate-800">
         <button
           onClick={() => setActiveTab("profile")}
-          className={`pb-3 px-3 text-xs font-bold transition cursor-pointer ${
+          className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
             activeTab === "profile"
               ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
               : "text-slate-400 hover:text-white"
           }`}
         >
-          👤 Profile
+          <User className="h-3.5 w-3.5" />
+          <span>Profile</span>
         </button>
         <button
           onClick={() => setActiveTab("security")}
-          className={`pb-3 px-3 text-xs font-bold transition cursor-pointer ${
+          className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
             activeTab === "security"
               ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
               : "text-slate-400 hover:text-white"
           }`}
         >
-          🔒 Security
+          <Shield className="h-3.5 w-3.5" />
+          <span>Security</span>
         </button>
         <button
           onClick={() => setActiveTab("workspace")}
-          className={`pb-3 px-3 text-xs font-bold transition cursor-pointer ${
+          className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
             activeTab === "workspace"
               ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
               : "text-slate-400 hover:text-white"
           }`}
         >
-          🏢 Workspace
+          <Building2 className="h-3.5 w-3.5" />
+          <span>Workspace</span>
         </button>
         <button
           onClick={() => setActiveTab("export")}
-          className={`pb-3 px-3 text-xs font-bold transition cursor-pointer ${
+          className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
             activeTab === "export"
               ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
               : "text-slate-400 hover:text-white"
           }`}
         >
-          📦 Data Export
+          <Download className="h-3.5 w-3.5" />
+          <span>Data Export</span>
         </button>
       </div>
 
@@ -191,12 +194,6 @@ export default function SettingsPage() {
               />
             </div>
 
-            {profileMsg && (
-              <p className={`text-xs font-bold ${profileMsg.type === "success" ? "text-emerald-400" : "text-rose-400"}`}>
-                {profileMsg.text}
-              </p>
-            )}
-
             <button
               type="submit"
               disabled={savingProfile}
@@ -212,7 +209,10 @@ export default function SettingsPage() {
       {activeTab === "security" && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm">
           <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
-            <h3 className="text-sm font-bold text-white mb-2">Change Password</h3>
+            <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+              <Key className="h-4 w-4 text-indigo-400" />
+              <span>Change Password</span>
+            </h3>
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1">Current Password</label>
               <input
@@ -235,12 +235,6 @@ export default function SettingsPage() {
               />
             </div>
 
-            {passwordMsg && (
-              <p className={`text-xs font-bold ${passwordMsg.type === "success" ? "text-emerald-400" : "text-rose-400"}`}>
-                {passwordMsg.text}
-              </p>
-            )}
-
             <button
               type="submit"
               disabled={savingPassword}
@@ -255,7 +249,10 @@ export default function SettingsPage() {
       {/* Workspace Tab */}
       {activeTab === "workspace" && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4 max-w-md">
-          <h3 className="text-sm font-bold text-white">Workspace Details</h3>
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-indigo-400" />
+            <span>Workspace Details</span>
+          </h3>
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">Company / Workspace Name</label>
             <input
@@ -283,7 +280,10 @@ export default function SettingsPage() {
       {/* Export Tab */}
       {activeTab === "export" && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4 max-w-md">
-          <h3 className="text-sm font-bold text-white">Export Workspace Data</h3>
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Download className="h-4 w-4 text-indigo-400" />
+            <span>Export Workspace Data</span>
+          </h3>
           <p className="text-xs text-slate-400 leading-relaxed">
             Download your full project records, ticket logs, comments, and audit histories in standard portable formats.
           </p>
@@ -291,15 +291,17 @@ export default function SettingsPage() {
           <div className="flex items-center gap-3 pt-2">
             <button
               onClick={() => handleExportData("json")}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 transition cursor-pointer"
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 transition cursor-pointer flex items-center gap-1.5"
             >
-              Export as JSON (.json)
+              <Download className="h-3.5 w-3.5" />
+              <span>Export as JSON</span>
             </button>
             <button
               onClick={() => handleExportData("csv")}
-              className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition cursor-pointer"
+              className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition cursor-pointer flex items-center gap-1.5"
             >
-              Export as CSV (.csv)
+              <Download className="h-3.5 w-3.5" />
+              <span>Export as CSV</span>
             </button>
           </div>
         </div>

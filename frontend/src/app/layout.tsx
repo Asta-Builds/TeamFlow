@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -9,9 +10,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TeamFlow — Project & Ticket Management",
+  title: "TeamFlow — Enterprise Multi-Agent Virtual Tech Management",
   description:
-    "Internal project & ticket management platform for the virtual tech company.",
+    "Autonomous software engineering management platform with LangGraph orchestration, pgvector RAG, and Langfuse tracing.",
 };
 
 export default function RootLayout({
@@ -21,8 +22,23 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full">
-        <AuthProvider>{children}</AuthProvider>
+      <body className="min-h-full bg-slate-950 text-slate-100">
+        <AuthProvider>
+          {children}
+          <Toaster
+            position="top-right"
+            richColors
+            theme="dark"
+            closeButton
+            toastOptions={{
+              style: {
+                background: "#0f172a",
+                border: "1px solid #1e293b",
+                color: "#f8fafc",
+              },
+            }}
+          />
+        </AuthProvider>
       </body>
     </html>
   );

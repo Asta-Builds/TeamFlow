@@ -5,6 +5,8 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Deployment, Paginated, Project } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
+import { toast } from "sonner";
+import { Rocket, Terminal, RotateCcw, AlertTriangle, GitBranch, X, CheckCircle2 } from "lucide-react";
 
 const DEPLOY_STYLES: Record<string, string> = {
   queued: "bg-slate-900 text-slate-400 border-slate-800",
@@ -88,11 +90,12 @@ export default function DeploymentsPage() {
       });
       setDeployments((prev) => [created, ...prev]);
       setShowTriggerModal(false);
+      toast.success(`Release triggered on ${selectedEnv.toUpperCase()} (${commit})`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
-        alert("Permission denied: Only DevOps, Tech Lead or CEO can trigger releases.");
+        toast.error("Permission denied: Only DevOps, Tech Lead or CEO can trigger releases.");
       } else {
-        alert("Failed to trigger deployment.");
+        toast.error("Failed to trigger deployment.");
       }
     } finally {
       setTriggering(false);
@@ -100,14 +103,14 @@ export default function DeploymentsPage() {
   }
 
   async function handleRollback(deploymentId: number) {
-    if (!confirm("Are you sure you want to rollback to this release?")) return;
     try {
       const rolledBack = await apiFetch<Deployment>(`/deployments/${deploymentId}/rollback/`, {
         method: "POST",
       });
       setDeployments((prev) => [rolledBack, ...prev]);
+      toast.success("Successfully rolled back to target release!");
     } catch {
-      alert("Rollback failed.");
+      toast.error("Rollback failed.");
     }
   }
 
@@ -137,7 +140,8 @@ export default function DeploymentsPage() {
             onClick={() => setShowTriggerModal(true)}
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer"
           >
-            <span>🚀</span> Trigger Release
+            <Rocket className="h-4 w-4" />
+            <span>Trigger Release</span>
           </button>
         )}
       </div>
@@ -173,7 +177,10 @@ export default function DeploymentsPage() {
                   </Badge>
                 </td>
                 <td className="px-5 py-4">
-                  <span className="font-semibold text-slate-200 block">{d.branch || "main"}</span>
+                  <span className="font-semibold text-slate-200 flex items-center gap-1">
+                    <GitBranch className="h-3 w-3 text-slate-500" />
+                    <span>{d.branch || "main"}</span>
+                  </span>
                   <span className="font-mono text-[10px] text-slate-500 font-semibold">{d.commit_sha || "—"}</span>
                 </td>
                 <td className="px-5 py-4">
@@ -191,17 +198,19 @@ export default function DeploymentsPage() {
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => setActiveLogDeployment(d)}
-                      className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition cursor-pointer"
+                      className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition cursor-pointer flex items-center gap-1"
                     >
-                      View Logs
+                      <Terminal className="h-3 w-3" />
+                      <span>Logs</span>
                     </button>
                     {canDeploy && d.status === "success" && (
                       <button
                         onClick={() => handleRollback(d.id)}
-                        className="px-3 py-1 rounded-lg bg-purple-950 hover:bg-purple-900 text-[11px] font-bold text-purple-300 border border-purple-800/60 transition cursor-pointer"
+                        className="px-3 py-1 rounded-lg bg-purple-950 hover:bg-purple-900 text-[11px] font-bold text-purple-300 border border-purple-800/60 transition cursor-pointer flex items-center gap-1"
                         title="Rollback to this state"
                       >
-                        Rollback ↩
+                        <RotateCcw className="h-3 w-3" />
+                        <span>Rollback</span>
                       </button>
                     )}
                   </div>
@@ -224,8 +233,13 @@ export default function DeploymentsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <div className="w-full max-w-md rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h2 className="text-base font-bold text-white">Trigger Deployment Pipeline</h2>
-              <button onClick={() => setShowTriggerModal(false)} className="text-slate-400 hover:text-white cursor-pointer">✕</button>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Rocket className="h-4 w-4 text-indigo-400" />
+                <span>Trigger Deployment Pipeline</span>
+              </h2>
+              <button onClick={() => setShowTriggerModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
             </div>
             <form onSubmit={handleTrigger} className="space-y-4">
               <div>
@@ -267,8 +281,9 @@ export default function DeploymentsPage() {
               </div>
 
               {selectedEnv === "production" && (
-                <div className="p-3 bg-amber-950/60 border border-amber-800/50 rounded-xl text-xs text-amber-300 font-medium">
-                  ⚠️ Production Policy: All sprint tickets must be verified by QA before deployment.
+                <div className="p-3 bg-amber-950/60 border border-amber-800/50 rounded-xl text-xs text-amber-300 font-medium flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                  <span>Production Policy: All sprint tickets must be verified by QA before deployment.</span>
                 </div>
               )}
 
@@ -283,9 +298,10 @@ export default function DeploymentsPage() {
                 <button
                   type="submit"
                   disabled={triggering}
-                  className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-60 cursor-pointer"
+                  className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-60 cursor-pointer flex items-center gap-1.5"
                 >
-                  {triggering ? "Deploying..." : "Start Pipeline"}
+                  <Rocket className="h-3.5 w-3.5" />
+                  <span>{triggering ? "Deploying..." : "Start Pipeline"}</span>
                 </button>
               </div>
             </form>
@@ -300,7 +316,8 @@ export default function DeploymentsPage() {
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <span>📄</span> Build & Execution Logs
+                  <Terminal className="h-4 w-4 text-indigo-400" />
+                  <span>Build & Execution Logs</span>
                 </h3>
                 <span className="text-xs text-slate-400">
                   {activeLogDeployment.project_name} ({activeLogDeployment.environment}) — {activeLogDeployment.commit_sha}
@@ -308,9 +325,9 @@ export default function DeploymentsPage() {
               </div>
               <button
                 onClick={() => setActiveLogDeployment(null)}
-                className="text-slate-400 hover:text-white text-base font-bold cursor-pointer"
+                className="text-slate-400 hover:text-white cursor-pointer"
               >
-                ✕
+                <X className="h-4 w-4" />
               </button>
             </div>
 

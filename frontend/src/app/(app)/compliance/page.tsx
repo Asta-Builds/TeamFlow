@@ -5,6 +5,19 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Paginated, Project, SEOAudit } from "@/lib/types";
 import { Badge } from "@/lib/ui";
+import { toast } from "sonner";
+import {
+  SearchCheck,
+  Zap,
+  Smartphone,
+  Gauge,
+  CheckCircle2,
+  AlertTriangle,
+  ExternalLink,
+  Plus,
+  X,
+  Sparkles,
+} from "lucide-react";
 
 const SEVERITY_BADGES: Record<string, string> = {
   critical: "bg-rose-950/70 text-rose-300 border-rose-800/50 font-bold",
@@ -58,11 +71,12 @@ export default function CompliancePage() {
         body: { url },
       });
       setAudits((prev) => [created, ...prev]);
+      toast.success(`SEO & Core Web Vitals audit completed for ${url}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
-        alert("Only SEO Specialist, Tech Lead or CEO can run audits.");
+        toast.error("Permission denied: Only SEO Specialist, Tech Lead or CEO can run audits.");
       } else {
-        alert("Failed to run SEO audit.");
+        toast.error("Failed to run SEO audit.");
       }
     } finally {
       setRunning(false);
@@ -79,10 +93,10 @@ export default function CompliancePage() {
           issue_index: selectedAuditForTask.issueIdx,
         },
       });
-      alert("✓ Successfully created ticket from SEO issue!");
+      toast.success("Created ticket on project board from SEO issue!");
       setSelectedAuditForTask(null);
     } catch {
-      alert("Error creating ticket from SEO issue.");
+      toast.error("Error creating ticket from SEO issue.");
     }
   };
 
@@ -120,9 +134,10 @@ export default function CompliancePage() {
             <button
               type="submit"
               disabled={running}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-60 transition shrink-0 cursor-pointer"
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-60 transition shrink-0 cursor-pointer flex items-center gap-1.5"
             >
-              {running ? "Auditing..." : "⚡ Run Audit"}
+              <Zap className="h-3.5 w-3.5" />
+              <span>{running ? "Auditing..." : "Run Audit"}</span>
             </button>
           </form>
         )}
@@ -142,9 +157,10 @@ export default function CompliancePage() {
                   href={a.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-bold text-white hover:text-indigo-400 transition text-base block truncate max-w-xs"
+                  className="font-bold text-white hover:text-indigo-400 transition text-base block truncate max-w-xs flex items-center gap-1"
                 >
-                  {a.url} ↗
+                  <span>{a.url}</span>
+                  <ExternalLink className="h-3 w-3" />
                 </a>
                 <span className="text-xs text-slate-500 font-medium mt-0.5 block font-mono">
                   {new Date(a.created_at).toLocaleString()}
@@ -171,16 +187,25 @@ export default function CompliancePage() {
             {/* Subscores */}
             <div className="grid grid-cols-3 gap-3 text-center bg-slate-950/80 p-3 rounded-xl border border-slate-800">
               <div>
-                <div className="text-sm font-black text-indigo-400">{a.performance_score ?? 94}</div>
-                <div className="text-[10px] text-slate-500 font-bold uppercase">Performance</div>
+                <div className="text-sm font-black text-indigo-400 flex items-center justify-center gap-1">
+                  <Gauge className="h-3.5 w-3.5" />
+                  <span>{a.performance_score ?? 94}</span>
+                </div>
+                <div className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Performance</div>
               </div>
               <div>
-                <div className="text-sm font-black text-teal-400">{a.seo_score ?? 92}</div>
-                <div className="text-[10px] text-slate-500 font-bold uppercase">SEO Tags</div>
+                <div className="text-sm font-black text-teal-400 flex items-center justify-center gap-1">
+                  <SearchCheck className="h-3.5 w-3.5" />
+                  <span>{a.seo_score ?? 92}</span>
+                </div>
+                <div className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">SEO Tags</div>
               </div>
               <div>
-                <div className="text-sm font-black text-purple-400">{a.mobile_score ?? 95}</div>
-                <div className="text-[10px] text-slate-500 font-bold uppercase">Mobile Speed</div>
+                <div className="text-sm font-black text-purple-400 flex items-center justify-center gap-1">
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span>{a.mobile_score ?? 95}</span>
+                </div>
+                <div className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Mobile Speed</div>
               </div>
             </div>
 
@@ -190,8 +215,9 @@ export default function CompliancePage() {
                 Audit Recommendations ({a.issues?.length || 0})
               </h4>
               {(!a.issues || a.issues.length === 0) ? (
-                <p className="text-xs text-emerald-400 font-bold py-2">
-                  🟢 Page passed all technical SEO and metadata standards!
+                <p className="text-xs text-emerald-400 font-bold py-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                  <span>Page passed all technical SEO and metadata standards!</span>
                 </p>
               ) : (
                 <div className="space-y-2.5">
@@ -211,16 +237,17 @@ export default function CompliancePage() {
 
                       {issue.recommendation && (
                         <p className="text-[11px] text-slate-400 bg-slate-900 p-2 rounded-lg border border-slate-800/80">
-                          💡 <strong>Fix:</strong> {issue.recommendation}
+                          <strong className="text-slate-300">Fix:</strong> {issue.recommendation}
                         </p>
                       )}
 
                       <div className="flex justify-end pt-1">
                         <button
                           onClick={() => setSelectedAuditForTask({ auditId: a.id, issueIdx: idx })}
-                          className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer"
+                          className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer flex items-center gap-1"
                         >
-                          + Create Fix Ticket →
+                          <Plus className="h-3 w-3" />
+                          <span>Create Fix Ticket</span>
                         </button>
                       </div>
                     </div>
@@ -232,9 +259,9 @@ export default function CompliancePage() {
         ))}
 
         {audits.length === 0 && (
-          <div className="col-span-2 rounded-2xl border border-dashed border-slate-800 p-12 text-center text-slate-500 font-medium bg-slate-900/50">
-            <span className="text-3xl block mb-2">🔍</span>
-            No technical SEO audits recorded yet. Run your first crawl above.
+          <div className="col-span-2 rounded-2xl border border-dashed border-slate-800 p-12 text-center text-slate-500 font-medium bg-slate-900/50 space-y-2">
+            <SearchCheck className="h-8 w-8 text-slate-600 mx-auto" />
+            <p className="text-xs">No technical SEO audits recorded yet. Run your first crawl above.</p>
           </div>
         )}
       </div>
@@ -243,7 +270,12 @@ export default function CompliancePage() {
       {selectedAuditForTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
           <div className="w-full max-w-sm rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-            <h3 className="text-base font-bold text-white">Create SEO Task</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white">Create SEO Task</h3>
+              <button onClick={() => setSelectedAuditForTask(null)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <p className="text-xs text-slate-400">
               Select which project board to assign this fix ticket to.
             </p>
