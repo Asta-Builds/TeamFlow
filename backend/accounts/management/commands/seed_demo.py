@@ -12,16 +12,16 @@ from notifications.models import Notification
 User = get_user_model()
 
 TEAM = [
-    ("ceo@teamflow.dev", "Abdelilah Dahou", User.Role.CEO, "Founder & CEO"),
-    ("lead@teamflow.dev", "Sarah Jenkins", User.Role.TECH_LEAD, "Tech Lead & Architecture"),
-    ("backend1@teamflow.dev", "Marcus Aurelius", User.Role.BACKEND, "Senior Backend Engineer"),
-    ("backend2@teamflow.dev", "Julius Caesar", User.Role.BACKEND, "Senior Backend Engineer"),
-    ("frontend1@teamflow.dev", "Cleopatra Philopator", User.Role.FRONTEND, "Senior Frontend Engineer"),
-    ("frontend2@teamflow.dev", "Alexander Great", User.Role.FRONTEND, "Senior Frontend Engineer"),
-    ("devops@teamflow.dev", "Joan Arc", User.Role.DEVOPS, "DevOps Engineer"),
-    ("qa@teamflow.dev", "Alan Turing", User.Role.QA, "QA Engineer"),
-    ("design@teamflow.dev", "Leonardo DaVinci", User.Role.DESIGNER, "UI/UX Designer"),
-    ("seo@teamflow.dev", "Ada Lovelace", User.Role.SEO, "SEO Specialist"),
+    ("ceo@teamflow.dev", "Abdelilah Dahou", User.Role.CEO, "Human Founder & Executive Leader"),
+    ("lead@teamflow.dev", "Sarah Jenkins (AI)", User.Role.TECH_LEAD, "Autonomous AI Tech Lead & Swarm Orchestrator"),
+    ("backend1@teamflow.dev", "Marcus Aurelius (AI)", User.Role.BACKEND, "Autonomous AI Senior Backend Engineer"),
+    ("backend2@teamflow.dev", "Julius Caesar (AI)", User.Role.BACKEND, "Autonomous AI Senior Backend Engineer"),
+    ("frontend1@teamflow.dev", "Cleopatra (AI)", User.Role.FRONTEND, "Autonomous AI Senior Frontend Engineer"),
+    ("frontend2@teamflow.dev", "Alexander (AI)", User.Role.FRONTEND, "Autonomous AI Senior Frontend Engineer"),
+    ("devops@teamflow.dev", "Joan of Arc (AI)", User.Role.DEVOPS, "Autonomous AI DevOps & Release Engineer"),
+    ("qa@teamflow.dev", "Alan Turing (AI)", User.Role.QA, "Autonomous AI QA & Gatekeeper Engineer"),
+    ("design@teamflow.dev", "Leonardo Da Vinci (AI)", User.Role.DESIGNER, "Autonomous AI UI/UX Design Specialist"),
+    ("seo@teamflow.dev", "Ada Lovelace (AI)", User.Role.SEO, "Autonomous AI Technical SEO Specialist"),
 ]
 
 DEMO_PASSWORD = "teamflow-demo-pw"

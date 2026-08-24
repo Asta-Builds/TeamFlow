@@ -81,6 +81,11 @@ class User(AbstractUser):
         return self.name or self.email
 
     @property
+    def is_ai_agent(self):
+        """All profiles in the virtual tech company are autonomous AI agents except the human CEO/Founder."""
+        return self.role != self.Role.CEO
+
+    @property
     def is_privileged(self):
         """CEO / Tech Lead / Admin / staff can manage projects, team members, and the workspace."""
         return (

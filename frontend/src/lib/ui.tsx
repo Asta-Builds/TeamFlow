@@ -1,18 +1,18 @@
 import React from "react";
 import type { Priority, Role, TaskStatus, TaskType, UserStatus } from "./types";
-import { Sparkles, Bug, CheckSquare, Shield, Code, Palette, Search, Terminal, Crown, UserCheck } from "lucide-react";
+import { Sparkles, Bug, CheckSquare, Shield, Code, Palette, Search, Terminal, Crown, UserCheck, Bot } from "lucide-react";
 
 export const ROLE_LABELS: Record<Role, string> = {
-  ceo: "CEO",
-  tech_lead: "Tech Lead",
-  backend: "Senior Backend Engineer",
-  frontend: "Senior Frontend Engineer",
-  devops: "DevOps Engineer",
-  qa: "QA Engineer",
-  designer: "UI/UX Designer",
-  seo: "SEO Specialist",
+  ceo: "CEO (Human Founder)",
+  tech_lead: "AI Tech Lead",
+  backend: "AI Backend Engineer",
+  frontend: "AI Frontend Engineer",
+  devops: "AI DevOps Engineer",
+  qa: "AI QA Engineer",
+  designer: "AI UI/UX Designer",
+  seo: "AI SEO Specialist",
   admin: "Admin",
-  member: "Member",
+  member: "AI Member Agent",
 };
 
 export const ROLE_COLORS: Record<Role, string> = {
@@ -108,12 +108,14 @@ export function Avatar({
   size = 32,
   showStatus = false,
   status = "active",
+  isAi = true,
 }: {
   name: string;
   email?: string;
   size?: number;
   showStatus?: boolean;
   status?: UserStatus;
+  isAi?: boolean;
 }) {
   const seed = (name || email || "?").charCodeAt(0) || 0;
   const gradient = AVATAR_GRADIENTS[seed % AVATAR_GRADIENTS.length];
@@ -132,6 +134,24 @@ export function Avatar({
         />
       )}
     </div>
+  );
+}
+
+export function AgentTypeBadge({ role, isAi }: { role?: Role; isAi?: boolean }) {
+  const isHuman = role === "ceo" || isAi === false;
+  if (isHuman) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-300 bg-purple-950/70 border border-purple-800/60 px-2 py-0.5 rounded-md">
+        <Crown className="h-3 w-3 inline text-purple-400" />
+        <span>Human Founder</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-300 bg-indigo-950/70 border border-indigo-800/60 px-2 py-0.5 rounded-md">
+      <Bot className="h-3 w-3 inline text-indigo-400" />
+      <span>AI Agent</span>
+    </span>
   );
 }
 

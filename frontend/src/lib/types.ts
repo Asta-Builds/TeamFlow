@@ -17,6 +17,7 @@ export interface User {
   email: string;
   name: string;
   role: Role;
+  is_ai_agent?: boolean;
   user_status?: UserStatus;
   avatar_url: string;
   bio?: string;

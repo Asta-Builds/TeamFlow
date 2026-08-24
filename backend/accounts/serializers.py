@@ -9,6 +9,7 @@ class UserSerializer(serializers.ModelSerializer):
     organization_name = serializers.CharField(source="organization.name", read_only=True)
     organization_tier = serializers.CharField(source="organization.subscription_tier", read_only=True)
     organization_status = serializers.CharField(source="organization.subscription_status", read_only=True)
+    is_ai_agent = serializers.BooleanField(read_only=True)
     open_tasks_count = serializers.SerializerMethodField()
     closed_tasks_count = serializers.SerializerMethodField()
 
@@ -19,6 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "name",
             "role",
+            "is_ai_agent",
             "user_status",
             "avatar_url",
             "bio",

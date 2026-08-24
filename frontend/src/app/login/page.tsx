@@ -15,6 +15,7 @@ import {
   UserCheck,
   Building2,
   CheckCircle2,
+  Bot,
 } from "lucide-react";
 
 const KEYCLOAK_URL = process.env.NEXT_PUBLIC_KEYCLOAK_URL || "http://localhost:8080";
@@ -22,11 +23,12 @@ const KEYCLOAK_REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || "teamflow";
 const KEYCLOAK_CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "teamflow-app";
 
 const DEMO_ACCOUNTS = [
-  { label: "CEO", email: "ceo@teamflow.dev", name: "Abdelilah Dahou", icon: Crown },
-  { label: "Tech Lead", email: "lead@teamflow.dev", name: "Sarah Jenkins", icon: Code2 },
-  { label: "DevOps", email: "devops@teamflow.dev", name: "Joan Arc", icon: Rocket },
-  { label: "QA", email: "qa@teamflow.dev", name: "Alan Turing", icon: ShieldCheck },
-  { label: "SEO", email: "seo@teamflow.dev", name: "Ada Lovelace", icon: SearchCheck },
+  { label: "CEO (Human)", email: "ceo@teamflow.dev", name: "Abdelilah Dahou", icon: Crown },
+  { label: "Tech Lead (AI)", email: "lead@teamflow.dev", name: "Sarah Jenkins (AI)", icon: Code2 },
+  { label: "Backend (AI)", email: "backend1@teamflow.dev", name: "Marcus Aurelius (AI)", icon: Bot },
+  { label: "DevOps (AI)", email: "devops@teamflow.dev", name: "Joan of Arc (AI)", icon: Rocket },
+  { label: "QA (AI)", email: "qa@teamflow.dev", name: "Alan Turing (AI)", icon: ShieldCheck },
+  { label: "SEO (AI)", email: "seo@teamflow.dev", name: "Ada Lovelace (AI)", icon: SearchCheck },
 ];
 
 export default function LoginPage() {

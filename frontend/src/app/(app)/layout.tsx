@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import type { Notification, Role } from "@/lib/types";
-import { Avatar, ROLE_COLORS, ROLE_LABELS } from "@/lib/ui";
+import { Avatar, ROLE_COLORS, ROLE_LABELS, AgentTypeBadge } from "@/lib/ui";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -20,29 +20,27 @@ import {
   LogOut,
   UserCog,
   Building2,
-  ShieldCheck,
-  CheckCircle2,
-  Sparkles,
-  ExternalLink,
-  ChevronRight,
+  Crown,
+  Bot,
   X,
 } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects & Kanban", icon: Kanban },
-  { href: "/team", label: "Team & Seats", icon: Users },
+  { href: "/team", label: "Team & AI Seats", icon: Users },
   { href: "/deployments", label: "Deployments", icon: Rocket },
   { href: "/compliance", label: "SEO Audits", icon: SearchCheck },
   { href: "/settings", label: "Workspace Settings", icon: Settings },
 ];
 
-const DEMO_PERSONAS: Array<{ email: string; label: string; role: Role; desc: string }> = [
-  { email: "lead@teamflow.dev", label: "Tech Lead", role: "tech_lead", desc: "PR Reviews & Swarm Dispatch" },
-  { email: "ceo@teamflow.dev", label: "CEO / Executive", role: "ceo", desc: "Executive KPI & Budget Oversight" },
-  { email: "qa@teamflow.dev", label: "QA Engineer", role: "qa", desc: "Decision Gate & Rejection Loop" },
-  { email: "devops@teamflow.dev", label: "DevOps Engineer", role: "devops", desc: "Releases & 1-Click Rollback" },
-  { email: "seo@teamflow.dev", label: "SEO Specialist", role: "seo", desc: "Core Web Vitals & Audit Tickets" },
+const DEMO_PERSONAS: Array<{ email: string; label: string; role: Role; desc: string; isAi: boolean }> = [
+  { email: "ceo@teamflow.dev", label: "CEO (Human Founder)", role: "ceo", desc: "Human Executive, KPI & Budget Control", isAi: false },
+  { email: "lead@teamflow.dev", label: "AI Tech Lead", role: "tech_lead", desc: "Autonomous Swarm Orchestration & Code Review", isAi: true },
+  { email: "backend1@teamflow.dev", label: "AI Backend Engineer", role: "backend", desc: "Autonomous PR Generation & Mutex Fixes", isAi: true },
+  { email: "qa@teamflow.dev", label: "AI QA Engineer", role: "qa", desc: "Autonomous Decision Gate & Regression Tests", isAi: true },
+  { email: "devops@teamflow.dev", label: "AI DevOps Engineer", role: "devops", desc: "Autonomous Staging Releases & 1-Click Rollback", isAi: true },
+  { email: "seo@teamflow.dev", label: "AI SEO Specialist", role: "seo", desc: "Autonomous Core Web Vitals Audits", isAi: true },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -95,7 +93,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     try {
       await login(email, "teamflow-demo-pw");
       setShowRoleSwitcher(false);
-      toast.success(`Switched role to ${email}`);
+      toast.success(`Switched to ${email}`);
       router.refresh();
     } catch (err) {
       toast.error("Error switching persona: " + String(err));
@@ -118,6 +116,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+  const isHuman = user.role === "ceo";
 
   const navItems = [...NAV];
   if (user.role === "admin" || user.role === "ceo") {
@@ -126,7 +125,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
-      {/* 🧭 SuperDesign Dark Sidebar */}
+      {/* SuperDesign Dark Sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-800/80 bg-slate-950 p-4 md:flex justify-between">
         <div className="space-y-5">
           {/* Workspace Brand Header */}
@@ -204,7 +203,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <UserCog className="h-3.5 w-3.5 text-indigo-400" />
               <span>Switch Persona</span>
             </div>
-            <span className="text-[10px] text-indigo-400 font-bold uppercase">{ROLE_LABELS[user.role]?.split(" ")[0]}</span>
+            <AgentTypeBadge role={user.role} isAi={!isHuman} />
           </button>
 
           <button
@@ -219,7 +218,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main App Content Viewport */}
       <div className="flex min-w-0 flex-1 flex-col bg-slate-900">
-        {/* SuperDesign App Header */}
+        {/* App Header */}
         <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/80 px-6 backdrop-blur-md">
           {/* Left: Breadcrumbs / Title */}
           <div className="flex items-center gap-3">
@@ -230,7 +229,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Live Swarm Status Pill */}
             <div className="hidden lg:inline-flex items-center gap-1.5 rounded-full border border-indigo-800/40 bg-indigo-950/40 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-300">
               <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>LangGraph Swarm Online</span>
+              <span>LangGraph Swarm Online (9 AI Agent Seats)</span>
             </div>
           </div>
 
@@ -307,13 +306,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Profile Pill */}
             <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
               <div className="text-right hidden sm:block">
-                <div className="text-xs font-bold text-white leading-tight">
-                  {user.name || user.email}
+                <div className="text-xs font-bold text-white leading-tight flex items-center justify-end gap-1.5">
+                  <span>{user.name || user.email}</span>
                 </div>
-                <div className="mt-0.5">
-                  <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md border ${ROLE_COLORS[user.role] || "bg-slate-800 text-slate-300"}`}>
-                    {ROLE_LABELS[user.role] || user.role}
-                  </span>
+                <div className="mt-0.5 flex items-center justify-end gap-1.5">
+                  <AgentTypeBadge role={user.role} isAi={!isHuman} />
                 </div>
               </div>
               <Avatar name={user.name} email={user.email} size={34} showStatus={true} status="active" />
@@ -333,10 +330,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div>
                 <h3 className="text-base font-bold text-white flex items-center gap-2">
                   <UserCog className="h-4 w-4 text-indigo-400" />
-                  <span>Quick Role Switcher</span>
+                  <span>Switch Active Persona</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
-                  Test the SuperDesign UI instantly from different organizational perspectives.
+                  Experience TeamFlow as the <strong>Human CEO Founder</strong> or any <strong>Autonomous AI Agent</strong>.
                 </p>
               </div>
               <button onClick={() => setShowRoleSwitcher(false)} className="text-slate-400 hover:text-white text-base cursor-pointer">
@@ -358,6 +355,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 >
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
+                      {p.isAi ? (
+                        <Bot className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
+                      ) : (
+                        <Crown className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                      )}
                       <span className="text-xs font-bold text-white">{p.label}</span>
                       {user.email === p.email && (
                         <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.2 rounded-md">
