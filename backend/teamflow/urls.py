@@ -71,6 +71,7 @@ urlpatterns = [
     path("api/health/", health, name="health"),
     path("api/auth/", include(auth_patterns)),
     path("api/agents/", include("agents.urls")),
+    path("api/integrations/", include("integrations.urls")),
     path("api/", include(router.urls)),
     # Billing
     path("api/billing/create-checkout-session/", CreateCheckoutSessionView.as_view(), name="billing-checkout"),

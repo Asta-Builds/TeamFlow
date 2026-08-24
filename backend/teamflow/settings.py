@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "seo",
     "notifications",
     "agents",
+    "integrations",
 ]
 
 MIDDLEWARE = [
