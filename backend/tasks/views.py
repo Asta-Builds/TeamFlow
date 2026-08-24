@@ -125,6 +125,12 @@ class TaskViewSet(viewsets.ModelViewSet):
             details={"comment_preview": comment.body[:100]}
         )
 
+        # If comment contains @agent tags (e.g. @tech_lead, @backend, @qa), generate autonomous AI Agent response
+        agent_replies = []
+        if "@" in comment.body:
+            from agents.agent_prompter import process_ceo_prompt
+            agent_replies = process_ceo_prompt(task, comment.body, request.user)
+
         # Notify assignee & creator
         recipients = {task.assignee, task.created_by} - {request.user, None}
         for recipient in recipients:
@@ -137,7 +143,48 @@ class TaskViewSet(viewsets.ModelViewSet):
                 organization=request.user.organization,
             )
 
-        return response.Response(serializer.data, status=201)
+        return response.Response({
+            **serializer.data,
+            "agent_replies": agent_replies
+        }, status=201)
+
+    @decorators.action(detail=True, methods=["post"])
+    def prompt_agent(self, request, pk=None):
+        """
+        POST /api/tasks/{id}/prompt_agent/
+        Direct CEO prompt endpoint to tag and instruct specific AI agents.
+        Body: { "prompt": "@tech_lead review the schema", "agent_tag": "tech_lead" }
+        """
+        task = self.get_object()
+        prompt_text = request.data.get("prompt", "").strip()
+        agent_tag = request.data.get("agent_tag", "").strip() or None
+
+        if not prompt_text:
+            return response.Response({"detail": "Prompt text is required."}, status=400)
+
+        # First, record CEO's prompt as a comment
+        ceo_comment = Comment.objects.create(
+            task=task,
+            author=request.user,
+            body=prompt_text
+        )
+
+        TaskActivity.objects.create(
+            task=task,
+            actor=request.user,
+            action="prompted_agent",
+            details={"prompt": prompt_text[:100], "agent_tag": agent_tag or "auto"}
+        )
+
+        # Generate agent response(s)
+        from agents.agent_prompter import process_ceo_prompt
+        agent_replies = process_ceo_prompt(task, prompt_text, request.user, specific_tag=agent_tag)
+
+        return response.Response({
+            "task_id": task.id,
+            "ceo_comment": CommentSerializer(ceo_comment, context={"request": request}).data,
+            "agent_replies": agent_replies,
+        })
 
     @decorators.action(detail=True, methods=["post"])
     def qa_validate(self, request, pk=None):

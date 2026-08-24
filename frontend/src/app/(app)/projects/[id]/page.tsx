@@ -24,6 +24,7 @@ import {
   TASK_COLUMNS,
   TASK_STATUS_LABELS,
   TASK_TYPE_STYLES,
+  AgentTypeBadge,
 } from "@/lib/ui";
 import { toast } from "sonner";
 import {
@@ -1006,41 +1007,104 @@ function TaskDetailPanel({
             {/* TAB: Comments */}
             {activeTab === "comments" && (
               <div className="space-y-4">
-                <div className="max-h-60 overflow-y-auto space-y-3 pr-1">
-                  {detail.comments?.map((c) => (
-                    <div key={c.id} className="flex gap-2.5 text-xs">
-                      <Avatar name={c.author_detail?.name || ""} email={c.author_detail?.email} size={26} />
-                      <div className="rounded-xl bg-slate-950 border border-slate-800 p-2.5 flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-white">{c.author_detail?.name || "System"}</span>
-                          <span className="text-[10px] text-slate-500">
-                            {new Date(c.created_at).toLocaleDateString()}
-                          </span>
+                <div className="max-h-72 overflow-y-auto space-y-3 pr-1">
+                  {detail.comments?.map((c) => {
+                    const isAi = c.author_detail?.role !== "ceo";
+                    return (
+                      <div
+                        key={c.id}
+                        className={`flex gap-3 text-xs p-3 rounded-2xl border transition ${
+                          isAi
+                            ? "bg-slate-950/80 border-indigo-900/40 shadow-xs ring-1 ring-indigo-500/10"
+                            : "bg-slate-950/40 border-slate-800"
+                        }`}
+                      >
+                        <Avatar
+                          name={c.author_detail?.name || ""}
+                          email={c.author_detail?.email}
+                          size={30}
+                        />
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-white">{c.author_detail?.name || "System"}</span>
+                              <AgentTypeBadge role={c.author_detail?.role} isAi={isAi} />
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              {new Date(c.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                          </div>
+                          <div className="text-slate-300 font-normal leading-relaxed whitespace-pre-wrap">
+                            {c.body}
+                          </div>
                         </div>
-                        <div className="mt-1 text-slate-300 font-medium">{c.body}</div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {(!detail.comments || detail.comments.length === 0) && (
-                    <p className="text-xs text-slate-500 py-2 text-center">No comments yet.</p>
+                    <p className="text-xs text-slate-500 py-3 text-center">
+                      No comments yet. Tag an agent with <code>@tech_lead</code> or <code>@backend</code> to prompt a response.
+                    </p>
                   )}
                 </div>
 
-                <form onSubmit={addComment} className="flex gap-2 pt-2">
-                  <input
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder="Write a comment..."
-                    className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none"
-                  />
-                  <button
-                    type="submit"
-                    disabled={posting}
-                    className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-60 transition cursor-pointer"
-                  >
-                    Post
-                  </button>
-                </form>
+                {/* CEO Agent Tag Mention Pills */}
+                <div className="pt-2 border-t border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                      <Bot className="h-3 w-3 text-indigo-400" />
+                      <span>Tag Autonomous Agent to Prompt</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-mono">Click to insert tag</span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    {[
+                      { tag: "@tech_lead", label: "Tech Lead", color: "hover:border-indigo-500 hover:text-indigo-300" },
+                      { tag: "@backend", label: "Backend", color: "hover:border-blue-500 hover:text-blue-300" },
+                      { tag: "@frontend", label: "Frontend", color: "hover:border-cyan-500 hover:text-cyan-300" },
+                      { tag: "@qa", label: "QA Gate", color: "hover:border-emerald-500 hover:text-emerald-300" },
+                      { tag: "@devops", label: "DevOps", color: "hover:border-orange-500 hover:text-orange-300" },
+                      { tag: "@designer", label: "UI/UX", color: "hover:border-pink-500 hover:text-pink-300" },
+                      { tag: "@seo", label: "SEO", color: "hover:border-teal-500 hover:text-teal-300" },
+                      { tag: "@all", label: "All Swarm", color: "hover:border-purple-500 hover:text-purple-300" },
+                    ].map((pill) => (
+                      <button
+                        key={pill.tag}
+                        type="button"
+                        onClick={() => {
+                          setComment((prev) => (prev ? `${prev} ${pill.tag} ` : `${pill.tag} `));
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border border-slate-800 bg-slate-950 text-slate-400 transition cursor-pointer ${pill.color}`}
+                      >
+                        {pill.tag}
+                      </button>
+                    ))}
+                  </div>
+
+                  <form onSubmit={addComment} className="flex gap-2 pt-1">
+                    <input
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="Prompt an agent, e.g.: @tech_lead break down the tasks..."
+                      className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      disabled={posting}
+                      className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-60 transition cursor-pointer flex items-center gap-1.5 shrink-0 shadow-xs"
+                    >
+                      {posting ? (
+                        <span>Thinking…</span>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3 w-3" />
+                          <span>Prompt / Send</span>
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
               </div>
             )}
 
