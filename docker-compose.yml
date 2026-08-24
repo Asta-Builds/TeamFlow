@@ -91,7 +91,7 @@ services:
     ports:
       - "3001:3000"
     environment:
-      DATABASE_URL: "postgresql://teamflow:teamflow_password@db:5432/teamflow"
+      DATABASE_URL: "postgresql://teamflow:teamflow_password@db:5432/langfuse"
       NEXTAUTH_URL: "http://localhost:3001"
       NEXTAUTH_SECRET: "teamflow-langfuse-secret-key-32chars"
       SALT: "teamflow-langfuse-salt-key-32chars"
