@@ -1,17 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { apiFetch, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type { Paginated, Project, SEOAudit } from "@/lib/types";
 import { Badge } from "@/lib/ui";
 
 const SEVERITY_BADGES: Record<string, string> = {
-  critical: "bg-rose-100 text-rose-800 border-rose-200 font-bold",
-  high: "bg-orange-100 text-orange-800 border-orange-200 font-bold",
-  medium: "bg-amber-100 text-amber-800 border-amber-200 font-semibold",
-  low: "bg-slate-100 text-slate-700 border-slate-200",
+  critical: "bg-rose-950/70 text-rose-300 border-rose-800/50 font-bold",
+  high: "bg-orange-950/70 text-orange-300 border-orange-800/50 font-bold",
+  medium: "bg-amber-950/70 text-amber-300 border-amber-800/50 font-semibold",
+  low: "bg-slate-900 text-slate-400 border-slate-800",
 };
 
 export default function CompliancePage() {
@@ -89,21 +88,21 @@ export default function CompliancePage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center text-slate-400 font-medium">
+      <div className="flex h-64 items-center justify-center text-slate-500 font-semibold text-xs tracking-wider uppercase">
         Loading SEO audits…
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
             Technical SEO & Performance Audits
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-xs text-slate-400 mt-1">
             Crawl metadata, check Core Web Vitals, and generate automated fix tickets.
           </p>
         </div>
@@ -116,12 +115,12 @@ export default function CompliancePage() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://yourwebsite.com"
-              className="rounded-xl border border-slate-300 px-3.5 py-2 text-xs bg-white text-slate-900 focus:border-indigo-500 focus:outline-none flex-1 md:w-64"
+              className="rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none flex-1 md:w-64"
             />
             <button
               type="submit"
               disabled={running}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 transition shrink-0"
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-60 transition shrink-0 cursor-pointer"
             >
               {running ? "Auditing..." : "⚡ Run Audit"}
             </button>
@@ -134,64 +133,64 @@ export default function CompliancePage() {
         {audits.map((a) => (
           <div
             key={a.id}
-            className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs space-y-5 hover:shadow-md transition"
+            className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-5 hover:border-slate-700 transition"
           >
             {/* Top score banner */}
-            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
               <div>
                 <a
                   href={a.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-bold text-slate-900 hover:text-indigo-600 transition text-base block truncate max-w-xs"
+                  className="font-bold text-white hover:text-indigo-400 transition text-base block truncate max-w-xs"
                 >
                   {a.url} ↗
                 </a>
-                <span className="text-xs text-slate-400 font-medium mt-0.5 block">
+                <span className="text-xs text-slate-500 font-medium mt-0.5 block font-mono">
                   {new Date(a.created_at).toLocaleString()}
                 </span>
               </div>
-              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-3 py-1.5 rounded-xl">
+              <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl">
                 <span
                   className={`text-2xl font-black ${
                     a.score >= 90
-                      ? "text-emerald-600"
+                      ? "text-emerald-400"
                       : a.score >= 70
-                      ? "text-amber-500"
-                      : "text-rose-600"
+                      ? "text-amber-400"
+                      : "text-rose-400"
                   }`}
                 >
                   {a.score}
                 </span>
-                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider leading-tight">
+                <div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider leading-tight">
                   Health<br />Score
                 </div>
               </div>
             </div>
 
             {/* Subscores */}
-            <div className="grid grid-cols-3 gap-3 text-center bg-slate-50/80 p-3 rounded-xl border border-slate-100">
+            <div className="grid grid-cols-3 gap-3 text-center bg-slate-950/80 p-3 rounded-xl border border-slate-800">
               <div>
-                <div className="text-sm font-extrabold text-indigo-600">{a.performance_score ?? 94}</div>
+                <div className="text-sm font-black text-indigo-400">{a.performance_score ?? 94}</div>
                 <div className="text-[10px] text-slate-500 font-bold uppercase">Performance</div>
               </div>
               <div>
-                <div className="text-sm font-extrabold text-teal-600">{a.seo_score ?? 92}</div>
+                <div className="text-sm font-black text-teal-400">{a.seo_score ?? 92}</div>
                 <div className="text-[10px] text-slate-500 font-bold uppercase">SEO Tags</div>
               </div>
               <div>
-                <div className="text-sm font-extrabold text-purple-600">{a.mobile_score ?? 95}</div>
+                <div className="text-sm font-black text-purple-400">{a.mobile_score ?? 95}</div>
                 <div className="text-[10px] text-slate-500 font-bold uppercase">Mobile Speed</div>
               </div>
             </div>
 
             {/* Issues and Findings */}
             <div>
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2.5">
+              <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2.5">
                 Audit Recommendations ({a.issues?.length || 0})
               </h4>
               {(!a.issues || a.issues.length === 0) ? (
-                <p className="text-xs text-emerald-600 font-bold py-2">
+                <p className="text-xs text-emerald-400 font-bold py-2">
                   🟢 Page passed all technical SEO and metadata standards!
                 </p>
               ) : (
@@ -199,10 +198,10 @@ export default function CompliancePage() {
                   {a.issues.map((issue, idx) => (
                     <div
                       key={idx}
-                      className="p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs flex flex-col justify-between gap-2"
+                      className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs flex flex-col justify-between gap-2"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="font-semibold text-slate-800 leading-snug">
+                        <span className="font-semibold text-slate-200 leading-snug">
                           {issue.message}
                         </span>
                         <Badge className={SEVERITY_BADGES[issue.severity] || SEVERITY_BADGES.medium}>
@@ -211,7 +210,7 @@ export default function CompliancePage() {
                       </div>
 
                       {issue.recommendation && (
-                        <p className="text-[11px] text-slate-500 bg-white p-2 rounded-lg border border-slate-100">
+                        <p className="text-[11px] text-slate-400 bg-slate-900 p-2 rounded-lg border border-slate-800/80">
                           💡 <strong>Fix:</strong> {issue.recommendation}
                         </p>
                       )}
@@ -219,7 +218,7 @@ export default function CompliancePage() {
                       <div className="flex justify-end pt-1">
                         <button
                           onClick={() => setSelectedAuditForTask({ auditId: a.id, issueIdx: idx })}
-                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                          className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer"
                         >
                           + Create Fix Ticket →
                         </button>
@@ -233,7 +232,7 @@ export default function CompliancePage() {
         ))}
 
         {audits.length === 0 && (
-          <div className="col-span-2 rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-400 font-medium bg-white">
+          <div className="col-span-2 rounded-2xl border border-dashed border-slate-800 p-12 text-center text-slate-500 font-medium bg-slate-900/50">
             <span className="text-3xl block mb-2">🔍</span>
             No technical SEO audits recorded yet. Run your first crawl above.
           </div>
@@ -242,19 +241,19 @@ export default function CompliancePage() {
 
       {/* Convert Issue to Ticket Modal */}
       {selectedAuditForTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
-            <h3 className="text-base font-bold text-slate-900 mb-1">Create SEO Task</h3>
-            <p className="text-xs text-slate-500 mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <h3 className="text-base font-bold text-white">Create SEO Task</h3>
+            <p className="text-xs text-slate-400">
               Select which project board to assign this fix ticket to.
             </p>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Target Project</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Target Project</label>
                 <select
                   value={targetProjectId}
                   onChange={(e) => setTargetProjectId(Number(e.target.value))}
-                  className="w-full rounded-xl border border-slate-300 p-2 text-xs font-semibold"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2 text-xs font-semibold text-white focus:outline-none"
                 >
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -264,18 +263,18 @@ export default function CompliancePage() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
                 <button
                   type="button"
                   onClick={() => setSelectedAuditForTask(null)}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-500"
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateTaskFromIssue}
-                  className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700"
+                  className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 cursor-pointer"
                 >
                   Add to Board
                 </button>

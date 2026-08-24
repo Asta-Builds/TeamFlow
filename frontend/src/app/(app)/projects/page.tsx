@@ -8,10 +8,10 @@ import type { Paginated, Project, ProjectStatus } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
 
 const STATUS_STYLES: Record<ProjectStatus, string> = {
-  active: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  on_hold: "bg-amber-50 text-amber-700 border-amber-200",
-  completed: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  archived: "bg-slate-100 text-slate-500 border-slate-200",
+  active: "bg-emerald-950/70 text-emerald-300 border-emerald-800/50",
+  on_hold: "bg-amber-950/70 text-amber-300 border-amber-800/50",
+  completed: "bg-indigo-950/70 text-indigo-300 border-indigo-800/50",
+  archived: "bg-slate-900 text-slate-400 border-slate-800",
 };
 
 export default function ProjectsPage() {
@@ -66,33 +66,33 @@ export default function ProjectsPage() {
     : projects;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6 max-w-7xl mx-auto">
+      {/* SuperDesign Projects Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
             Projects Portfolio
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-xs text-slate-400 mt-1">
             Track initiatives, sprint deliverables, and team task boards.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {/* View mode toggle */}
-          <div className="flex rounded-xl bg-slate-200/80 p-1">
+          <div className="flex rounded-xl bg-slate-900 border border-slate-800 p-1">
             <button
               onClick={() => setViewMode("grid")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                viewMode === "grid" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                viewMode === "grid" ? "bg-slate-800 text-white shadow-xs" : "text-slate-400 hover:text-white"
               }`}
             >
               ▦ Grid
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer ${
+                viewMode === "table" ? "bg-slate-800 text-white shadow-xs" : "text-slate-400 hover:text-white"
               }`}
             >
               ☰ Table
@@ -102,7 +102,7 @@ export default function ProjectsPage() {
           {canCreate && (
             <button
               onClick={() => setCreating((c) => !c)}
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition"
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition cursor-pointer"
             >
               {creating ? "Cancel" : "+ New Project"}
             </button>
@@ -115,7 +115,7 @@ export default function ProjectsPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
+          className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 shadow-xs"
         >
           <option value="">All Project Statuses</option>
           <option value="active">Active</option>
@@ -123,7 +123,7 @@ export default function ProjectsPage() {
           <option value="completed">Completed</option>
           <option value="archived">Archived</option>
         </select>
-        <span className="text-xs text-slate-400 font-medium">
+        <span className="text-xs text-slate-500 font-medium">
           Showing {filteredProjects.length} of {projects.length} projects
         </span>
       </div>
@@ -132,35 +132,35 @@ export default function ProjectsPage() {
       {creating && (
         <form
           onSubmit={createProject}
-          className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-md animate-in fade-in duration-150"
+          className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl animate-in fade-in duration-150"
         >
-          <h3 className="font-bold text-slate-900 text-sm">Create New Project</h3>
+          <h3 className="font-bold text-white text-sm">Create New Project</h3>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Project Name *</label>
+            <label className="block text-xs font-bold text-slate-300 mb-1">Project Name *</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Next-Gen Mobile App"
               required
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Description</label>
+            <label className="block text-xs font-bold text-slate-300 mb-1">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Goals, target deliverables, tech scope..."
               rows={2}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Status</label>
+            <label className="block text-xs font-bold text-slate-300 mb-1">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
             >
               <option value="active">Active</option>
               <option value="on_hold">On Hold</option>
@@ -168,18 +168,18 @@ export default function ProjectsPage() {
               <option value="archived">Archived</option>
             </select>
           </div>
-          {error && <p className="text-xs font-semibold text-rose-600">{error}</p>}
-          <div className="flex items-center justify-end gap-2 pt-2">
+          {error && <p className="text-xs font-semibold text-rose-400">{error}</p>}
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
             <button
               type="button"
               onClick={() => setCreating(false)}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700"
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 cursor-pointer"
             >
               Create Project
             </button>
@@ -188,11 +188,11 @@ export default function ProjectsPage() {
       )}
 
       {loading ? (
-        <div className="flex h-48 items-center justify-center text-slate-400 font-medium">
+        <div className="flex h-48 items-center justify-center text-slate-500 font-semibold text-xs tracking-wider uppercase">
           Loading projects…
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-400">
+        <div className="rounded-2xl border border-dashed border-slate-800 p-12 text-center text-slate-500 bg-slate-900/50">
           <span className="text-3xl block mb-2">📂</span>
           No projects matching your criteria.
         </div>
@@ -205,32 +205,32 @@ export default function ProjectsPage() {
               <Link
                 key={p.id}
                 href={`/projects/${p.id}`}
-                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md hover:border-slate-300 flex flex-col justify-between"
+                className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-sm transition hover:border-slate-700 hover:-translate-y-0.5 flex flex-col justify-between"
               >
                 <div>
                   <div className="mb-2.5 flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-slate-900 tracking-tight text-base hover:text-indigo-600 transition">
+                    <h3 className="font-bold text-white tracking-tight text-base hover:text-indigo-400 transition">
                       {p.name}
                     </h3>
                     <Badge className={STATUS_STYLES[p.status] || STATUS_STYLES.active}>
                       {p.status}
                     </Badge>
                   </div>
-                  <p className="mb-4 line-clamp-2 text-xs text-slate-500 leading-relaxed">
+                  <p className="mb-4 line-clamp-2 text-xs text-slate-400 leading-relaxed">
                     {p.description || "No description provided."}
                   </p>
                 </div>
 
-                <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div className="space-y-3 pt-3 border-t border-slate-800/80">
                   {/* Progress bar */}
                   <div>
-                    <div className="flex justify-between text-[11px] font-bold text-slate-600 mb-1">
+                    <div className="flex justify-between text-[11px] font-bold text-slate-400 mb-1">
                       <span>Progress</span>
-                      <span className="text-indigo-600">{progress}%</span>
+                      <span className="text-indigo-400">{progress}%</span>
                     </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-950">
                       <div
-                        className="h-full rounded-full bg-indigo-600 transition-all duration-300"
+                        className="h-full rounded-full bg-indigo-500 transition-all duration-300"
                         style={{ width: `${progress}%` }}
                       ></div>
                     </div>
@@ -241,13 +241,13 @@ export default function ProjectsPage() {
                       {p.owner_detail && (
                         <>
                           <Avatar name={p.owner_detail.name} email={p.owner_detail.email} size={20} />
-                          <span className="text-[11px] font-medium text-slate-600">
+                          <span className="text-[11px] font-semibold text-slate-300">
                             {p.owner_detail.name.split(" ")[0]}
                           </span>
                         </>
                       )}
                     </div>
-                    <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200/60 font-semibold">
+                    <Badge className="bg-indigo-950 text-indigo-300 border-indigo-800/50 font-semibold">
                       {p.task_count ?? 0} tickets
                     </Badge>
                   </div>
@@ -257,10 +257,10 @@ export default function ProjectsPage() {
           })}
         </div>
       ) : (
-        /* Table Mode (Module 5) */
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs">
+        /* Table Mode */
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-sm">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-bold text-[10px] tracking-wider">
+            <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase font-extrabold text-[10px] tracking-wider">
               <tr>
                 <th className="px-5 py-3.5">Project Name</th>
                 <th className="px-5 py-3.5">Status</th>
@@ -269,39 +269,39 @@ export default function ProjectsPage() {
                 <th className="px-5 py-3.5 text-right">Tickets</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-800">
               {filteredProjects.map((p) => {
                 const progress = p.progress_percentage ?? 0;
                 return (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition">
+                  <tr key={p.id} className="hover:bg-slate-800/50 transition">
                     <td className="px-5 py-4">
-                      <Link href={`/projects/${p.id}`} className="font-bold text-slate-900 hover:text-indigo-600">
+                      <Link href={`/projects/${p.id}`} className="font-bold text-white hover:text-indigo-400">
                         {p.name}
                       </Link>
-                      <p className="text-slate-400 text-[11px] truncate max-w-xs">{p.description}</p>
+                      <p className="text-slate-500 text-[11px] truncate max-w-xs">{p.description}</p>
                     </td>
                     <td className="px-5 py-4">
                       <Badge className={STATUS_STYLES[p.status]}>{p.status}</Badge>
                     </td>
                     <td className="px-5 py-4 w-48">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
-                          <div className="h-full rounded-full bg-indigo-600" style={{ width: `${progress}%` }}></div>
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-950">
+                          <div className="h-full rounded-full bg-indigo-500" style={{ width: `${progress}%` }}></div>
                         </div>
-                        <span className="font-bold text-indigo-600 text-[11px] w-8 text-right">{progress}%</span>
+                        <span className="font-bold text-indigo-400 text-[11px] w-8 text-right">{progress}%</span>
                       </div>
                     </td>
                     <td className="px-5 py-4">
                       {p.owner_detail ? (
                         <div className="flex items-center gap-2">
                           <Avatar name={p.owner_detail.name} email={p.owner_detail.email} size={22} />
-                          <span className="font-medium text-slate-700">{p.owner_detail.name}</span>
+                          <span className="font-medium text-slate-300">{p.owner_detail.name}</span>
                         </div>
                       ) : (
-                        <span className="text-slate-400 italic">Unassigned</span>
+                        <span className="text-slate-600 italic">Unassigned</span>
                       )}
                     </td>
-                    <td className="px-5 py-4 text-right font-bold text-slate-700">
+                    <td className="px-5 py-4 text-right font-bold text-slate-300">
                       {p.task_count ?? 0}
                     </td>
                   </tr>

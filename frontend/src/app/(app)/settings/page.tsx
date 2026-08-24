@@ -81,55 +81,55 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+      <div className="border-b border-slate-800 pb-6">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
           Account & Workspace Settings
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <p className="text-xs text-slate-400 mt-1">
           Manage your personal profile, authentication credentials, and workspace preferences.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200">
+      <div className="flex items-center gap-2 border-b border-slate-800">
         <button
           onClick={() => setActiveTab("profile")}
-          className={`pb-3 px-3 text-xs font-bold transition ${
+          className={`pb-3 px-3 text-xs font-bold transition cursor-pointer ${
             activeTab === "profile"
-              ? "border-b-2 border-indigo-600 text-indigo-600"
-              : "text-slate-500 hover:text-slate-800"
+              ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
+              : "text-slate-400 hover:text-white"
           }`}
         >
           👤 Profile
         </button>
         <button
           onClick={() => setActiveTab("security")}
-          className={`pb-3 px-3 text-xs font-bold transition ${
+          className={`pb-3 px-3 text-xs font-bold transition cursor-pointer ${
             activeTab === "security"
-              ? "border-b-2 border-indigo-600 text-indigo-600"
-              : "text-slate-500 hover:text-slate-800"
+              ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
+              : "text-slate-400 hover:text-white"
           }`}
         >
           🔒 Security
         </button>
         <button
           onClick={() => setActiveTab("workspace")}
-          className={`pb-3 px-3 text-xs font-bold transition ${
+          className={`pb-3 px-3 text-xs font-bold transition cursor-pointer ${
             activeTab === "workspace"
-              ? "border-b-2 border-indigo-600 text-indigo-600"
-              : "text-slate-500 hover:text-slate-800"
+              ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
+              : "text-slate-400 hover:text-white"
           }`}
         >
           🏢 Workspace
         </button>
         <button
           onClick={() => setActiveTab("export")}
-          className={`pb-3 px-3 text-xs font-bold transition ${
+          className={`pb-3 px-3 text-xs font-bold transition cursor-pointer ${
             activeTab === "export"
-              ? "border-b-2 border-indigo-600 text-indigo-600"
-              : "text-slate-500 hover:text-slate-800"
+              ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
+              : "text-slate-400 hover:text-white"
           }`}
         >
           📦 Data Export
@@ -138,61 +138,61 @@ export default function SettingsPage() {
 
       {/* Profile Tab */}
       {activeTab === "profile" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm">
           <form onSubmit={handleSaveProfile} className="space-y-5">
-            <div className="flex items-center gap-4 pb-4 border-b border-slate-100">
-              <Avatar name={user?.name || ""} email={user?.email} size={54} />
+            <div className="flex items-center gap-4 pb-4 border-b border-slate-800">
+              <Avatar name={user?.name || ""} email={user?.email} size={54} showStatus={true} status="active" />
               <div>
-                <h3 className="text-sm font-bold text-slate-900">{user?.name || user?.email}</h3>
-                <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border mt-1 ${ROLE_COLORS[user?.role || "member"]}`}>
+                <h3 className="text-sm font-bold text-white">{user?.name || user?.email}</h3>
+                <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-md border mt-1 ${ROLE_COLORS[user?.role || "member"]}`}>
                   {ROLE_LABELS[user?.role || "member"]}
                 </span>
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Full Name</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1">Full Name</label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your full name"
-                className="w-full max-w-md rounded-xl border border-slate-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Email Address</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1">Email Address</label>
               <input
                 disabled
                 value={user?.email || ""}
-                className="w-full max-w-md rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 cursor-not-allowed"
+                className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-500 cursor-not-allowed font-mono"
               />
-              <span className="text-[10px] text-slate-400 mt-1 block">Email is your primary workspace login identifier.</span>
+              <span className="text-[10px] text-slate-500 mt-1 block">Email is your primary workspace login identifier.</span>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Avatar Image URL</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1">Avatar Image URL</label>
               <input
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
                 placeholder="https://example.com/photo.jpg"
-                className="w-full max-w-md rounded-xl border border-slate-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Bio / Mission</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1">Bio / Mission</label>
               <textarea
                 rows={3}
                 value={bio}
                 onChange={(e) => setBio(e.target.value)}
                 placeholder="Brief description of your role responsibilities..."
-                className="w-full max-w-md rounded-xl border border-slate-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
             {profileMsg && (
-              <p className={`text-xs font-bold ${profileMsg.type === "success" ? "text-emerald-600" : "text-rose-600"}`}>
+              <p className={`text-xs font-bold ${profileMsg.type === "success" ? "text-emerald-400" : "text-rose-400"}`}>
                 {profileMsg.text}
               </p>
             )}
@@ -200,7 +200,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={savingProfile}
-              className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 transition"
+              className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-60 transition cursor-pointer"
             >
               {savingProfile ? "Saving..." : "Save Profile"}
             </button>
@@ -210,33 +210,33 @@ export default function SettingsPage() {
 
       {/* Security Tab */}
       {activeTab === "security" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm">
           <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
-            <h3 className="text-sm font-bold text-slate-900 mb-2">Change Password</h3>
+            <h3 className="text-sm font-bold text-white mb-2">Change Password</h3>
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">Current Password</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1">Current Password</label>
               <input
                 type="password"
                 required
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">New Password</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1">New Password</label>
               <input
                 type="password"
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
             {passwordMsg && (
-              <p className={`text-xs font-bold ${passwordMsg.type === "success" ? "text-emerald-600" : "text-rose-600"}`}>
+              <p className={`text-xs font-bold ${passwordMsg.type === "success" ? "text-emerald-400" : "text-rose-400"}`}>
                 {passwordMsg.text}
               </p>
             )}
@@ -244,7 +244,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={savingPassword}
-              className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 transition"
+              className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-60 transition cursor-pointer"
             >
               {savingPassword ? "Updating..." : "Update Password"}
             </button>
@@ -254,25 +254,25 @@ export default function SettingsPage() {
 
       {/* Workspace Tab */}
       {activeTab === "workspace" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4 max-w-md">
-          <h3 className="text-sm font-bold text-slate-900">Workspace Details</h3>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4 max-w-md">
+          <h3 className="text-sm font-bold text-white">Workspace Details</h3>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Company / Workspace Name</label>
+            <label className="block text-xs font-bold text-slate-300 mb-1">Company / Workspace Name</label>
             <input
               disabled={!canManageWorkspace}
               defaultValue={user?.organization_name || "TeamFlow Workspace"}
-              className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none disabled:bg-slate-50"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none disabled:opacity-60"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">Subscription Plan</label>
-            <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs flex items-center justify-between">
+            <label className="block text-xs font-bold text-slate-300 mb-1">Subscription Plan</label>
+            <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs flex items-center justify-between">
               <div>
-                <span className="font-bold text-indigo-950 uppercase">{user?.organization_tier || "Growth"} Tier</span>
-                <p className="text-indigo-800 text-[11px]">Active SaaS subscription</p>
+                <span className="font-bold text-white uppercase">{user?.organization_tier || "Growth"} Tier</span>
+                <p className="text-slate-400 text-[11px]">Active SaaS subscription</p>
               </div>
-              <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="font-bold text-emerald-400 bg-emerald-950 border border-emerald-800/50 px-2 py-0.5 rounded-md text-[10px]">
                 Active
               </span>
             </div>
@@ -282,22 +282,22 @@ export default function SettingsPage() {
 
       {/* Export Tab */}
       {activeTab === "export" && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xs space-y-4 max-w-md">
-          <h3 className="text-sm font-bold text-slate-900">Export Workspace Data</h3>
-          <p className="text-xs text-slate-500 leading-relaxed">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4 max-w-md">
+          <h3 className="text-sm font-bold text-white">Export Workspace Data</h3>
+          <p className="text-xs text-slate-400 leading-relaxed">
             Download your full project records, ticket logs, comments, and audit histories in standard portable formats.
           </p>
 
           <div className="flex items-center gap-3 pt-2">
             <button
               onClick={() => handleExportData("json")}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white hover:bg-slate-800 transition"
+              className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 transition cursor-pointer"
             >
               Export as JSON (.json)
             </button>
             <button
               onClick={() => handleExportData("csv")}
-              className="rounded-xl bg-slate-100 border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
+              className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition cursor-pointer"
             >
               Export as CSV (.csv)
             </button>
