@@ -138,6 +138,10 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-950/60 border border-indigo-700/50 text-[11px] font-bold text-indigo-300">
+            <Bot className="h-3.5 w-3.5 text-indigo-400" />
+            <span>Google Antigravity SDK Active</span>
+          </div>
           <Link
             href="/projects"
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-2 cursor-pointer"

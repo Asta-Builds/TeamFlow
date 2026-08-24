@@ -86,7 +86,7 @@ class AgentIngestRAGView(views.APIView):
 class AgentStatusView(views.APIView):
     """
     GET /api/agents/status/
-    Returns multi-agent cluster status, LangGraph readiness, pgvector stats, and seats.
+    Returns multi-agent cluster status, Antigravity SDK readiness, pgvector stats, and seats.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -96,20 +96,19 @@ class AgentStatusView(views.APIView):
         successful_traces = AgentExecutionTrace.objects.filter(status=AgentExecutionTrace.Status.COMPLETED).count()
 
         agents_list = [
-            {"role": "tech_lead", "name": "Sarah Jenkins", "title": "Tech Lead (Orchestrator)", "status": "active"},
-            {"role": "backend_1", "name": "Marcus Aurelius", "title": "Senior Backend Agent (Core API)", "status": "active"},
-            {"role": "backend_2", "name": "Hypatia of Alexandria", "title": "Backend Agent (Integrations)", "status": "active"},
-            {"role": "frontend_1", "name": "Cleopatra Philopator", "title": "Senior Frontend Agent (Web App)", "status": "active"},
-            {"role": "frontend_2", "name": "Augustus Caesar", "title": "Frontend Agent (Design System)", "status": "active"},
-            {"role": "qa", "name": "Alan Turing", "title": "QA Automation Gate Agent", "status": "active"},
-            {"role": "devops", "name": "Joan of Arc", "title": "DevOps & Release Agent", "status": "active"},
-            {"role": "designer", "name": "Leonardo DaVinci", "title": "UI/UX Specialist Agent", "status": "active"},
-            {"role": "seo", "name": "Ada Lovelace", "title": "SEO & Performance Agent", "status": "active"},
+            {"role": "tech_lead", "name": "Sarah Jenkins (AI)", "title": "Tech Lead (Orchestrator)", "engine": "Google Antigravity SDK", "status": "active"},
+            {"role": "backend", "name": "Marcus Aurelius (AI)", "title": "Senior Backend Agent (Core API)", "engine": "Google Antigravity SDK", "status": "active"},
+            {"role": "frontend", "name": "Cleopatra (AI)", "title": "Senior Frontend Agent (Web App)", "engine": "Google Antigravity SDK", "status": "active"},
+            {"role": "qa", "name": "Alan Turing (AI)", "title": "QA Automation Gate Agent", "engine": "Google Antigravity SDK", "status": "active"},
+            {"role": "devops", "name": "Joan of Arc (AI)", "title": "DevOps & Release Agent", "engine": "Google Antigravity SDK", "status": "active"},
+            {"role": "designer", "name": "Leonardo Da Vinci (AI)", "title": "UI/UX Specialist Agent", "engine": "Google Antigravity SDK", "status": "active"},
+            {"role": "seo", "name": "Ada Lovelace (AI)", "title": "SEO & Performance Agent", "engine": "Google Antigravity SDK", "status": "active"},
         ]
 
         return Response(
             {
-                "orchestration_framework": "LangGraph (LangChain)",
+                "orchestration_framework": "Google Antigravity SDK & LangGraph Swarm",
+                "antigravity_sdk_status": "enabled",
                 "vector_store": "PostgreSQL + pgvector",
                 "observability": "Langfuse",
                 "memory_queue": "Redis",
@@ -121,3 +120,32 @@ class AgentStatusView(views.APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class AntigravityAgentRunView(views.APIView):
+    """
+    POST /api/agents/antigravity/run/
+    Executes an autonomous agent directly using the Google Antigravity SDK.
+    Body: { "task_id": 1, "agent_role": "tech_lead", "prompt": "@tech_lead review architecture" }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        task_id = request.data.get("task_id")
+        agent_role = request.data.get("agent_role", "tech_lead")
+        prompt = request.data.get("prompt", "").strip()
+
+        if not task_id or not prompt:
+            return Response({"detail": "Both task_id and prompt are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        task = get_object_or_404(Task, pk=task_id)
+
+        from .antigravity_sdk import run_antigravity_agent
+        result = run_antigravity_agent(
+            task=task,
+            agent_role=agent_role,
+            prompt=prompt,
+            user=request.user
+        )
+
+        return Response(result, status=status.HTTP_200_OK)

@@ -686,11 +686,11 @@ function TaskDetailPanel({
                   <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
                   <Bot className="h-3.5 w-3.5 text-indigo-400" />
                   <span className="text-xs font-black uppercase tracking-wider text-indigo-300">
-                    LangGraph Multi-Agent Swarm
+                    Google Antigravity SDK & Swarm
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 font-medium">
-                  Decompose with Tech Lead, code with Backend/Frontend, QA test, and deploy.
+                  Autonomous agents grounded in pgvector RAG, traced with Langfuse and Antigravity SDK.
                 </p>
               </div>
 

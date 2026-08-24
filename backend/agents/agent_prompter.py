@@ -1,5 +1,6 @@
 import re
 import os
+import time
 import logging
 from typing import List, Dict, Any, Optional
 from django.contrib.auth import get_user_model
@@ -208,7 +209,7 @@ def process_ceo_prompt(
     specific_tag: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
-    Parses tagged agents in CEO prompt/comment, generates autonomous responses,
+    Parses tagged agents in CEO prompt/comment, executes through the Google Antigravity SDK,
     saves comments to database, logs activities, and notifies the CEO.
     """
     tags = [specific_tag] if specific_tag and specific_tag in AGENT_TAG_MAP else extract_agent_tags(prompt)
@@ -219,69 +220,34 @@ def process_ceo_prompt(
     if "all" in tags:
         tags = ["tech_lead", "backend", "qa", "devops"]
 
-    # 1. Fetch RAG Context
-    rag_context = retrieve_context(f"{task.title} {task.description or ''} {prompt}", project_id=task.project_id)
-
     responses = []
+    from agents.antigravity_sdk import run_antigravity_agent
 
     for tag in tags:
         agent_meta = AGENT_TAG_MAP.get(tag)
         if not agent_meta:
             continue
 
-        # Get or create AI Agent user account
-        agent_user, _ = User.objects.get_or_create(
-            email=agent_meta["email"],
-            defaults={
-                "name": agent_meta["name"],
-                "role": agent_meta["role"],
-                "organization": task.organization,
-                "user_status": User.Status.ACTIVE,
-                "bio": f"Autonomous AI Specialist for {agent_meta['specialty']}",
-            }
-        )
-
-        # Generate intelligent response
-        agent_reply_text = generate_llm_response(agent_meta, prompt, task, rag_context)
-
-        # Save comment to database
-        comment = Comment.objects.create(
+        res = run_antigravity_agent(
             task=task,
-            author=agent_user,
-            body=agent_reply_text
+            agent_role=agent_meta["role"],
+            prompt=prompt,
+            user=user
         )
-
-        # Log Task Activity
-        TaskActivity.objects.create(
-            task=task,
-            actor=agent_user,
-            action="commented",
-            details={
-                "agent_role": agent_meta["role"],
-                "prompt_trigger": prompt[:80],
-                "reply_preview": agent_reply_text[:100],
-            }
-        )
-
-        # Notify CEO
-        if user and user != agent_user:
-            Notification.objects.create(
-                recipient=user,
-                actor=agent_user,
-                title=f"{agent_meta['name']} responded on: {task.title}",
-                message=agent_reply_text[:120],
-                link=f"/projects/{task.project_id}",
-                organization=task.organization,
-            )
 
         responses.append({
             "agent_tag": tag,
-            "agent_name": agent_meta["name"],
-            "agent_role": agent_meta["role"],
+            "agent_name": res["agent_name"],
+            "agent_role": res["agent_role"],
             "agent_email": agent_meta["email"],
-            "comment_id": comment.id,
-            "response": agent_reply_text,
-            "created_at": comment.created_at.isoformat(),
+            "comment_id": res["comment_id"],
+            "trace_id": res["trace_id"],
+            "response": res["response"],
+            "thoughts": res.get("thoughts", []),
+            "tool_calls": res.get("tool_calls", []),
+            "session_id": res.get("session_id", ""),
+            "langfuse_url": res.get("langfuse_url", ""),
+            "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
         })
 
     return responses

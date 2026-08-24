@@ -4,6 +4,7 @@ from .views import (
     AgentTracesView,
     AgentIngestRAGView,
     AgentStatusView,
+    AntigravityAgentRunView,
 )
 
 urlpatterns = [
@@ -12,4 +13,5 @@ urlpatterns = [
     path("traces/<int:task_id>/", AgentTracesView.as_view(), name="agent-traces-detail"),
     path("ingest-rag/", AgentIngestRAGView.as_view(), name="agent-ingest-rag"),
     path("status/", AgentStatusView.as_view(), name="agent-status"),
+    path("antigravity/run/", AntigravityAgentRunView.as_view(), name="agent-antigravity-run"),
 ]
