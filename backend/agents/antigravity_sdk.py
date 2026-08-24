@@ -244,6 +244,20 @@ class AntigravityAgentEngine:
         tokens = 350 + len(prompt.split()) * 10
         cost = round(tokens * 0.00001, 5)
 
+        # Stream active trace to Langfuse server
+        from .observability.langfuse_client import log_agent_execution_to_langfuse
+        langfuse_url = log_agent_execution_to_langfuse(
+            task=task,
+            agent_role=self.role,
+            prompt=prompt,
+            response_text=response_text,
+            thoughts=thoughts,
+            tool_calls=tool_calls,
+            tokens=tokens,
+            cost=cost,
+            session_id=session_id,
+        ) or langfuse_url
+
         return AntigravityAgentResult(
             agent_name=self.spec["name"],
             agent_role=self.spec["role"],
@@ -265,7 +279,26 @@ class AntigravityAgentEngine:
         rag_context: List[str],
         tool_calls: List[AntigravityToolCall]
     ) -> str:
-        """Constructs an Antigravity SDK structured response."""
+        """Constructs an Antigravity SDK structured response with local Ollama acceleration."""
+        system_prompt = (
+            f"{self.spec['system_instructions']}\n"
+            f"You are responding via the Google Antigravity SDK to the CEO / Human Founder.\n"
+            f"Ticket: #{task.id} - {task.title}\n"
+            f"RAG Context: " + "\n".join(rag_context[:2]) + "\n\n"
+            f"Tools executed in this turn: " + ", ".join(t.name for t in tool_calls) + "\n"
+            f"Provide an elite, concise engineering response with clear action steps without raw emojis."
+        )
+
+        # 1. Try Local Ollama (running locally on NVIDIA RTX 3060 GPU)
+        try:
+            from .ollama_service import query_ollama
+            ollama_resp = query_ollama(prompt=prompt, system_prompt=system_prompt)
+            if ollama_resp:
+                return ollama_resp
+        except Exception as e:
+            logger.debug(f"Ollama local inference bypassed: {e}")
+
+        # 2. Try OpenAI API if key configured
         openai_key = os.getenv("OPENAI_API_KEY")
         if openai_key:
             try:

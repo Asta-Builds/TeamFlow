@@ -118,6 +118,28 @@ def generate_llm_response(
     If OPENAI_API_KEY is available, uses LangChain ChatOpenAI.
     Otherwise uses context-rich template generation.
     """
+    system_prompt = (
+        f"You are {agent_info['name']}, the {agent_info['title']} at TeamFlow.\n"
+        f"Your specialty: {agent_info['specialty']}.\n"
+        f"You are directly addressing the CEO / Human Founder in a project ticket conversation.\n"
+        f"Ticket: #{task.id} - {task.title}\n"
+        f"Status: {task.status} | Priority: {task.priority}\n"
+        f"Description: {task.description or 'None'}\n"
+        f"RAG Context retrieved from pgvector codebase:\n" + "\n".join(rag_context[:3]) + "\n\n"
+        f"Instructions: Give a concise, actionable, and technically precise engineering response. "
+        f"Use bullet points or code snippets when helpful. Do NOT use raw emojis; speak professionally as an elite autonomous AI specialist."
+    )
+
+    # 1. Query Local Ollama GPU Engine
+    try:
+        from .ollama_service import query_ollama
+        ollama_res = query_ollama(prompt=prompt, system_prompt=system_prompt)
+        if ollama_res:
+            return ollama_res
+    except Exception as e:
+        logger.debug(f"Ollama inference bypassed in prompter: {e}")
+
+    # 2. Query OpenAI API if key available
     openai_key = os.getenv("OPENAI_API_KEY")
     if openai_key:
         try:
@@ -125,17 +147,6 @@ def generate_llm_response(
             from langchain_core.messages import SystemMessage, HumanMessage
 
             llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2, openai_api_key=openai_key)
-            system_prompt = (
-                f"You are {agent_info['name']}, the {agent_info['title']} at TeamFlow.\n"
-                f"Your specialty: {agent_info['specialty']}.\n"
-                f"You are directly addressing the CEO / Human Founder in a project ticket conversation.\n"
-                f"Ticket: #{task.id} - {task.title}\n"
-                f"Status: {task.status} | Priority: {task.priority}\n"
-                f"Description: {task.description or 'None'}\n"
-                f"RAG Context retrieved from pgvector codebase:\n" + "\n".join(rag_context[:3]) + "\n\n"
-                f"Instructions: Give a concise, actionable, and technically precise engineering response. "
-                f"Use bullet points or code snippets when helpful. Do NOT use raw emojis; speak professionally as an elite autonomous AI specialist."
-            )
             response = llm.invoke([
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=prompt)
