@@ -126,34 +126,86 @@ def generate_llm_response(
         f"Status: {task.status} | Priority: {task.priority}\n"
         f"Description: {task.description or 'None'}\n"
         f"RAG Context retrieved from pgvector codebase:\n" + "\n".join(rag_context[:3]) + "\n\n"
-        f"Instructions: Give a concise, actionable, and technically precise engineering response. "
-        f"Use bullet points or code snippets when helpful. Do NOT use raw emojis; speak professionally as an elite autonomous AI specialist."
+        f"Instructions:\n"
+        f"1. Give a technically precise engineering response. Use bullet points when helpful.\n"
+        f"2. If requested to write or modify code, you MUST generate the actual code files. Output each file block in this exact format:\n"
+        f"FILE: [path/to/file_relative_to_workspace]\n"
+        f"CODE:\n"
+        f"[code content]\n"
+        f"---\n"
+        f"3. IMPORTANT: For frontend Next.js views, you MUST style components using Tailwind CSS v4, Hero UI (@heroui/react) components, or Shadcn-style utility classes with Lucide React icons for a beautiful Dark Slate dashboard."
     )
+
+    # 0. Tech Lead PR Merge Governance
+    if agent_info.get("role") == "tech_lead" and any(w in prompt.lower() for w in ["merge", "fusionner", "valider la pr", "approuver la pr", "merge to main"]):
+        try:
+            from .git_service import git_merge_pull_request
+            target_repo = getattr(task.project, "github_repo", "Asta-Builds/TeamFlow") or "Asta-Builds/TeamFlow"
+            clean_title = re.sub(r'[^a-zA-Z0-9]+', '-', task.title.lower()).strip('-')[:28]
+            branch_name = f"feat/ticket-{task.id}-{clean_title}"
+            
+            merge_res = git_merge_pull_request(
+                repo=target_repo,
+                source_branch=branch_name,
+                target_branch="main"
+            )
+            
+            if merge_res["success"]:
+                task.status = Task.Status.DONE
+                task.save(update_fields=["status"])
+                return (
+                    f"**[Tech Lead · Sarah Jenkins — PR Merge & Deployment Approved]**\n\n"
+                    f"Directive CEO reçue : *\"{prompt}\"*\n\n"
+                    f"### 🛡️ Rapport de Validation & Fusion vers `main`\n"
+                    f"- 🎋 **Branche source fusionnée :** `{branch_name}`\n"
+                    f"- 🎯 **Branche de destination :** `main`\n"
+                    f"- 📦 **Commit de Fusion (Merge SHA) :** `{merge_res.get('merged_sha', 'HEAD')}`\n"
+                    f"- 🚀 **Déploiement Staging :** Pipeline CI/CD synchronisé sur le dépôt [`{target_repo}`](https://github.com/{target_repo}).\n"
+                    f"- ✅ **Statut du Ticket :** Déplacé vers **DONE**."
+                )
+        except Exception as e:
+            logger.error(f"Tech Lead merge failed: {e}")
 
     # 1. Query Local Ollama GPU Engine
     try:
         from .ollama_service import query_ollama
         ollama_res = query_ollama(prompt=prompt, system_prompt=system_prompt)
         if ollama_res:
-            return ollama_res
+            response_text = ollama_res
     except Exception as e:
         logger.debug(f"Ollama inference bypassed in prompter: {e}")
 
     # 2. Query OpenAI API if key available
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if openai_key:
-        try:
-            from langchain_openai import ChatOpenAI
-            from langchain_core.messages import SystemMessage, HumanMessage
+    if not response_text:
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if openai_key:
+            try:
+                from langchain_openai import ChatOpenAI
+                from langchain_core.messages import SystemMessage, HumanMessage
 
-            llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2, openai_api_key=openai_key)
-            response = llm.invoke([
-                SystemMessage(content=system_prompt),
-                HumanMessage(content=prompt)
-            ])
-            return response.content
+                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2, openai_api_key=openai_key)
+                response = llm.invoke([
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=prompt)
+                ])
+                response_text = response.content
+            except Exception as e:
+                logger.warning(f"OpenAI invocation failed: {e}. Falling back to structured response.")
+
+    # 3. Apply file changes and execute Git lifecycle (branch, commit, push, PR)
+    if response_text:
+        try:
+            from .code_writer import parse_and_apply_code_changes
+            diff_summary = parse_and_apply_code_changes(
+                response_text,
+                task=task,
+                agent_info=agent_info
+            )
+            if diff_summary:
+                response_text += diff_summary
         except Exception as e:
-            logger.warning(f"OpenAI invocation failed: {e}. Falling back to structured response.")
+            logger.warning(f"Failed to parse and apply code changes: {e}")
+        return response_text
 
     # High-quality contextual fallback
     role_key = agent_info["role"]

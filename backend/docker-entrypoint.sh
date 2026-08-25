@@ -3,6 +3,14 @@ set -e
 
 echo "=== TeamFlow Backend Initializing ==="
 
+# Configure Git safe directories and defaults for swarm agents
+git config --global --add safe.directory /workspace || true
+git config --global --add safe.directory /app || true
+git config --global --add safe.directory "*" || true
+git config --global user.email "swarm@teamflow.dev" || true
+git config --global user.name "TeamFlow AI Swarm" || true
+git config --global init.defaultBranch main || true
+
 # Wait for PostgreSQL if DATABASE_URL is provided
 if [ -n "$DATABASE_URL" ]; then
   echo "Waiting for database connection..."

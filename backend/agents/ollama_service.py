@@ -27,7 +27,7 @@ def query_ollama(
     prompt: str,
     system_prompt: str = "",
     model: Optional[str] = None,
-    timeout: int = 45,
+    timeout: int = 120,
 ) -> Optional[str]:
     """
     Queries local Ollama instance running on NVIDIA RTX 3060.

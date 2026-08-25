@@ -279,57 +279,79 @@ class AntigravityAgentEngine:
         rag_context: List[str],
         tool_calls: List[AntigravityToolCall]
     ) -> str:
-        """Constructs an Antigravity SDK structured response with local Ollama acceleration."""
+        """Constructs an Antigravity SDK structured response with local Ollama acceleration and live workspace code edits."""
         system_prompt = (
             f"{self.spec['system_instructions']}\n"
             f"You are responding via the Google Antigravity SDK to the CEO / Human Founder.\n"
             f"Ticket: #{task.id} - {task.title}\n"
             f"RAG Context: " + "\n".join(rag_context[:2]) + "\n\n"
-            f"Tools executed in this turn: " + ", ".join(t.name for t in tool_calls) + "\n"
-            f"Provide an elite, concise engineering response with clear action steps without raw emojis."
+            f"Tools executed in this turn: " + ", ".join(t.name for t in tool_calls) + "\n\n"
+            f"Instructions:\n"
+            f"1. Provide a professional engineering response detailing your changes.\n"
+            f"2. If the user asks you to implement, create, modify, add or write code, you MUST generate the actual code files. Output each file block in this exact format:\n"
+            f"FILE: [path/to/file_relative_to_workspace]\n"
+            f"CODE:\n"
+            f"[code content]\n"
+            f"---\n\n"
+            f"3. IMPORTANT: For frontend React/Next.js components, you MUST use Tailwind CSS v4, Hero UI (@heroui/react) components (such as Button, Card, Input, Snippet, etc.) or Shadcn-style utility classes with Lucide React icons for a beautiful Dark Slate design."
         )
+
+        response_text = ""
 
         # 1. Try Local Ollama (running locally on NVIDIA RTX 3060 GPU)
         try:
             from .ollama_service import query_ollama
             ollama_resp = query_ollama(prompt=prompt, system_prompt=system_prompt)
             if ollama_resp:
-                return ollama_resp
+                response_text = ollama_resp
         except Exception as e:
             logger.debug(f"Ollama local inference bypassed: {e}")
 
         # 2. Try OpenAI API if key configured
-        openai_key = os.getenv("OPENAI_API_KEY")
-        if openai_key:
-            try:
-                from langchain_openai import ChatOpenAI
-                from langchain_core.messages import SystemMessage, HumanMessage
+        if not response_text:
+            openai_key = os.getenv("OPENAI_API_KEY")
+            if openai_key:
+                try:
+                    from langchain_openai import ChatOpenAI
+                    from langchain_core.messages import SystemMessage, HumanMessage
 
-                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2, openai_api_key=openai_key)
-                system_prompt = (
-                    f"{self.spec['system_instructions']}\n"
-                    f"You are responding via the Google Antigravity SDK to the CEO / Human Founder.\n"
-                    f"Ticket: #{task.id} - {task.title}\n"
-                    f"RAG Context: " + "\n".join(rag_context[:2]) + "\n\n"
-                    f"Tools executed in this turn: " + ", ".join(t.name for t in tool_calls) + "\n"
-                    f"Provide an elite, concise engineering response with clear action steps."
-                )
-                res = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=prompt)])
-                return res.content
-            except Exception as e:
-                logger.warning(f"OpenAI call via Antigravity SDK failed: {e}")
+                    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2, openai_api_key=openai_key)
+                    res = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=prompt)])
+                    response_text = res.content
+                except Exception as e:
+                    logger.warning(f"OpenAI call via Antigravity SDK failed: {e}")
 
-        # High-level fallback
-        role_label = self.spec["name"]
-        tools_str = f" [Tools executed: `{'`, `'.join(t.name for t in tool_calls)}`]" if tool_calls else ""
-        return (
-            f"**[Google Antigravity SDK · {role_label}]**\n\n"
-            f"CEO Prompt: *\"{prompt}\"*\n\n"
-            f"**Execution Status on Ticket #{task.id} (`{task.title}`):**\n"
-            f"- Grounded in vector knowledge base with {len(rag_context)} architectural chunks.{tools_str}\n"
-            f"- Executed specialist task loop according to Antigravity rules and permissions.\n"
-            f"- Output verified and ready for next Kanban phase (`{task.status}`)."
-        )
+        # 3. Fallback structure if both engines failed
+        if not response_text:
+            role_label = self.spec["name"]
+            tools_str = f" [Tools executed: `{'`, `'.join(t.name for t in tool_calls)}`]" if tool_calls else ""
+            response_text = (
+                f"**[Google Antigravity SDK · {role_label}]**\n\n"
+                f"CEO Prompt: *\"{prompt}\"*\n\n"
+                f"**Execution Status on Ticket #{task.id} (`{task.title}`):**\n"
+                f"- Grounded in vector knowledge base with {len(rag_context)} architectural chunks.{tools_str}\n"
+                f"- Executed specialist task loop according to Antigravity rules and permissions.\n"
+                f"- Output verified and ready for next Kanban phase (`{task.status}`)."
+            )
+
+        # 4. Parse file changes and execute Git lifecycle on workspace mount
+        try:
+            from .code_writer import parse_and_apply_code_changes
+            diff_summary = parse_and_apply_code_changes(
+                response_text,
+                task=task,
+                agent_info={
+                    "name": self.spec["name"],
+                    "email": self.spec["email"],
+                    "role": self.role
+                }
+            )
+            if diff_summary:
+                response_text += diff_summary
+        except Exception as e:
+            logger.warning(f"Failed to parse and apply code changes: {e}")
+
+        return response_text
 
 
 def run_antigravity_agent(
