@@ -716,7 +716,7 @@ function TaskDetailPanel({
 }) {
   const [comment, setComment] = useState("");
   const [detail, setDetail] = useState<Task>(task);
-  const [activeTab, setActiveTab] = useState<"comments" | "activity" | "agents">("comments");
+  const [activeTab, setActiveTab] = useState<"contract" | "comments" | "activity" | "agents">("contract");
   const [posting, setPosting] = useState(false);
   const [rejectModal, setRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -1043,6 +1043,22 @@ function TaskDetailPanel({
           <div className="border-t border-slate-800 pt-4">
             <div className="flex items-center gap-3 border-b border-slate-800 mb-4 overflow-x-auto">
               <button
+                onClick={() => setActiveTab("contract")}
+                className={`pb-2 text-xs font-bold uppercase tracking-wider transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "contract"
+                    ? "border-b-2 border-emerald-500 text-emerald-400 font-extrabold"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Contrat de Validation ({detail.validation_contract?.length || 0})</span>
+                {detail.contract_compliance_score !== undefined && detail.contract_compliance_score > 0 && (
+                  <span className="ml-1 text-[10px] bg-emerald-950 border border-emerald-800/60 text-emerald-300 px-1.5 py-0.5 rounded-full">
+                    {Math.round(detail.contract_compliance_score)}%
+                  </span>
+                )}
+              </button>
+              <button
                 onClick={() => setActiveTab("comments")}
                 className={`pb-2 text-xs font-bold uppercase tracking-wider transition whitespace-nowrap cursor-pointer ${
                   activeTab === "comments"
@@ -1074,6 +1090,94 @@ function TaskDetailPanel({
                 <span>Multi-Agent Traces ({traces.length})</span>
               </button>
             </div>
+
+            {/* TAB: Validation Contract (Factory Missions Definition of Done) */}
+            {activeTab === "contract" && (
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-slate-950 border border-emerald-800/40 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                      <h4 className="text-xs font-black text-white uppercase tracking-wider">
+                        Contrat de Validation · Definition of Done
+                      </h4>
+                    </div>
+                    <span className="text-xs font-bold text-emerald-300">
+                      Score : {Math.round(detail.contract_compliance_score || 0)}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed font-medium">
+                    Assertions objectives et indépendantes établies en amont lors de la phase de planification (avant tout code) et validées de manière holistique par l&apos;agent QA.
+                  </p>
+                  {/* Progress Bar */}
+                  <div className="h-2 w-full rounded-full bg-slate-950 overflow-hidden border border-slate-800">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
+                      style={{ width: `${Math.min(100, Math.max(0, detail.contract_compliance_score || 0))}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  {detail.validation_contract?.map((clause, idx) => {
+                    const isPassed = clause.status === "PASSED";
+                    return (
+                      <div
+                        key={clause.id || idx}
+                        className={`p-3.5 rounded-2xl border transition space-y-2 ${
+                          isPassed
+                            ? "bg-slate-950/80 border-emerald-800/50 shadow-sm"
+                            : "bg-slate-950/40 border-slate-800"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-mono font-extrabold text-slate-300 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-md">
+                              {clause.id}
+                            </span>
+                            <span className="text-[11px] font-bold text-slate-400">
+                              {clause.category}
+                            </span>
+                          </div>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                              isPassed
+                                ? "bg-emerald-950 border border-emerald-800/60 text-emerald-300"
+                                : "bg-amber-950 border border-amber-800/60 text-amber-300"
+                            }`}
+                          >
+                            {isPassed ? (
+                              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                            ) : (
+                              <Clock className="h-3 w-3 text-amber-400" />
+                            )}
+                            <span>{clause.status}</span>
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-200 font-medium leading-relaxed pl-1">
+                          {clause.assertion}
+                        </p>
+                        {clause.evidence && (
+                          <div className="text-[10px] text-emerald-400/90 font-mono bg-emerald-950/40 border border-emerald-900/50 p-2 rounded-xl">
+                            ✓ {clause.evidence} {clause.verified_at && `(${new Date(clause.verified_at).toLocaleTimeString()})`}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {(!detail.validation_contract || detail.validation_contract.length === 0) && (
+                    <div className="text-center py-8 space-y-1 bg-slate-950/40 rounded-2xl border border-slate-800/60">
+                      <ShieldCheck className="h-6 w-6 text-slate-600 mx-auto" />
+                      <p className="text-xs text-slate-400 font-semibold">Aucun contrat défini pour ce ticket.</p>
+                      <p className="text-[11px] text-slate-500">
+                        Lancez le flux autonome pour générer automatiquement les assertions du contrat de validation !
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* TAB: Multi-Agent Workflow */}
             {activeTab === "agents" && (

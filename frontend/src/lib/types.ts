@@ -73,6 +73,16 @@ export interface TaskActivity {
   created_at: string;
 }
 
+export interface ValidationAssertion {
+  id: string;
+  category: string;
+  assertion: string;
+  status: "PENDING" | "PASSED" | "FAILED" | string;
+  validator?: string;
+  verified_at?: string;
+  evidence?: string;
+}
+
 export interface Task {
   id: number;
   project: number;
@@ -88,6 +98,8 @@ export interface Task {
   created_by_detail?: User | null;
   due_date?: string | null;
   pr_url?: string;
+  validation_contract?: ValidationAssertion[];
+  contract_compliance_score?: number;
   qa_rejected?: boolean;
   qa_rejection_reason?: string;
   order: number;

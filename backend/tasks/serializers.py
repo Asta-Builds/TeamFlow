@@ -52,6 +52,8 @@ class TaskSerializer(serializers.ModelSerializer):
             "created_by_detail",
             "due_date",
             "pr_url",
+            "validation_contract",
+            "contract_compliance_score",
             "qa_rejected",
             "qa_rejection_reason",
             "order",

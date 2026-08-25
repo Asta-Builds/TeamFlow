@@ -49,6 +49,15 @@ class Task(models.Model):
     )
     due_date = models.DateField(null=True, blank=True)
     pr_url = models.URLField(blank=True, help_text="Linked GitHub Pull Request URL")
+    validation_contract = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Upfront independent assertions & invariants defining 'Done' for this task",
+    )
+    contract_compliance_score = models.FloatField(
+        default=0.0,
+        help_text="Percentage of contract assertions independently validated by QA (0.0 to 100.0)",
+    )
     qa_rejected = models.BooleanField(default=False)
     qa_rejection_reason = models.TextField(blank=True)
     order = models.PositiveIntegerField(default=0, help_text="Position within its board column")
