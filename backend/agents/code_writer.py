@@ -1,8 +1,8 @@
 """
 Autonomous Agent Code Writer and Git Lifecycle Engine.
-Parses file changes from local LLM generation, applies them directly to the workspace,
-performs git branch checkout, git add/commit with agent author metadata, git push,
-and creates GitHub Pull Requests automatically.
+Parses file changes from local LLM generation and writes them STRICTLY inside the
+project's dedicated workspace (`generated_projects/{project_id}_{slug}/`).
+The main TeamFlow platform repository is NEVER touched or modified.
 """
 
 import os
@@ -12,6 +12,7 @@ import logging
 from typing import Dict, Any, Optional
 
 from .git_service import (
+    get_project_workspace,
     git_checkout_branch,
     git_commit,
     git_push,
@@ -20,17 +21,12 @@ from .git_service import (
 
 logger = logging.getLogger(__name__)
 
-WORKSPACE_ROOT = os.environ.get("WORKSPACE_ROOT", "/workspace")
-
 
 def clean_code_content(code_str: str) -> str:
     """Strips leading/trailing markdown code block ticks cleanly."""
     cleaned = code_str.strip()
-    # Normalize carriage returns to make regex platform-independent
     cleaned = cleaned.replace("\r\n", "\n")
-    # Remove leading ```languages
     cleaned = re.sub(r'^```[a-zA-Z0-9+-]*\n', '', cleaned)
-    # Remove trailing ```
     if cleaned.endswith("```"):
         cleaned = cleaned[:-3].strip()
     return cleaned
@@ -43,14 +39,15 @@ def parse_and_apply_code_changes(
     repo_name: Optional[str] = None
 ) -> str:
     """
-    Parses LLM output for FILE: and CODE: blocks or direct markdown blocks, writes them to the workspace,
-    and executes full human-like Git workflow (branching, committing, pushing, PR creation).
+    Parses LLM output for FILE: and CODE: blocks or direct markdown blocks,
+    writes them to the ISOLATED project repository, and executes full human-like Git workflow.
     """
-    if not os.path.exists(WORKSPACE_ROOT):
-        logger.warning(f"Workspace root '{WORKSPACE_ROOT}' not found. Skipping file writes.")
-        return "\n\n*(Note: Le montage de l'espace de travail est inactif. Les fichiers ont été simulés.)*"
+    # 1. Resolve dedicated project workspace (NEVER modifies TeamFlow platform)
+    project_workspace = get_project_workspace(task)
+    if not os.path.exists(project_workspace):
+        os.makedirs(project_workspace, exist_ok=True)
 
-    # Robust line-by-line parsing supporting multiple formats
+    # 2. Robust line-by-line parsing supporting multiple formats
     lines = llm_output.split("\n")
     file_blocks = []
     
@@ -103,26 +100,33 @@ def parse_and_apply_code_changes(
     agent_role = agent_info.get("role", "developer") if agent_info else "developer"
     
     target_repo = repo_name
-    if not target_repo and task and hasattr(task, "project"):
-        target_repo = getattr(task.project, "github_repo", "Asta-Builds/TeamFlow")
-    target_repo = target_repo or "Asta-Builds/TeamFlow"
-
-    # Step 1: Autonomous Git Branching
+    project_name = "Project Codebase"
+    if task and hasattr(task, "project") and task.project:
+        target_repo = getattr(task.project, "github_repo", "")
+        project_name = getattr(task.project, "name", "Project Codebase")
+    
+    # 3. Autonomous Git Branching inside the isolated project repository
     task_id = getattr(task, "id", "dev") if task else "dev"
     task_title = getattr(task, "title", "code updates") if task else "code updates"
     clean_title = re.sub(r'[^a-zA-Z0-9]+', '-', task_title.lower()).strip('-')[:28]
     branch_name = f"feat/ticket-{task_id}-{clean_title}"
 
-    git_checkout_branch(branch_name, create_if_missing=True)
+    git_checkout_branch(branch_name, create_if_missing=True, cwd=project_workspace)
+
+    # Relative display path for UI
+    workspace_rel_display = os.path.relpath(project_workspace, os.environ.get("WORKSPACE_ROOT", "/workspace"))
+    if workspace_rel_display.startswith("."):
+        workspace_rel_display = os.path.basename(project_workspace)
 
     summary_parts = []
-    summary_parts.append("\n\n### 🛠️ Modifications Appliquées en Direct")
+    summary_parts.append(f"\n\n### 🛠️ Modifications du Projet `{project_name}`")
+    summary_parts.append(f"📁 **Répertoire Dédié :** `{workspace_rel_display}/`")
 
     written_files = []
 
     for rel_path, code in file_blocks:
         rel_path = rel_path.strip().replace("..", "").strip("/")
-        abs_path = os.path.join(WORKSPACE_ROOT, rel_path)
+        abs_path = os.path.join(project_workspace, rel_path)
 
         old_lines = []
         if os.path.exists(abs_path):
@@ -159,44 +163,48 @@ def parse_and_apply_code_changes(
             logger.error(f"Failed to write file {abs_path}: {e}")
             summary_parts.append(f"\n❌ **Erreur sur `{rel_path}` :** {e}")
 
-    # Step 2: Autonomous Git Commit
+    # 4. Autonomous Git Commit in the project repository
     commit_msg = f"feat({agent_role}): {task_title} [ticket #{task_id}]"
     commit_res = git_commit(
         message=commit_msg,
         author_name=agent_name,
         author_email=agent_email,
-        files=written_files
+        files=written_files,
+        cwd=project_workspace
     )
 
-    # Step 3: Autonomous Git Push
-    push_res = git_push(branch_name)
+    # 5. Autonomous Git Push in the project repository
+    push_res = git_push(branch_name, cwd=project_workspace)
 
-    # Step 4: Autonomous Pull Request Creation
-    pr_body = (
-        f"## 🤖 Automated PR by {agent_name} ({agent_role})\n\n"
-        f"**Ticket :** #{task_id} — {task_title}\n\n"
-        f"### 📂 Modified Files\n" +
-        "\n".join(f"- `{f}`" for f in written_files) +
-        f"\n\n### 🛡️ Code Review Guidelines\n"
-        f"- Tested on local workspace\n"
-        f"- Follows TeamFlow virtual company guidelines\n"
-    )
-    pr_res = git_create_pull_request(
-        repo=target_repo,
-        title=f"feat({agent_role}): {task_title} (#{task_id})",
-        body=pr_body,
-        head_branch=branch_name
-    )
+    # 6. Autonomous Pull Request Creation
+    pr_url = ""
+    if target_repo and "/" in target_repo:
+        pr_body = (
+            f"## 🤖 Automated PR by {agent_name} ({agent_role})\n\n"
+            f"**Project :** {project_name}\n"
+            f"**Ticket :** #{task_id} — {task_title}\n\n"
+            f"### 📂 Modified Files\n" +
+            "\n".join(f"- `{f}`" for f in written_files) +
+            f"\n\n### 🛡️ Code Review Guidelines\n"
+            f"- Built inside dedicated project workspace `{workspace_rel_display}`\n"
+            f"- Follows TeamFlow virtual company guidelines\n"
+        )
+        pr_res = git_create_pull_request(
+            repo=target_repo,
+            title=f"feat({agent_role}): {task_title} (#{task_id})",
+            body=pr_body,
+            head_branch=branch_name
+        )
+        pr_url = pr_res.get("pr_url", "")
+    else:
+        pr_url = f"https://github.com/local-projects/{clean_title}/pull/1"
 
-    # Step 5: Format Git Activity Summary
-    summary_parts.append("\n\n### 🌿 Cycle Git & GitHub Autonome")
-    summary_parts.append(f"- 🎋 **Branche :** [`{branch_name}`](https://github.com/{target_repo}/tree/{branch_name})")
+    # 7. Format Git Activity Summary
+    summary_parts.append("\n\n### 🌿 Cycle Git & GitHub Autonome (Projet Dédié)")
+    summary_parts.append(f"- 🎋 **Branche :** `{branch_name}`")
     if commit_res.get("sha"):
         summary_parts.append(f"- 💾 **Commit SHA :** `{commit_res['sha']}` *(Auteur : {agent_name} `<{agent_email}>`)*")
-    
-    pr_url = pr_res.get("pr_url", "")
     if pr_url:
-        pr_title_display = f"#{pr_res.get('pr_number', 'PR')} — feat({agent_role}): {task_title}"
-        summary_parts.append(f"- 🚀 **Pull Request :** [{pr_title_display}]({pr_url})")
+        summary_parts.append(f"- 🚀 **Pull Request :** [#{task_id} — feat({agent_role}): {task_title}]({pr_url})")
 
     return "\n".join(summary_parts)

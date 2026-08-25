@@ -21,3 +21,6 @@ frontend/.env*.local
 .DS_Store
 Thumbs.db
 *.log
+
+# Generated user projects (isolated codebases)
+generated_projects/

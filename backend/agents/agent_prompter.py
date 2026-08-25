@@ -118,49 +118,55 @@ def generate_llm_response(
     If OPENAI_API_KEY is available, uses LangChain ChatOpenAI.
     Otherwise uses context-rich template generation.
     """
+    project_name = getattr(task.project, "name", "Dedicated Project") if hasattr(task, "project") and task.project else "Dedicated Project"
+    project_desc = getattr(task.project, "description", "") if hasattr(task, "project") and task.project else ""
+
     system_prompt = (
         f"You are {agent_info['name']}, the {agent_info['title']} at TeamFlow.\n"
         f"Your specialty: {agent_info['specialty']}.\n"
-        f"You are directly addressing the CEO / Human Founder in a project ticket conversation.\n"
+        f"You are building the software application project '{project_name}' (Overview: {project_desc}).\n"
         f"Ticket: #{task.id} - {task.title}\n"
         f"Status: {task.status} | Priority: {task.priority}\n"
         f"Description: {task.description or 'None'}\n"
         f"RAG Context retrieved from pgvector codebase:\n" + "\n".join(rag_context[:3]) + "\n\n"
         f"Instructions:\n"
         f"1. Give a technically precise engineering response. Use bullet points when helpful.\n"
-        f"2. If requested to write or modify code, you MUST generate the actual code files. Output each file block in this exact format:\n"
-        f"FILE: [path/to/file_relative_to_workspace]\n"
+        f"2. You are writing files for '{project_name}'. NEVER modify TeamFlow platform files. Output each standalone project file block in this exact format:\n"
+        f"FILE: [path/relative/to/project_root]\n"
         f"CODE:\n"
         f"[code content]\n"
         f"---\n"
-        f"3. IMPORTANT: For frontend Next.js views, you MUST style components using Tailwind CSS v4, Hero UI (@heroui/react) components, or Shadcn-style utility classes with Lucide React icons for a beautiful Dark Slate dashboard."
+        f"3. For frontend components, use Tailwind CSS, Hero UI (@heroui/react), or modern clean UI components with Lucide icons."
     )
 
     # 0. Tech Lead PR Merge Governance
     if agent_info.get("role") == "tech_lead" and any(w in prompt.lower() for w in ["merge", "fusionner", "valider la pr", "approuver la pr", "merge to main"]):
         try:
-            from .git_service import git_merge_pull_request
-            target_repo = getattr(task.project, "github_repo", "Asta-Builds/TeamFlow") or "Asta-Builds/TeamFlow"
+            from .git_service import git_merge_pull_request, get_project_workspace
+            project_workspace = get_project_workspace(task)
+            target_repo = getattr(task.project, "github_repo", "") or ""
             clean_title = re.sub(r'[^a-zA-Z0-9]+', '-', task.title.lower()).strip('-')[:28]
             branch_name = f"feat/ticket-{task.id}-{clean_title}"
             
             merge_res = git_merge_pull_request(
                 repo=target_repo,
                 source_branch=branch_name,
-                target_branch="main"
+                target_branch="main",
+                cwd=project_workspace
             )
             
             if merge_res["success"]:
                 task.status = Task.Status.DONE
                 task.save(update_fields=["status"])
+                workspace_rel = os.path.basename(project_workspace)
                 return (
-                    f"**[Tech Lead · Sarah Jenkins — PR Merge & Deployment Approved]**\n\n"
+                    f"**[Tech Lead · Sarah Jenkins — PR Merge & Staging Deployment Approved]**\n\n"
                     f"Directive CEO reçue : *\"{prompt}\"*\n\n"
-                    f"### 🛡️ Rapport de Validation & Fusion vers `main`\n"
+                    f"### 🛡️ Rapport de Fusion du Projet `{project_name}` vers `main`\n"
+                    f"- 📁 **Répertoire Dédié :** `generated_projects/{workspace_rel}/`\n"
                     f"- 🎋 **Branche source fusionnée :** `{branch_name}`\n"
                     f"- 🎯 **Branche de destination :** `main`\n"
                     f"- 📦 **Commit de Fusion (Merge SHA) :** `{merge_res.get('merged_sha', 'HEAD')}`\n"
-                    f"- 🚀 **Déploiement Staging :** Pipeline CI/CD synchronisé sur le dépôt [`{target_repo}`](https://github.com/{target_repo}).\n"
                     f"- ✅ **Statut du Ticket :** Déplacé vers **DONE**."
                 )
         except Exception as e:
