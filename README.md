@@ -11,7 +11,7 @@
 
 **An autonomous AI software company where specialized agents plan, code, review, test, and deploy full-stack applications in isolated repositories.**
 
-[🏛️ Architecture](./docs/ARCHITECTURE.md) • [🚀 Self-Hosting & Deployment](./docs/HOSTING_AND_DEPLOYMENT.md) • [📡 API & Agent Workflow](./docs/API_AND_AGENT_WORKFLOW.md)
+[📋 Spécification Fonctionnelle](./docs/SPECIFICATION_FONCTIONNELLE.md) • [🏛️ Architecture](./docs/ARCHITECTURE.md) • [🚀 Self-Hosting & Deployment](./docs/HOSTING_AND_DEPLOYMENT.md) • [📡 API & Agent Workflow](./docs/API_AND_AGENT_WORKFLOW.md)
 
 </div>
 
