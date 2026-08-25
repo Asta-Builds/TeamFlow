@@ -1,3 +1,4 @@
+import re
 from rest_framework import status, views, permissions
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
@@ -149,3 +150,89 @@ class AntigravityAgentRunView(views.APIView):
         )
 
         return Response(result, status=status.HTTP_200_OK)
+
+
+class SwarmChainExecuteView(views.APIView):
+    """
+    POST /api/agents/swarm-chain/<int:task_id>/
+    Triggers the full multi-agent sequential chain where agents communicate, hand off,
+    write code, run tests, and merge into main.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, task_id):
+        task = get_object_or_404(Task, pk=task_id)
+        instruction = request.data.get("instruction", "").strip()
+
+        from .swarm_chain import execute_full_swarm_chain
+        events = execute_full_swarm_chain(
+            task=task,
+            trigger_user=request.user,
+            instruction=instruction
+        )
+        task.refresh_from_db()
+
+        return Response({
+            "message": f"Multi-agent swarm chain completed for ticket #{task.id}.",
+            "task_id": task.id,
+            "task_status": task.status,
+            "chain_events": events,
+            "events_count": len(events),
+        }, status=status.HTTP_200_OK)
+
+
+class SwarmLiveFeedView(views.APIView):
+    """
+    GET /api/agents/swarm-feed/?project=<id>&task=<id>
+    Real-time communication flux & activity stream between agents and the CEO.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from tasks.models import TaskActivity, Comment
+        project_id = request.query_params.get("project")
+        task_id = request.query_params.get("task")
+
+        comments_qs = Comment.objects.all().select_related("author", "task", "task__project").order_by("-created_at")
+        if project_id:
+            comments_qs = comments_qs.filter(task__project_id=project_id)
+        if task_id:
+            comments_qs = comments_qs.filter(task_id=task_id)
+
+        comments = comments_qs[:50]
+
+        feed_items = []
+        for c in comments:
+            author_name = c.author.name or c.author.email if c.author else "TeamFlow Agent"
+            author_role = getattr(c.author, "role", "agent") if c.author else "agent"
+            
+            # Detect target agent in body (e.g. ➔ @Cleopatra or @backend)
+            target_agent = "Swarm"
+            if "➔ @" in c.body:
+                target_match = re.search(r'➔\s*@([a-zA-Z0-9_\s\(\)]+?)(?:\]|\n|\:)', c.body)
+                if target_match:
+                    target_agent = target_match.group(1).strip()
+            elif "@" in c.body:
+                target_match = re.search(r'@([a-zA-Z0-9_]+)', c.body)
+                if target_match:
+                    target_agent = target_match.group(1).strip()
+
+            feed_items.append({
+                "id": f"comment-{c.id}",
+                "type": "agent_message" if "@" in c.body or "➔" in c.body else "comment",
+                "sender_name": author_name,
+                "sender_role": author_role,
+                "target_agent": target_agent,
+                "content": c.body,
+                "task_id": c.task_id,
+                "task_title": c.task.title,
+                "project_id": c.task.project_id,
+                "project_name": c.task.project.name if c.task.project else "Project",
+                "created_at": c.created_at.isoformat(),
+            })
+
+        return Response({
+            "feed": feed_items,
+            "total_events": len(feed_items),
+        }, status=status.HTTP_200_OK)
+

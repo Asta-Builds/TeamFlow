@@ -3,7 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiFetch, dispatchAgentSwarm, getAgentTraces, ingestRAGKnowledge } from "@/lib/api";
+import {
+  apiFetch,
+  dispatchAgentSwarm,
+  executeSwarmChain,
+  getAgentTraces,
+  getSwarmLiveFeed,
+  ingestRAGKnowledge,
+  type SwarmFeedItem,
+} from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
   AgentExecutionTrace,
@@ -47,6 +55,11 @@ import {
   Layers,
   Calendar,
   X,
+  Radio,
+  Zap,
+  RefreshCw,
+  Send,
+  Share2,
 } from "lucide-react";
 
 export default function ProjectBoardPage() {
@@ -60,6 +73,7 @@ export default function ProjectBoardPage() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Task | null>(null);
   const [dragId, setDragId] = useState<number | null>(null);
+  const [showFeedModal, setShowFeedModal] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -236,6 +250,16 @@ export default function ProjectBoardPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowFeedModal(true)}
+            className="rounded-xl border border-emerald-700/60 bg-emerald-950/60 px-3.5 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            title="Flux de Communication en Direct : Observez les agents collaborer et dialoguer en direct"
+          >
+            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <Radio className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Flux de Communication</span>
+          </button>
+
           <button
             onClick={() => setShowPmModal(true)}
             className="rounded-xl border border-violet-700/60 bg-violet-950/60 px-3.5 py-2 text-xs font-bold text-violet-200 hover:bg-violet-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -664,6 +688,15 @@ export default function ProjectBoardPage() {
           </div>
         </div>
       )}
+
+      {/* Swarm Live Communication Stream Modal */}
+      {showFeedModal && (
+        <SwarmLiveFeedModal
+          projectId={projectId}
+          projectName={project.name}
+          onClose={() => setShowFeedModal(false)}
+        />
+      )}
     </div>
   );
 }
@@ -689,6 +722,7 @@ function TaskDetailPanel({
   const [rejectReason, setRejectReason] = useState("");
   const [traces, setTraces] = useState<AgentExecutionTrace[]>([]);
   const [runningSwarm, setRunningSwarm] = useState(false);
+  const [runningChain, setRunningChain] = useState(false);
 
   const refresh = useCallback(() => {
     apiFetch<Task>(`/tasks/${task.id}/`).then(setDetail);
@@ -722,6 +756,24 @@ function TaskDetailPanel({
       toast.error("Error executing multi-agent swarm: " + String(err));
     } finally {
       setRunningSwarm(false);
+    }
+  }
+
+  async function handleRunSwarmChain() {
+    setRunningChain(true);
+    try {
+      const res = await executeSwarmChain(detail.id, comment.trim());
+      const updated = await apiFetch<Task>(`/tasks/${detail.id}/`);
+      setDetail(updated);
+      onChanged(updated);
+      getAgentTraces(detail.id).then(setTraces);
+      setActiveTab("comments");
+      setComment("");
+      toast.success(`⚡ Flux Autonome Exécuté ! ${res.events_count || 6} étapes et passages de relais complétés.`);
+    } catch (err: any) {
+      toast.error("Erreur lors de l'exécution du flux autonome : " + String(err.message || err));
+    } finally {
+      setRunningChain(false);
     }
   }
 
@@ -831,15 +883,28 @@ function TaskDetailPanel({
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleRunSwarm}
-                disabled={runningSwarm}
-                className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-60 transition cursor-pointer"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                <span>{runningSwarm ? "Running Swarm…" : "Run Swarm"}</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleRunSwarmChain}
+                  disabled={runningChain || runningSwarm}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-emerald-600/30 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-60 transition cursor-pointer"
+                  title="Exécute la chaîne séquentielle complète : Tech Lead ➔ Backend ➔ Frontend ➔ QA ➔ Merge ➔ DevOps"
+                >
+                  <Zap className="h-3.5 w-3.5 text-emerald-200" />
+                  <span>{runningChain ? "Flux en cours…" : "⚡ Flux Autonome"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRunSwarm}
+                  disabled={runningSwarm || runningChain}
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-60 transition cursor-pointer"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>{runningSwarm ? "Running Swarm…" : "Run Swarm"}</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1147,11 +1212,14 @@ function TaskDetailPanel({
                 <div className="max-h-72 overflow-y-auto space-y-3 pr-1">
                   {detail.comments?.map((c) => {
                     const isAi = c.author_detail?.role !== "ceo";
+                    const isHandoff = c.body.includes("➔ @");
                     return (
                       <div
                         key={c.id}
-                        className={`flex gap-3 text-xs p-3 rounded-2xl border transition ${
-                          isAi
+                        className={`flex gap-3 text-xs p-3.5 rounded-2xl border transition ${
+                          isHandoff
+                            ? "bg-slate-950 border-indigo-800/60 shadow-md ring-1 ring-indigo-500/20"
+                            : isAi
                             ? "bg-slate-950/80 border-indigo-900/40 shadow-xs ring-1 ring-indigo-500/10"
                             : "bg-slate-950/40 border-slate-800"
                         }`}
@@ -1159,13 +1227,19 @@ function TaskDetailPanel({
                         <Avatar
                           name={c.author_detail?.name || ""}
                           email={c.author_detail?.email}
-                          size={30}
+                          size={32}
                         />
-                        <div className="flex-1 space-y-1">
+                        <div className="flex-1 space-y-1.5">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-bold text-white">{c.author_detail?.name || "System"}</span>
                               <AgentTypeBadge role={c.author_detail?.role} isAi={isAi} />
+                              {isHandoff && (
+                                <span className="text-[10px] font-extrabold text-indigo-300 bg-indigo-950 border border-indigo-700/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                  <Zap className="h-2.5 w-2.5 text-indigo-400" />
+                                  <span>Passage de Relais Agent</span>
+                                </span>
+                              )}
                             </div>
                             <span className="text-[10px] text-slate-500 font-mono">
                               {new Date(c.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -1321,3 +1395,187 @@ function TaskDetailPanel({
     </div>
   );
 }
+
+function SwarmLiveFeedModal({
+  projectId,
+  projectName,
+  onClose,
+}: {
+  projectId: number;
+  projectName: string;
+  onClose: () => void;
+}) {
+  const [feed, setFeed] = useState<SwarmFeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterAgent, setFilterAgent] = useState("all");
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const fetchFeed = useCallback(() => {
+    getSwarmLiveFeed(projectId)
+      .then((res) => {
+        setFeed(res.feed || []);
+      })
+      .catch((err) => console.error("Error fetching swarm feed:", err))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  useEffect(() => {
+    fetchFeed();
+  }, [fetchFeed]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const interval = setInterval(fetchFeed, 3500);
+    return () => clearInterval(interval);
+  }, [autoRefresh, fetchFeed]);
+
+  const filteredFeed = feed.filter((item) => {
+    if (filterAgent === "all") return true;
+    return (
+      item.sender_role?.toLowerCase().includes(filterAgent.toLowerCase()) ||
+      item.sender_name?.toLowerCase().includes(filterAgent.toLowerCase())
+    );
+  });
+
+  return (
+    <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs">
+      <div className="w-full max-w-4xl h-[85vh] rounded-2xl bg-slate-900 shadow-2xl border border-slate-800 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-800 p-4 bg-slate-950">
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-emerald-950 border border-emerald-700/60 flex items-center justify-center text-emerald-400 shadow-xs">
+              <Radio className="h-5 w-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-extrabold text-white">
+                  Flux de Communication en Direct · Swarm IA
+                </h3>
+                <span className="flex items-center gap-1 bg-emerald-950 border border-emerald-800/60 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                  LIVE STREAM
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">
+                Projet : <span className="text-slate-200 font-semibold">{projectName}</span> · Dialogue et passages de relais entre agents
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchFeed()}
+              className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white transition cursor-pointer"
+              title="Rafraîchir maintenant"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Filter bar */}
+        <div className="flex items-center justify-between gap-3 p-3 bg-slate-950/60 border-b border-slate-800 text-xs">
+          <div className="flex items-center gap-1.5 overflow-x-auto">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mr-1">Filtrer :</span>
+            {[
+              { id: "all", label: "Tous les Agents" },
+              { id: "lead", label: "Sarah (Tech Lead)" },
+              { id: "backend", label: "Marcus (Backend)" },
+              { id: "frontend", label: "Cleopatra (Frontend)" },
+              { id: "qa", label: "Alan (QA)" },
+              { id: "devops", label: "Joan (DevOps)" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFilterAgent(f.id)}
+                className={`px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                  filterAgent === f.id
+                    ? "bg-indigo-600 text-white shadow-xs"
+                    : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <label className="flex items-center gap-1.5 text-slate-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="rounded accent-emerald-500"
+            />
+            <span className="text-[11px] font-medium">Auto-sync (3.5s)</span>
+          </label>
+        </div>
+
+        {/* Feed Messages Container */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-900/60">
+          {filteredFeed.map((item) => {
+            const isHandoff = item.content.includes("➔ @");
+            const isDone = item.content.includes("DONE") || item.content.includes("COMPLETED");
+
+            return (
+              <div
+                key={item.id}
+                className={`p-4 rounded-2xl border transition space-y-2 ${
+                  isHandoff
+                    ? "bg-slate-950 border-indigo-800/50 shadow-md ring-1 ring-indigo-500/20"
+                    : isDone
+                    ? "bg-slate-950 border-emerald-800/50"
+                    : "bg-slate-950/70 border-slate-800"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={item.sender_name} size={32} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white">{item.sender_name}</span>
+                        {item.target_agent && item.target_agent !== "Swarm" && (
+                          <span className="text-[11px] font-extrabold text-indigo-400 bg-indigo-950 border border-indigo-800/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                            <span>➔</span>
+                            <span>@{item.target_agent}</span>
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        Ticket #{item.task_id} : {item.task_title}
+                      </span>
+                    </div>
+                  </div>
+
+                  <span className="text-[10px] text-slate-500 font-mono">
+                    {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                </div>
+
+                <div className="text-xs text-slate-300 font-normal leading-relaxed whitespace-pre-wrap pl-1">
+                  {item.content}
+                </div>
+              </div>
+            );
+          })}
+
+          {filteredFeed.length === 0 && !loading && (
+            <div className="text-center py-16 space-y-2">
+              <Bot className="h-8 w-8 text-slate-600 mx-auto" />
+              <p className="text-xs text-slate-400">Aucun échange pour le moment.</p>
+              <p className="text-[11px] text-slate-500">
+                Lancez un flux autonome ou taguez un agent dans un ticket pour voir le dialogue live !
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+

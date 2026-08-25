@@ -183,3 +183,38 @@ export async function getAgentClusterStatus() {
   return apiFetch<import("./types").AgentClusterStatus>("/agents/status/");
 }
 
+export interface SwarmFeedItem {
+  id: string;
+  type: string;
+  sender_name: string;
+  sender_role: string;
+  target_agent?: string;
+  content: string;
+  task_id: number;
+  task_title: string;
+  project_id: number;
+  project_name: string;
+  created_at: string;
+}
+
+export async function getSwarmLiveFeed(projectId?: number, taskId?: number) {
+  let query = "";
+  if (projectId) query += `?project=${projectId}`;
+  if (taskId) query += `${query ? "&" : "?"}task=${taskId}`;
+  return apiFetch<{ feed: SwarmFeedItem[]; total_events: number }>(`/agents/swarm-feed/${query}`);
+}
+
+export async function executeSwarmChain(taskId: number, instruction?: string) {
+  return apiFetch<{
+    message: string;
+    task_id: number;
+    task_status: import("./types").TaskStatus;
+    chain_events: any[];
+    events_count: number;
+  }>(`/agents/swarm-chain/${taskId}/`, {
+    method: "POST",
+    body: { instruction: instruction || "" },
+  });
+}
+
+
