@@ -22,7 +22,8 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
     # Simulate code generation based on title
     slug = title.lower().replace(" ", "-")[:24]
     branch_name = f"feat/backend-{slug}"
-    branch_info = create_branch("teamflow/teamflow", branch_name)
+    repo_name = state.get("project_name", "Asta-Builds/TeamFlow")
+    branch_info = create_branch(repo_name, branch_name)
     
     pr_title = f"feat(backend): {title}"
     pr_body = (
@@ -33,7 +34,7 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
         f"- Added unit test cases for edge condition coverage.\n"
         f"- Tested with local SQLite and PostgreSQL."
     )
-    pr_info = open_pull_request("teamflow/teamflow", pr_title, pr_body, branch_name)
+    pr_info = open_pull_request(repo_name, pr_title, pr_body, branch_name)
     
     code_changes["backend/api_patch.py"] = f"# Automated backend implementation for: {title}\n"
 

@@ -21,7 +21,8 @@ def frontend_agent_node(state: TicketState) -> Dict[str, Any]:
 
     slug = title.lower().replace(" ", "-")[:24]
     branch_name = f"feat/frontend-{slug}"
-    branch_info = create_branch("teamflow/teamflow", branch_name)
+    repo_name = state.get("project_name", "Asta-Builds/TeamFlow")
+    branch_info = create_branch(repo_name, branch_name)
     
     pr_title = f"feat(frontend): {title}"
     pr_body = (
@@ -32,7 +33,7 @@ def frontend_agent_node(state: TicketState) -> Dict[str, Any]:
         f"- Verified accessibility, contrast ratios, and dark/light themes.\n"
         f"- Integrated with backend REST API endpoints."
     )
-    pr_info = open_pull_request("teamflow/teamflow", pr_title, pr_body, branch_name)
+    pr_info = open_pull_request(repo_name, pr_title, pr_body, branch_name)
     
     code_changes["frontend/component.tsx"] = f"// Automated React component for: {title}\n"
 

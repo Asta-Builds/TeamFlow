@@ -77,19 +77,35 @@ def check_ci_status(pr_url: str) -> Dict[str, Any]:
 
 def merge_pull_request(
     repo: str,
-    source_branch: str,
+    source_branch: Optional[str] = None,
     target_branch: str = "main",
     pr_number: Optional[int] = None
 ) -> Dict[str, Any]:
     """
     GitHub Tool: Merges a Pull Request to main branch.
-    Restricted to Tech Lead orchestrator node only (Least Privilege governance).
+    Accepts (repo, source_branch) or just a PR URL / branch name.
     """
-    res = git_merge_pull_request(repo, source_branch, target_branch, pr_number)
+    actual_repo = repo or ""
+    actual_source = source_branch
+
+    # If single argument was passed (e.g. pr_url)
+    if "github.com" in actual_repo and not source_branch:
+        if "/tree/" in actual_repo:
+            actual_repo, actual_source = actual_repo.split("/tree/")
+        elif "/pull/" in actual_repo:
+            actual_repo = actual_repo.split("/pull/")[0]
+            actual_source = "main"
+        else:
+            actual_source = "main"
+    elif not source_branch:
+        actual_source = actual_repo
+        actual_repo = ""
+
+    res = git_merge_pull_request(actual_repo, actual_source or "main", target_branch, pr_number)
     return {
         "status": "merged" if res["success"] else "error",
-        "repo": repo,
-        "source_branch": source_branch,
+        "repo": actual_repo,
+        "source_branch": actual_source,
         "target_branch": target_branch,
         "merged_sha": res.get("merged_sha", ""),
         "merged_at": time.strftime("%Y-%m-%d %H:%M:%SZ"),

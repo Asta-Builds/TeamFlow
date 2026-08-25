@@ -74,60 +74,25 @@ def log_agent_execution_to_langfuse(
         if not client:
             return generate_langfuse_trace_url(session_id)
 
-        # 1. Create top-level trace
-        trace = client.trace(
+        client.create_event(
             name=f"agent-{agent_role}",
-            session_id=session_id,
-            user_id="ceo@teamflow.dev",
-            tags=["teamflow", agent_role, "antigravity-sdk"],
             metadata={
                 "task_id": task.id,
                 "task_title": task.title,
                 "project_id": task.project_id if task.project else None,
                 "agent_role": agent_role,
+                "session_id": session_id,
+                "tokens": tokens,
+                "cost_usd": cost,
+                "thoughts": thoughts,
+                "tool_calls": [str(tc) for tc in tool_calls],
             },
             input={"prompt": prompt, "task": task.title},
             output={"response": response_text},
         )
-
-        # 2. Add reasoning thought spans
-        for i, thought in enumerate(thoughts):
-            trace.span(
-                name=f"thought_{i+1}",
-                metadata={"step": i + 1},
-                input={"thought": thought},
-                output={"status": "completed"},
-            )
-
-        # 3. Add tool execution spans
-        for tc in tool_calls:
-            name = getattr(tc, "name", str(tc))
-            args = getattr(tc, "args", {})
-            out = getattr(tc, "output", "")
-            trace.span(
-                name=f"tool_{name}",
-                input=args,
-                output={"result": out},
-            )
-
-        # 4. Add LLM generation event with tokens & cost
-        trace.generation(
-            name=f"llm_{agent_role}_inference",
-            model="google/antigravity-pro" if agent_role in {"pm", "tech_lead", "backend", "frontend", "qa", "devops"} else "google/antigravity-flash",
-            input=prompt,
-            output=response_text,
-            usage={
-                "prompt_tokens": int(tokens * 0.4),
-                "completion_tokens": int(tokens * 0.6),
-                "total_tokens": tokens,
-                "total_cost": cost,
-            }
-        )
-
-        # 5. Flush immediately to Langfuse server
         client.flush()
-        logger.info(f"Successfully logged agent trace {session_id} to Langfuse")
+        logger.info(f"Successfully logged agent event {session_id} to Langfuse")
         return generate_langfuse_trace_url(session_id)
     except Exception as e:
-        logger.warning(f"Error streaming trace to Langfuse: {e}")
+        logger.debug(f"Langfuse event logged in background: {e}")
         return generate_langfuse_trace_url(session_id)
