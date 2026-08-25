@@ -158,7 +158,7 @@ def execute_full_swarm_chain(
         f"You are Marcus Aurelius, Senior Backend Engineer. Build robust backend endpoints and database models "
         f"for project '{project_name}'. Output clean code with FILE: and CODE: blocks."
     )
-    backend_llm_out = query_ollama(backend_prompt, system_prompt=backend_system, timeout=90)
+    backend_llm_out = query_ollama(backend_prompt, system_prompt=backend_system, timeout=180)
     if not backend_llm_out:
         backend_llm_out = (
             f"FILE: api/views.py\n"
@@ -222,7 +222,7 @@ def execute_full_swarm_chain(
     frontend_system = (
         f"You are Cleopatra, Senior Frontend Engineer. Build modern HeroUI / Tailwind CSS components for project '{project_name}'."
     )
-    frontend_llm_out = query_ollama(frontend_prompt, system_prompt=frontend_system, timeout=90)
+    frontend_llm_out = query_ollama(frontend_prompt, system_prompt=frontend_system, timeout=180)
     if not frontend_llm_out:
         frontend_llm_out = (
             f"FILE: src/components/{task_clean_title.replace('-', '_').capitalize()}View.tsx\n"
