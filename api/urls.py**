@@ -1,0 +1,7 @@
+from django.urls import path
+from .views import SubscriptionView, WebhookView
+
+urlpatterns = [
+    path('subscriptions/', SubscriptionView.as_view(), name='subscription'),
+    path('webhooks/', WebhookView.as_view(), name='webhook'),
+]

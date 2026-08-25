@@ -1,0 +1,4 @@
+# Staging environment variables
+DJANGO_SETTINGS_MODULE=project.settings.staging
+DATABASE_URL=postgres://user:password@localhost:5432/staging_db
+SECRET_KEY=your_staging_secret_key

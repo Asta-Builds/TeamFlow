@@ -1,0 +1,41 @@
+from django.http import JsonResponse
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+import stripe
+
+stripe.api_key = 'your_stripe_secret_key'
+
+class SubscriptionView(View):
+    @csrf_exempt
+    def post(self, request):
+        try:
+            customer = stripe.Customer.create(
+                email=request.POST.get('email'),
+                name=request.POST.get('name'),
+            )
+            subscription = stripe.Subscription.create(
+                customer=customer.id,
+                items=[
+                    {
+                        'price': 'price_id',
+                    },
+                ],
+            )
+            return JsonResponse({'subscription_id': subscription.id})
+        except stripe.error.StripeError as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+class WebhookView(View):
+    def post(self, request):
+        payload = request.body
+        sig_header = request.META['HTTP_STRIPE_SIGNATURE']
+        endpoint_secret = 'your_stripe_webhook_secret'
+
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, endpoint_secret
+            )
+        except ValueError as e:
+            # Invalid payload
+            return JsonResponse({'error': str(e)}, status=400)
+        except
