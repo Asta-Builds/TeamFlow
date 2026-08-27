@@ -4,6 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch, setTokens } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import type { User } from "@/lib/types";
+
+interface KeycloakAuthResponse {
+  access: string;
+  refresh: string;
+  user: User;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Failed to exchange Keycloak session.";
+}
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -39,7 +50,7 @@ export default function AuthCallbackPage() {
 
       try {
         const redirectUri = `${window.location.origin}/auth/callback`;
-        const res = await apiFetch<{ access: string; refresh: string; user: any }>(
+        const res = await apiFetch<KeycloakAuthResponse>(
           "/auth/keycloak/",
           {
             method: "POST",
@@ -55,13 +66,9 @@ export default function AuthCallbackPage() {
         setTokens(res.access, res.refresh);
         await refreshUser();
         router.replace("/dashboard");
-      } catch (err: any) {
+      } catch (err) {
         console.error("Keycloak auth exchange error:", err);
-        setError(
-          err.message ||
-            (err.data && err.data.detail) ||
-            "Failed to exchange Keycloak session."
-        );
+        setError(getErrorMessage(err));
       }
     }
 

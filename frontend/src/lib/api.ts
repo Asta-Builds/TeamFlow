@@ -209,7 +209,7 @@ export async function executeSwarmChain(taskId: number, instruction?: string) {
     message: string;
     task_id: number;
     task_status: import("./types").TaskStatus;
-    chain_events: any[];
+    chain_events: unknown[];
     events_count: number;
   }>(`/agents/swarm-chain/${taskId}/`, {
     method: "POST",

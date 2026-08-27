@@ -6,6 +6,7 @@ from typing import List, Dict, Any, Optional
 from django.contrib.auth import get_user_model
 from tasks.models import Comment, Task, TaskActivity
 from notifications.models import Notification
+from agents.registry import AGENT_ALIASES, AGENT_SEATS, blueprint_agent_keys
 from agents.tools.rag_tool import retrieve_context
 
 logger = logging.getLogger(__name__)
@@ -90,6 +91,25 @@ AGENT_TAG_MAP: Dict[str, Dict[str, str]] = {
         "specialty": "Core Web Vitals, metadata audit, semantic HTML, and sitemap crawling",
     },
 }
+
+# The registry is the single source of truth for seat identity.  Keep legacy
+# mentions like @backend and @frontend as ergonomic aliases for the primary
+# Core API and Web App seats.
+AGENT_TAG_MAP = {
+    key: {
+        "key": spec["key"],
+        "role": spec["role"],
+        "email": spec["email"],
+        "name": spec["name"],
+        "title": spec["title"],
+        "specialty": spec["specialty"],
+    }
+    for key, spec in AGENT_SEATS.items()
+}
+AGENT_TAG_MAP.update({
+    alias: AGENT_TAG_MAP[canonical]
+    for alias, canonical in AGENT_ALIASES.items()
+})
 
 
 def extract_agent_tags(text: str) -> List[str]:
@@ -305,7 +325,7 @@ def process_ceo_prompt(
         tags = ["tech_lead"]
 
     if "all" in tags:
-        tags = ["tech_lead", "backend", "qa", "devops"]
+        tags = blueprint_agent_keys()
 
     responses = []
     from agents.antigravity_sdk import run_antigravity_agent
@@ -317,7 +337,7 @@ def process_ceo_prompt(
 
         res = run_antigravity_agent(
             task=task,
-            agent_role=agent_meta["role"],
+            agent_role=agent_meta["key"],
             prompt=prompt,
             user=user
         )

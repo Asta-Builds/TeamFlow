@@ -13,7 +13,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # Agent migrations create pgvector extension/indexes; plain PostgreSQL
+        # does not provide the required `vector` extension.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: test_teamflow
           POSTGRES_USER: teamflow
@@ -41,15 +43,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      - name: Run Django System Checks & Migrations
+      - name: Verify Django Models, System Checks & Migrations
         env:
           DATABASE_URL: postgres://teamflow:test_password@localhost:5432/test_teamflow
           SECRET_KEY: test-key-for-ci
           DEBUG: "True"
         run: |
           cd backend
+          python manage.py makemigrations --check --dry-run
           python manage.py check
-          python manage.py migrate
+          python manage.py migrate --noinput
 
       - name: Run Backend Unit & Integration Tests
         env:
@@ -85,4 +88,5 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8000/api
         run: |
           cd frontend
+          npm run lint
           npm run build

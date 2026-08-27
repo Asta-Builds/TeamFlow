@@ -7,6 +7,24 @@ import { Avatar, ROLE_COLORS, ROLE_LABELS } from "@/lib/ui";
 import { toast } from "sonner";
 import { User, Shield, Building2, Download, Key, CheckCircle2, Send, MessageSquare } from "lucide-react";
 
+interface SlackIntegrationResponse {
+  webhook_url?: string;
+  default_channel?: string;
+  devops_channel?: string;
+  qa_channel?: string;
+  seo_channel?: string;
+  notify_on_ticket_assigned?: boolean;
+  notify_on_deployment?: boolean;
+  notify_on_qa_rejection?: boolean;
+  notify_on_seo_drop?: boolean;
+}
+
+interface SlackTestResponse {
+  ok: boolean;
+  message?: string;
+  detail?: string;
+}
+
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
 
@@ -43,7 +61,7 @@ export default function SettingsPage() {
     user?.role === "admin";
 
   useEffect(() => {
-    apiFetch<any>("/integrations/slack/")
+    apiFetch<SlackIntegrationResponse>("/integrations/slack/")
       .then((data) => {
         if (data) {
           if (data.webhook_url) setSlackWebhook(data.webhook_url);
@@ -125,13 +143,13 @@ export default function SettingsPage() {
   const handleTestSlack = async () => {
     setTestingSlack(true);
     try {
-      const res = await apiFetch<any>("/integrations/slack/test/", { method: "POST" });
+      const res = await apiFetch<SlackTestResponse>("/integrations/slack/test/", { method: "POST" });
       if (res.ok) {
         toast.success(res.message || "Test Slack message delivered!");
       } else {
         toast.error("Slack test failed: " + (res.detail || "Unable to deliver"));
       }
-    } catch (err: any) {
+    } catch (err) {
       toast.error("Slack test error: " + String(err));
     } finally {
       setTestingSlack(false);

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from tasks.models import Task
 from .models import AgentExecutionTrace, CodebaseEmbedding
+from .registry import active_agent_status
 from .serializers import AgentExecutionTraceSerializer, CodebaseEmbeddingSerializer
 from .graph import execute_ticket_swarm
 from .rag.ingest import ingest_sample_knowledge_base
@@ -96,15 +97,7 @@ class AgentStatusView(views.APIView):
         total_traces = AgentExecutionTrace.objects.count()
         successful_traces = AgentExecutionTrace.objects.filter(status=AgentExecutionTrace.Status.COMPLETED).count()
 
-        agents_list = [
-            {"role": "tech_lead", "name": "Sarah Jenkins (AI)", "title": "Tech Lead (Orchestrator)", "engine": "Google Antigravity SDK", "status": "active"},
-            {"role": "backend", "name": "Marcus Aurelius (AI)", "title": "Senior Backend Agent (Core API)", "engine": "Google Antigravity SDK", "status": "active"},
-            {"role": "frontend", "name": "Cleopatra (AI)", "title": "Senior Frontend Agent (Web App)", "engine": "Google Antigravity SDK", "status": "active"},
-            {"role": "qa", "name": "Alan Turing (AI)", "title": "QA Automation Gate Agent", "engine": "Google Antigravity SDK", "status": "active"},
-            {"role": "devops", "name": "Joan of Arc (AI)", "title": "DevOps & Release Agent", "engine": "Google Antigravity SDK", "status": "active"},
-            {"role": "designer", "name": "Leonardo Da Vinci (AI)", "title": "UI/UX Specialist Agent", "engine": "Google Antigravity SDK", "status": "active"},
-            {"role": "seo", "name": "Ada Lovelace (AI)", "title": "SEO & Performance Agent", "engine": "Google Antigravity SDK", "status": "active"},
-        ]
+        agents_list = active_agent_status()
 
         return Response(
             {

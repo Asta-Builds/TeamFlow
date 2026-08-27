@@ -60,7 +60,22 @@ import {
   RefreshCw,
   Send,
   Share2,
+  ShieldCheck,
+  Clock,
 } from "lucide-react";
+
+interface PmGenerateTasksResponse {
+  pm_summary?: string;
+  tasks_created_count?: number;
+}
+
+interface TaskCommentResponse {
+  agent_replies?: Array<{ agent_name?: string }>;
+}
+
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
 
 export default function ProjectBoardPage() {
   const params = useParams<{ id: string }>();
@@ -116,7 +131,7 @@ export default function ProjectBoardPage() {
     }
     setGeneratingPmTasks(true);
     try {
-      const res = await apiFetch<any>(`/projects/${projectId}/pm_generate_tasks/`, {
+      const res = await apiFetch<PmGenerateTasksResponse>(`/projects/${projectId}/pm_generate_tasks/`, {
         method: "POST",
         body: { plan: pmPlanText.trim() },
       });
@@ -124,8 +139,8 @@ export default function ProjectBoardPage() {
       setShowPmModal(false);
       setPmPlanText("");
       load();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to generate tasks with AI PM");
+    } catch (err) {
+      toast.error(getErrorMessage(err) || "Failed to generate tasks with AI PM");
     } finally {
       setGeneratingPmTasks(false);
     }
@@ -745,7 +760,7 @@ function TaskDetailPanel({
   async function handleRunSwarm() {
     setRunningSwarm(true);
     try {
-      const res = await dispatchAgentSwarm(detail.id);
+      await dispatchAgentSwarm(detail.id);
       const updated = await apiFetch<Task>(`/tasks/${detail.id}/`);
       setDetail(updated);
       onChanged(updated);
@@ -770,8 +785,8 @@ function TaskDetailPanel({
       setActiveTab("comments");
       setComment("");
       toast.success(`⚡ Flux Autonome Exécuté ! ${res.events_count || 6} étapes et passages de relais complétés.`);
-    } catch (err: any) {
-      toast.error("Erreur lors de l'exécution du flux autonome : " + String(err.message || err));
+    } catch (err) {
+      toast.error("Erreur lors de l'exécution du flux autonome : " + getErrorMessage(err));
     } finally {
       setRunningChain(false);
     }
@@ -782,7 +797,7 @@ function TaskDetailPanel({
     if (!comment.trim()) return;
     setPosting(true);
     try {
-      const res = await apiFetch<any>(`/tasks/${task.id}/comments/`, {
+      const res = await apiFetch<TaskCommentResponse>(`/tasks/${task.id}/comments/`, {
         method: "POST",
         body: { body: comment },
       });

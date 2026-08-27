@@ -15,7 +15,7 @@ interface AuthState {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -28,21 +28,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!getToken()) {
       setUser(null);
       setLoading(false);
-      return;
+      return false;
     }
     try {
       const me = await apiFetch<User>("/auth/me/");
       setUser(me);
+      return true;
     } catch {
       setUser(null);
       clearTokens();
+      return false;
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    refreshUser();
+    const refreshTimer = window.setTimeout(() => {
+      void refreshUser();
+    }, 0);
+
+    return () => window.clearTimeout(refreshTimer);
   }, [refreshUser]);
 
   const login = useCallback(

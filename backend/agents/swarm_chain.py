@@ -23,6 +23,7 @@ from .git_service import (
 from .code_writer import parse_and_apply_code_changes
 from .ollama_service import query_ollama
 from .rag.vector_store import query_similar_chunks
+from .registry import AGENT_SEATS, get_agent_spec
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,18 @@ SWARM_SPECIALISTS = {
         "avatar": "JA",
     },
 }
+
+# Preserve the existing full-chain aliases while allowing each blueprint seat
+# to be addressed explicitly by the orchestration layer.
+SWARM_SPECIALISTS = {
+    key: get_agent_spec(key)
+    for key in AGENT_SEATS
+    if key != "pm"
+}
+SWARM_SPECIALISTS.update({
+    "backend": get_agent_spec("backend_core"),
+    "frontend": get_agent_spec("frontend_app"),
+})
 
 
 def _get_or_create_agent_user(role: str) -> User:

@@ -15,6 +15,7 @@ from django.contrib.auth import get_user_model
 from tasks.models import Task, Comment, TaskActivity
 from notifications.models import Notification
 from .models import AgentExecutionTrace
+from .registry import AGENT_SEATS, get_agent_spec, resolve_agent_key
 from .tools.rag_tool import retrieve_context
 from .observability.langfuse_client import generate_langfuse_trace_url
 
@@ -144,6 +145,10 @@ ANTIGRAV_AGENT_SPECS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# The canonical registry keeps seat identity separate from the Django role used
+# for permissions.  The legacy aliases remain valid through resolve_agent_key.
+ANTIGRAV_AGENT_SPECS = AGENT_SEATS
+
 
 class AntigravityAgentEngine:
     """
@@ -152,8 +157,9 @@ class AntigravityAgentEngine:
     """
 
     def __init__(self, agent_role: str = "tech_lead"):
-        self.role = agent_role
-        self.spec = ANTIGRAV_AGENT_SPECS.get(agent_role, ANTIGRAV_AGENT_SPECS["tech_lead"])
+        self.agent_key = resolve_agent_key(agent_role)
+        self.spec = get_agent_spec(self.agent_key)
+        self.role = self.spec["role"]
         self.sdk_available = self._check_sdk()
 
     def _check_sdk(self) -> bool:
@@ -175,11 +181,11 @@ class AntigravityAgentEngine:
         Captures reasoning thoughts, tool calls, and output response.
         """
         start_time = time.time()
-        session_id = f"agy-{self.role}-task-{task.id}-{int(start_time)}"
+        session_id = f"agy-{self.agent_key}-task-{task.id}-{int(start_time)}"
         langfuse_url = generate_langfuse_trace_url(session_id)
 
         thoughts: List[str] = [
-            f"[Antigravity SDK] Initializing agent persona '{self.spec['name']}' ({self.spec['role']})",
+            f"[Antigravity SDK] Initializing agent persona '{self.spec['name']}' ({self.agent_key})",
             f"[Antigravity SDK] Ingesting prompt instructions: '{prompt[:60]}...'",
             f"[Antigravity SDK] Retrieving pgvector RAG memory embeddings ({len(rag_context)} chunks found)",
         ]
@@ -260,11 +266,17 @@ class AntigravityAgentEngine:
 
         return AntigravityAgentResult(
             agent_name=self.spec["name"],
-            agent_role=self.spec["role"],
+            agent_role=self.agent_key,
             response_text=response_text,
             thoughts=thoughts,
             tool_calls=tool_calls,
-            subagents_spawned=["backend", "frontend", "qa"] if self.role in {"pm", "tech_lead"} else [],
+            subagents_spawned=[
+                "backend_core",
+                "backend_integrations",
+                "frontend_app",
+                "frontend_design_system",
+                "qa",
+            ] if self.agent_key in {"pm", "tech_lead"} else [],
             tokens_used=tokens,
             cost_usd=cost,
             duration_seconds=duration,
