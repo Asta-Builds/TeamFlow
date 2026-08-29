@@ -1,6 +1,9 @@
 from urllib.parse import urlparse
+from django.shortcuts import get_object_or_404
 from rest_framework import decorators, permissions, response, status, viewsets
+from rest_framework.exceptions import PermissionDenied
 
+from projects.models import Project
 from tasks.models import Task
 from .models import SEOAudit
 from .serializers import SEOAuditSerializer
@@ -85,7 +88,7 @@ class SEOAuditViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         if not user.can_audit_seo:
-            raise permissions.exceptions.PermissionDenied("Only SEO Specialist, Tech Lead or CEO can run audits.")
+            raise PermissionDenied("Only SEO Specialist, Tech Lead or CEO can run audits.")
 
         url = serializer.validated_data["url"]
         score, perf, seo, mobile, load_time, issues, metrics = run_technical_seo_audit(url)
@@ -114,8 +117,13 @@ class SEOAuditViewSet(viewsets.ModelViewSet):
             return response.Response({"detail": "Invalid issue index."}, status=400)
 
         issue = audit.issues[issue_index]
+        project = get_object_or_404(
+            Project,
+            pk=project_id,
+            organization=request.user.organization,
+        )
         task = Task.objects.create(
-            project_id=project_id,
+            project=project,
             title=f"SEO: {issue.get('message', 'Fix SEO Issue')[:80]}",
             description=f"Automated ticket created from SEO audit on {audit.url}.\n\nRecommendation: {issue.get('recommendation', '')}",
             task_type=Task.Type.TASK,

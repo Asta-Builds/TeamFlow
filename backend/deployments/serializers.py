@@ -33,3 +33,10 @@ class DeploymentSerializer(serializers.ModelSerializer):
             validated_data["triggered_by"] = request.user
             validated_data["organization"] = request.user.organization
         return super().create(validated_data)
+
+    def validate_project(self, project):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            if project.organization_id != request.user.organization_id:
+                raise serializers.ValidationError("Project does not belong to your organization.")
+        return project

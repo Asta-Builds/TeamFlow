@@ -1,5 +1,35 @@
 from rest_framework import serializers
-from .models import AgentExecutionTrace, CodebaseEmbedding
+from .models import AgentEvent, AgentExecutionTrace, CodebaseEmbedding
+
+
+class AgentEventSerializer(serializers.ModelSerializer):
+    sender_name = serializers.CharField(source="sender.name", read_only=True, default="")
+    sender_role = serializers.CharField(source="sender.role", read_only=True, default="system")
+    task_title = serializers.CharField(source="task.title", read_only=True)
+    project_name = serializers.CharField(source="project.name", read_only=True)
+
+    class Meta:
+        model = AgentEvent
+        fields = [
+            "id",
+            "session_id",
+            "event_type",
+            "sender_key",
+            "sender_name",
+            "sender_role",
+            "recipient_key",
+            "message",
+            "current_work",
+            "remaining_work",
+            "metadata",
+            "task",
+            "task_title",
+            "project",
+            "project_name",
+            "trace",
+            "created_at",
+        ]
+        read_only_fields = fields
 
 
 class CodebaseEmbeddingSerializer(serializers.ModelSerializer):

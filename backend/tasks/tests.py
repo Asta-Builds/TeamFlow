@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APITestCase
 
 from projects.models import Project
-from tasks.models import Task
+from tasks.models import Task, TaskActivity
 from organizations.models import Organization
 
 User = get_user_model()
@@ -125,3 +125,50 @@ class APIFlowTests(APITestCase):
         # Try to retrieve Org B's project directly, should return 404
         res = self.client.get(f"/api/projects/{project_b.id}/")
         self.assertEqual(res.status_code, 404)
+
+    def test_cross_tenant_task_assignment_is_rejected(self):
+        org_a = Organization.objects.create(name="Org A")
+        admin_a = User.objects.create_user(
+            email="admin-a@example.com",
+            password="password123",
+            role=User.Role.ADMIN,
+            organization=org_a,
+        )
+        project_a = Project.objects.create(name="Project A", organization=org_a, owner=admin_a)
+        org_b = Organization.objects.create(name="Org B")
+        user_b = User.objects.create_user(
+            email="user-b@example.com",
+            password="password123",
+            organization=org_b,
+        )
+        self.client.force_authenticate(user=admin_a)
+        response = self.client.post(
+            "/api/tasks/",
+            {"project": project_a.id, "title": "Invalid assignment", "assignee": user_b.id},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("assignee", response.data)
+
+    def test_filtered_activity_feed_filters_before_limit(self):
+        org = Organization.objects.create(name="Feed Org")
+        admin = User.objects.create_user(
+            email="feed-admin@example.com",
+            password="password123",
+            role=User.Role.ADMIN,
+            organization=org,
+        )
+        project = Project.objects.create(name="Feed Project", organization=org, owner=admin)
+        task = Task.objects.create(
+            project=project,
+            organization=org,
+            title="Feed task",
+            created_by=admin,
+        )
+        TaskActivity.objects.create(task=task, actor=admin, action="created")
+        TaskActivity.objects.create(task=task, actor=admin, action="commented")
+        self.client.force_authenticate(user=admin)
+        response = self.client.get(f"/api/tasks/feed/?project={project.id}&action=commented")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["action"], "commented")

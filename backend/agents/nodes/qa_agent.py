@@ -3,6 +3,7 @@ from typing import Dict, Any
 from agents.state import TicketState
 from agents.tools.app_tool import set_ticket_qa_decision, log_task_activity
 from agents.tools.github_tool import post_pr_comment
+from agents.events import emit_state_event
 
 
 def qa_agent_node(state: TicketState) -> Dict[str, Any]:
@@ -20,6 +21,15 @@ def qa_agent_node(state: TicketState) -> Dict[str, Any]:
     history = list(state.get("history", []))
     total_tokens = state.get("total_tokens", 0) + 480
     total_cost = state.get("total_cost_usd", 0.0) + 0.0048
+
+    emit_state_event(
+        state,
+        event_type="progress",
+        sender_key="qa",
+        message="I am evaluating the recorded implementation result against the current QA gate.",
+        current_work="Evaluating QA decision",
+        remaining_work=["record QA evidence", "release handoff"],
+    )
 
     # Determine QA pass/fail (90% pass rate, or simulate rejection if ticket was previously unverified)
     # Check if this ticket is already in a retry cycle
@@ -55,6 +65,20 @@ def qa_agent_node(state: TicketState) -> Dict[str, Any]:
         "cost_usd": 0.0048,
     }
     history.append(step_log)
+    emit_state_event(
+        state,
+        event_type="handoff" if qa_passed else "blocked",
+        sender_key="qa",
+        recipient_key="devops" if qa_passed else "backend_core",
+        message=(
+            "I recorded a passing QA decision and handed the run to the release step."
+            if qa_passed
+            else f"I blocked the release and returned the work for correction: {rejection_reason}"
+        ),
+        current_work="QA decision recorded",
+        remaining_work=["release handoff"] if qa_passed else ["resolve QA rejection", "repeat QA"],
+        metadata={"qa_result": qa_result, "reason": rejection_reason},
+    )
 
     return {
         "status": "qa" if not qa_passed else "in_progress",

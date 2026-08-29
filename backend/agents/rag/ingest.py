@@ -53,16 +53,20 @@ SAMPLE_DOCS = [
 ]
 
 
-def ingest_sample_knowledge_base(project: Project = None) -> int:
+def ingest_sample_knowledge_base(project: Project = None, organization=None) -> int:
     """Ingests baseline architectural docs, ADRs, and API patterns into pgvector."""
+    organization = organization or (project.organization if project else None)
+    if organization is None:
+        raise ValueError("RAG ingestion requires an organization or organization-owned project.")
     count = 0
     for item in SAMPLE_DOCS:
         embedding_vec = generate_embedding(item["content"])
         CodebaseEmbedding.objects.update_or_create(
+            organization=organization,
+            project=project,
             file_path=item["file_path"],
             chunk_index=0,
             defaults={
-                "project": project,
                 "content": item["content"],
                 "embedding": embedding_vec,
                 "metadata": item.get("metadata", {}),

@@ -7,6 +7,8 @@ from .views import (
     AntigravityAgentRunView,
     SwarmChainExecuteView,
     SwarmLiveFeedView,
+    AgentEventsView,
+    AgentEventStreamView,
 )
 
 urlpatterns = [
@@ -18,4 +20,6 @@ urlpatterns = [
     path("antigravity/run/", AntigravityAgentRunView.as_view(), name="agent-antigravity-run"),
     path("swarm-chain/<int:task_id>/", SwarmChainExecuteView.as_view(), name="agent-swarm-chain"),
     path("swarm-feed/", SwarmLiveFeedView.as_view(), name="agent-swarm-feed"),
+    path("events/", AgentEventsView.as_view(), name="agent-events"),
+    path("events/stream/", AgentEventStreamView.as_view(), name="agent-events-stream"),
 ]

@@ -3,6 +3,7 @@ import json
 from django.db.models import Q
 from django.http import HttpResponse
 from rest_framework import decorators, permissions, response, viewsets
+from rest_framework.exceptions import PermissionDenied
 
 from teamflow.permissions import IsOwnerOrPrivileged
 from .models import Project
@@ -36,12 +37,12 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if not self.request.user.can_create_project:
-            raise permissions.exceptions.PermissionDenied("Only Tech Lead, CEO or Admin can create projects.")
+            raise PermissionDenied("Only Tech Lead, CEO or Admin can create projects.")
         serializer.save(organization=self.request.user.organization, owner=self.request.user)
 
     def perform_destroy(self, instance):
         if not self.request.user.can_create_project:
-            raise permissions.exceptions.PermissionDenied("Only Tech Lead, CEO or Admin can delete or archive projects.")
+            raise PermissionDenied("Only Tech Lead, CEO or Admin can delete or archive projects.")
         instance.delete()
 
     @decorators.action(detail=True, methods=["get"])

@@ -18,6 +18,13 @@ class CommentSerializer(serializers.ModelSerializer):
             validated_data["author"] = request.user
         return super().create(validated_data)
 
+    def validate_task(self, task):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            if task.organization_id != request.user.organization_id:
+                raise serializers.ValidationError("Task does not belong to your organization.")
+        return task
+
 
 class TaskActivitySerializer(serializers.ModelSerializer):
     actor_detail = UserSerializer(source="actor", read_only=True)
@@ -70,3 +77,18 @@ class TaskSerializer(serializers.ModelSerializer):
             validated_data["created_by"] = request.user
             validated_data["organization"] = request.user.organization
         return super().create(validated_data)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return attrs
+
+        organization_id = request.user.organization_id
+        project = attrs.get("project") or getattr(self.instance, "project", None)
+        assignee = attrs.get("assignee", getattr(self.instance, "assignee", None))
+        if project and project.organization_id != organization_id:
+            raise serializers.ValidationError({"project": "Project does not belong to your organization."})
+        if assignee and assignee.organization_id != organization_id:
+            raise serializers.ValidationError({"assignee": "Assignee does not belong to your organization."})
+        return attrs

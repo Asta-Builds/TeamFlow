@@ -4,6 +4,7 @@ from agents.state import TicketState
 from agents.tools.github_tool import create_branch, open_pull_request
 from agents.tools.app_tool import add_ticket_comment, log_task_activity
 from agents.tools.redis_tool import publish_agent_event
+from agents.events import emit_state_event
 
 
 def backend_agent_node(state: TicketState) -> Dict[str, Any]:
@@ -18,6 +19,15 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
     code_changes = dict(state.get("code_changes", {}))
     total_tokens = state.get("total_tokens", 0) + 650
     total_cost = state.get("total_cost_usd", 0.0) + 0.0065
+
+    emit_state_event(
+        state,
+        event_type="progress",
+        sender_key="backend_core",
+        message="I picked up the backend work item and am preparing its branch and implementation record.",
+        current_work="Preparing backend change and PR metadata",
+        remaining_work=["record backend result", "Tech Lead review", "QA decision", "release handoff"],
+    )
 
     # Simulate code generation based on title
     slug = title.lower().replace(" ", "-")[:24]
@@ -59,6 +69,16 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
         log_task_activity(ticket_id, "Marcus Aurelius", "opened_pr", {"pr_url": pr_info["pr_url"]})
 
     publish_agent_event("pr_ready", {"ticket_id": ticket_id, "pr_url": pr_info["pr_url"]})
+    emit_state_event(
+        state,
+        event_type="handoff",
+        sender_key="backend_core",
+        recipient_key="tech_lead",
+        message="My backend step is complete. I have handed its recorded branch and PR result to the Tech Lead for review.",
+        current_work="Waiting for Tech Lead review",
+        remaining_work=["Tech Lead review", "QA decision", "release handoff"],
+        metadata={"pr_url": pr_info["pr_url"], "is_live_pr": pr_info.get("is_live_pr", False)},
+    )
 
     return {
         "status": "in_review",

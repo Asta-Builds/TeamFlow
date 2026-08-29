@@ -6,6 +6,7 @@ from .embeddings import generate_embedding, cosine_similarity
 def query_similar_chunks(
     query: str,
     project_id: Optional[int] = None,
+    organization_id: Optional[int] = None,
     limit: int = 4,
     min_score: float = 0.15,
 ) -> List[Dict[str, Any]]:
@@ -13,12 +14,14 @@ def query_similar_chunks(
     Performs vector similarity search against CodebaseEmbedding table.
     Returns ranked relevant codebase snippets and ADRs.
     """
-    if not query:
+    if not query or (project_id is None and organization_id is None):
         return []
 
     query_vec = generate_embedding(query)
     qs = CodebaseEmbedding.objects.all()
-    if project_id:
+    if organization_id is not None:
+        qs = qs.filter(organization_id=organization_id)
+    if project_id is not None:
         qs = qs.filter(project_id=project_id)
 
     # Check if we can use native pgvector ordering

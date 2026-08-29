@@ -25,6 +25,19 @@ TEAM = [
     ("seo@teamflow.dev", "Ada Lovelace (AI)", User.Role.SEO, "Autonomous AI Technical SEO Specialist"),
 ]
 
+AGENT_KEYS = {
+    "pm@teamflow.dev": "pm",
+    "lead@teamflow.dev": "tech_lead",
+    "backend1@teamflow.dev": "backend_core",
+    "backend2@teamflow.dev": "backend_integrations",
+    "frontend1@teamflow.dev": "frontend_app",
+    "frontend2@teamflow.dev": "frontend_design_system",
+    "devops@teamflow.dev": "devops",
+    "qa@teamflow.dev": "qa",
+    "design@teamflow.dev": "designer",
+    "seo@teamflow.dev": "seo",
+}
+
 DEMO_PASSWORD = "teamflow-demo-pw"
 
 TASKS = [
@@ -68,6 +81,7 @@ class Command(BaseCommand):
             )
             user.organization = org
             user.role = role
+            user.agent_key = AGENT_KEYS.get(email, "")
             user.bio = bio
             user.user_status = User.Status.ACTIVE
             if created or not user.has_usable_password():

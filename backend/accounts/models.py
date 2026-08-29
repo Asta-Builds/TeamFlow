@@ -59,6 +59,7 @@ class User(AbstractUser):
     email = models.EmailField("email address", unique=True)
     name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
+    agent_key = models.CharField(max_length=64, blank=True, db_index=True)
     user_status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
     avatar_url = models.URLField(blank=True)
     bio = models.TextField(blank=True)
@@ -77,14 +78,21 @@ class User(AbstractUser):
 
     class Meta:
         ordering = ["name", "email"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "agent_key"],
+                condition=~models.Q(agent_key=""),
+                name="unique_agent_seat_per_organization",
+            )
+        ]
 
     def __str__(self):
         return self.name or self.email
 
     @property
     def is_ai_agent(self):
-        """All profiles in the virtual tech company are autonomous AI agents except the human CEO/Founder."""
-        return self.role != self.Role.CEO
+        """Agent identity is explicit; ordinary non-CEO members are still humans."""
+        return bool(self.agent_key)
 
     @property
     def is_privileged(self):

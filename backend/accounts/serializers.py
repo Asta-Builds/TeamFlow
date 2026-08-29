@@ -20,6 +20,7 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "name",
             "role",
+            "agent_key",
             "is_ai_agent",
             "user_status",
             "avatar_url",
@@ -33,13 +34,25 @@ class UserSerializer(serializers.ModelSerializer):
             "open_tasks_count",
             "closed_tasks_count",
         ]
-        read_only_fields = ["id", "date_joined", "is_active", "organization"]
+        read_only_fields = ["id", "agent_key", "date_joined", "is_active", "organization"]
 
     def get_open_tasks_count(self, obj):
         return obj.assigned_tasks.exclude(status="done").count()
 
     def get_closed_tasks_count(self, obj):
         return obj.assigned_tasks.filter(status="done").count()
+
+
+class ProfileSerializer(UserSerializer):
+    """Self-service profile serializer that cannot escalate identity or roles."""
+
+    class Meta(UserSerializer.Meta):
+        read_only_fields = [
+            *UserSerializer.Meta.read_only_fields,
+            "email",
+            "role",
+            "user_status",
+        ]
 
 
 class RegisterSerializer(serializers.ModelSerializer):

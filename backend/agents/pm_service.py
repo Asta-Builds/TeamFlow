@@ -9,42 +9,13 @@ import re
 import time
 import logging
 from typing import List, Dict, Any, Optional
-from django.contrib.auth import get_user_model
 from tasks.models import Task, Comment, TaskActivity
 from notifications.models import Notification
 from projects.models import Project
 from .tools.rag_tool import retrieve_context
+from .users import get_or_create_agent_user
 
 logger = logging.getLogger(__name__)
-User = get_user_model()
-
-AGENT_ROLES = {
-    "backend": {"email": "backend1@teamflow.dev", "name": "Marcus Aurelius (AI)", "role": "backend"},
-    "frontend": {"email": "frontend1@teamflow.dev", "name": "Cleopatra (AI)", "role": "frontend"},
-    "qa": {"email": "qa@teamflow.dev", "name": "Alan Turing (AI)", "role": "qa"},
-    "devops": {"email": "devops@teamflow.dev", "name": "Joan of Arc (AI)", "role": "devops"},
-    "designer": {"email": "design@teamflow.dev", "name": "Leonardo Da Vinci (AI)", "role": "designer"},
-    "seo": {"email": "seo@teamflow.dev", "name": "Ada Lovelace (AI)", "role": "seo"},
-    "tech_lead": {"email": "lead@teamflow.dev", "name": "Sarah Jenkins (AI)", "role": "tech_lead"},
-    "pm": {"email": "pm@teamflow.dev", "name": "Athena (AI)", "role": "pm"},
-}
-
-
-def get_or_create_agent_user(role_key: str, organization) -> User:
-    meta = AGENT_ROLES.get(role_key, AGENT_ROLES["tech_lead"])
-    user, _ = User.objects.get_or_create(
-        email=meta["email"],
-        defaults={
-            "name": meta["name"],
-            "role": meta["role"],
-            "organization": organization,
-            "user_status": User.Status.ACTIVE,
-            "bio": f"Autonomous AI Agent ({meta['name']})",
-        }
-    )
-    return user
-
-
 def decompose_plan_and_create_tasks(
     project: Project,
     plan_text: str,
@@ -56,8 +27,8 @@ def decompose_plan_and_create_tasks(
     and logs activities.
     """
     pm_user = get_or_create_agent_user("pm", project.organization)
-    backend_user = get_or_create_agent_user("backend", project.organization)
-    frontend_user = get_or_create_agent_user("frontend", project.organization)
+    backend_user = get_or_create_agent_user("backend_core", project.organization)
+    frontend_user = get_or_create_agent_user("frontend_app", project.organization)
     qa_user = get_or_create_agent_user("qa", project.organization)
     devops_user = get_or_create_agent_user("devops", project.organization)
     design_user = get_or_create_agent_user("designer", project.organization)

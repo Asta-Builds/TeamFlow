@@ -159,6 +159,8 @@ def generate_llm_response(
         f"3. For frontend components, use Tailwind CSS, Hero UI (@heroui/react), or modern clean UI components with Lucide icons."
     )
 
+    response_text = ""
+
     # 0. Tech Lead PR Merge Governance
     if agent_info.get("role") == "tech_lead" and any(w in prompt.lower() for w in ["merge", "fusionner", "valider la pr", "approuver la pr", "merge to main"]):
         try:

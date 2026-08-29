@@ -16,6 +16,7 @@ from tasks.models import Task, Comment, TaskActivity
 from notifications.models import Notification
 from .models import AgentExecutionTrace
 from .registry import AGENT_SEATS, get_agent_spec, resolve_agent_key
+from .users import get_or_create_agent_user
 from .tools.rag_tool import retrieve_context
 from .observability.langfuse_client import generate_langfuse_trace_url
 
@@ -147,7 +148,7 @@ ANTIGRAV_AGENT_SPECS: Dict[str, Dict[str, Any]] = {
 
 # The canonical registry keeps seat identity separate from the Django role used
 # for permissions.  The legacy aliases remain valid through resolve_agent_key.
-ANTIGRAV_AGENT_SPECS = AGENT_SEATS
+ANTIGRAV_AGENT_SPECS = {key: get_agent_spec(key) for key in AGENT_SEATS}
 
 
 class AntigravityAgentEngine:
@@ -377,21 +378,16 @@ def run_antigravity_agent(
     Saves comment, creates trace record, logs activity, and returns full metadata.
     """
     engine = AntigravityAgentEngine(agent_role=agent_role)
-    rag_context = retrieve_context(f"{task.title} {prompt}", project_id=task.project_id)
+    rag_context = retrieve_context(
+        f"{task.title} {prompt}",
+        project_id=task.project_id,
+        organization_id=task.organization_id,
+    )
     
     result = engine.execute_agent_sync(task, prompt, rag_context, user=user)
 
     # 1. Get or create agent user in Django
-    agent_user, _ = User.objects.get_or_create(
-        email=engine.spec["email"],
-        defaults={
-            "name": engine.spec["name"],
-            "role": engine.spec["role"],
-            "organization": task.organization,
-            "user_status": User.Status.ACTIVE,
-            "bio": f"Autonomous AI Specialist powered by Google Antigravity SDK",
-        }
-    )
+    agent_user = get_or_create_agent_user(engine.agent_key, task.organization)
 
     # 2. Automatically apply task status transitions, assignees, and PR links based on agent work
     old_status = task.status

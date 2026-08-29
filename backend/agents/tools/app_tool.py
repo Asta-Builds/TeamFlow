@@ -8,6 +8,16 @@ from notifications.models import Notification
 User = get_user_model()
 
 
+def _agent_for_organization(organization, identifier: str):
+    from agents.users import agent_key_from_identifier, get_or_create_agent_user
+
+    return get_or_create_agent_user(agent_key_from_identifier(identifier), organization)
+
+
+def _agent_for_task(task, identifier: str):
+    return _agent_for_organization(task.organization, identifier)
+
+
 def update_ticket_status(
     task_id: int,
     status: str,
@@ -21,7 +31,7 @@ def update_ticket_status(
         task.status = status
         task.save(update_fields=["status"])
 
-        actor = User.objects.filter(email=actor_email).first()
+        actor = _agent_for_task(task, actor_email)
         TaskActivity.objects.create(
             task=task,
             actor=actor,
@@ -42,7 +52,10 @@ def log_task_activity(
     """App DB Tool: Logs custom agent task activity."""
     try:
         task = Task.objects.get(pk=task_id)
-        actor = User.objects.filter(name__icontains=actor_name).first() or task.assignee
+        actor = User.objects.filter(
+            organization=task.organization,
+            name__icontains=actor_name,
+        ).first() or task.assignee
         activity = TaskActivity.objects.create(
             task=task,
             actor=actor,
@@ -62,7 +75,7 @@ def add_ticket_comment(
     """App DB Tool: Adds a comment to a ticket from an agent."""
     try:
         task = Task.objects.get(pk=task_id)
-        author = User.objects.filter(email=author_email).first()
+        author = _agent_for_task(task, author_email)
         comment = Comment.objects.create(
             task=task,
             author=author,
@@ -82,7 +95,7 @@ def set_ticket_qa_decision(
     """App DB Tool: Records QA approval or rejection with mandatory reason."""
     try:
         task = Task.objects.get(pk=task_id)
-        actor = User.objects.filter(email=actor_email).first()
+        actor = _agent_for_task(task, actor_email)
         if qa_passed:
             task.status = Task.Status.DONE
             task.qa_rejected = False
@@ -126,7 +139,7 @@ def trigger_app_deployment(
     try:
         from projects.models import Project
         project = Project.objects.get(pk=project_id)
-        actor = User.objects.filter(email=actor_email).first()
+        actor = _agent_for_organization(project.organization, actor_email)
         logs = (
             f"=== Multi-Agent Automated Deployment ===\n"
             f"Environment: {environment}\n"

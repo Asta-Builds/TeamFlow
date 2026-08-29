@@ -24,6 +24,8 @@ from .code_writer import parse_and_apply_code_changes
 from .ollama_service import query_ollama
 from .rag.vector_store import query_similar_chunks
 from .registry import AGENT_SEATS, get_agent_spec
+from .users import get_or_create_agent_user
+from .events import emit_agent_event, ensure_task_organization
 
 logger = logging.getLogger(__name__)
 
@@ -78,20 +80,6 @@ SWARM_SPECIALISTS.update({
 })
 
 
-def _get_or_create_agent_user(role: str) -> User:
-    """Retrieves or creates the Django User for the AI agent."""
-    spec = SWARM_SPECIALISTS.get(role, SWARM_SPECIALISTS["tech_lead"])
-    user, _ = User.objects.get_or_create(
-        email=spec["email"],
-        defaults={
-            "name": spec["name"],
-            "role": spec["role"],
-            "is_active": True,
-        }
-    )
-    return user
-
-
 def generate_validation_contract(task: Task, instruction: str = "") -> List[Dict[str, Any]]:
     """
     Factory 'Missions' Architecture:
@@ -142,6 +130,8 @@ def execute_full_swarm_chain(
     task: Task,
     trigger_user: Optional[User] = None,
     instruction: str = "",
+    session_id: str = "",
+    trace=None,
 ) -> List[Dict[str, Any]]:
     """
     Executes the sequential multi-agent swarm chain:
@@ -152,6 +142,8 @@ def execute_full_swarm_chain(
     5. Tech Lead (PR Merge to main)
     6. DevOps (Staging Deployment & Completion)
     """
+    task = ensure_task_organization(task)
+    session_id = session_id or f"chain-task-{task.id}-{int(time.time())}"
     chain_events: List[Dict[str, Any]] = []
     project = task.project
     project_name = getattr(project, "name", "Project Codebase")
@@ -166,12 +158,27 @@ def execute_full_swarm_chain(
     task.contract_compliance_score = 0.0
     task.status = Task.Status.IN_PROGRESS
     task.save(update_fields=["validation_contract", "contract_compliance_score", "status"])
+    emit_agent_event(
+        task=task,
+        trace=trace,
+        session_id=session_id,
+        event_type="started",
+        sender_key="tech_lead",
+        message="I am defining the validation contract and preparing the first backend handoff.",
+        current_work="Defining scope and validation contract",
+        remaining_work=["backend step", "frontend step", "QA decision", "merge review", "release step"],
+    )
 
     # -------------------------------------------------------------
     # STEP 1: Tech Lead Sarah Jenkins (Architecture & Handoff to Backend)
     # -------------------------------------------------------------
-    lead_user = _get_or_create_agent_user("tech_lead")
-    rag_results = query_similar_chunks(f"{task.title} {task.description} {instruction}", limit=2)
+    lead_user = get_or_create_agent_user("tech_lead", task.organization)
+    rag_results = query_similar_chunks(
+        f"{task.title} {task.description} {instruction}",
+        project_id=task.project_id,
+        organization_id=task.organization_id,
+        limit=2,
+    )
     rag_context = "\n".join([r.get("content", "") for r in rag_results]) if rag_results else "Standard project architecture."
 
     contract_bullets = "\n".join([f"  - 📌 **[{c['id']}]** {c['assertion']}" for c in contract])
@@ -202,11 +209,22 @@ def execute_full_swarm_chain(
         "content": lead_comment_body,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
     })
+    emit_agent_event(
+        task=task,
+        trace=trace,
+        session_id=session_id,
+        event_type="handoff",
+        sender_key="tech_lead",
+        recipient_key="backend_core",
+        message="I finished the initial architecture step and handed the validation contract to backend.",
+        current_work="Waiting for backend update",
+        remaining_work=["backend step", "frontend step", "QA decision", "merge review", "release step"],
+    )
 
     # -------------------------------------------------------------
     # STEP 2: Senior Backend Marcus Aurelius (Backend Code & Handoff to Frontend)
     # -------------------------------------------------------------
-    backend_user = _get_or_create_agent_user("backend")
+    backend_user = get_or_create_agent_user("backend_core", task.organization)
     backend_prompt = (
         f"Project: {project_name}\n"
         f"Task: #{task.id} - {task.title}\n"
@@ -269,11 +287,22 @@ def execute_full_swarm_chain(
         "content": backend_comment_body,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
     })
+    emit_agent_event(
+        task=task,
+        trace=trace,
+        session_id=session_id,
+        event_type="handoff",
+        sender_key="backend_core",
+        recipient_key="frontend_app",
+        message="I completed the backend generation step and handed the recorded output to frontend.",
+        current_work="Waiting for frontend integration",
+        remaining_work=["frontend step", "QA decision", "merge review", "release step"],
+    )
 
     # -------------------------------------------------------------
     # STEP 3: Senior Frontend Cleopatra (Frontend Code & Handoff to QA)
     # -------------------------------------------------------------
-    frontend_user = _get_or_create_agent_user("frontend")
+    frontend_user = get_or_create_agent_user("frontend_app", task.organization)
     frontend_prompt = (
         f"Project: {project_name}\n"
         f"Task: #{task.id} - {task.title}\n"
@@ -336,11 +365,22 @@ def execute_full_swarm_chain(
         "content": frontend_comment_body,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
     })
+    emit_agent_event(
+        task=task,
+        trace=trace,
+        session_id=session_id,
+        event_type="handoff",
+        sender_key="frontend_app",
+        recipient_key="qa",
+        message="I completed the frontend generation step and handed the current result to QA.",
+        current_work="Waiting for QA decision",
+        remaining_work=["QA decision", "merge review", "release step"],
+    )
 
     # -------------------------------------------------------------
     # STEP 4: QA Engineer Alan Turing (Validation Contract Verification & Handoff to Tech Lead)
     # -------------------------------------------------------------
-    qa_user = _get_or_create_agent_user("qa")
+    qa_user = get_or_create_agent_user("qa", task.organization)
     
     # Holistic Verification against Upfront Validation Contract
     validated_contract = []
@@ -386,6 +426,17 @@ def execute_full_swarm_chain(
         "content": qa_comment_body,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
     })
+    emit_agent_event(
+        task=task,
+        trace=trace,
+        session_id=session_id,
+        event_type="handoff",
+        sender_key="qa",
+        recipient_key="tech_lead",
+        message="I recorded the current validation-contract decision and handed the result to the Tech Lead.",
+        current_work="Waiting for merge review",
+        remaining_work=["merge review", "release step"],
+    )
 
     # -------------------------------------------------------------
     # STEP 5: Tech Lead Sarah Jenkins (Merge PR to main & Handoff to DevOps)
@@ -425,11 +476,23 @@ def execute_full_swarm_chain(
         "content": lead_merge_comment_body,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
     })
+    emit_agent_event(
+        task=task,
+        trace=trace,
+        session_id=session_id,
+        event_type="handoff",
+        sender_key="tech_lead",
+        recipient_key="devops",
+        message="I completed the merge-review step and handed the recorded result to DevOps.",
+        current_work="Waiting for release step",
+        remaining_work=["release step"],
+        metadata={"merge_success": bool(merge_res.get("success")), "merge_sha": merge_sha},
+    )
 
     # -------------------------------------------------------------
     # STEP 6: DevOps Joan of Arc (Staging Rollout & Final Completion)
     # -------------------------------------------------------------
-    devops_user = _get_or_create_agent_user("devops")
+    devops_user = get_or_create_agent_user("devops", task.organization)
     devops_comment_body = (
         f"🚀 **[Joan of Arc (DevOps) ➔ @TeamFlow Swarm]**\n\n"
         f"Pipeline CI/CD synchronisé sur `main`.\n\n"
@@ -454,5 +517,15 @@ def execute_full_swarm_chain(
         "content": devops_comment_body,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
     })
+    emit_agent_event(
+        task=task,
+        trace=trace,
+        session_id=session_id,
+        event_type="completed",
+        sender_key="devops",
+        message="I completed the final release workflow step. The run is ready for human review.",
+        current_work="Run completed",
+        remaining_work=[],
+    )
 
     return chain_events

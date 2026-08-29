@@ -1,5 +1,6 @@
 from django.utils import timezone
 from rest_framework import decorators, permissions, response, status, viewsets
+from rest_framework.exceptions import PermissionDenied
 
 from notifications.models import Notification
 from .models import Deployment
@@ -25,7 +26,7 @@ class DeploymentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         if not user.can_deploy:
-            raise permissions.exceptions.PermissionDenied("Only DevOps Engineer, Tech Lead or CEO can trigger deployments.")
+            raise PermissionDenied("Only DevOps Engineer, Tech Lead or CEO can trigger deployments.")
 
         logs = (
             f"=== Build & Deployment Pipeline Started ===\n"

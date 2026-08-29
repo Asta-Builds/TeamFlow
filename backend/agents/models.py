@@ -90,3 +90,71 @@ class AgentExecutionTrace(models.Model):
 
     def __str__(self):
         return f"Agent Trace #{self.id} — Task #{self.task_id} ({self.status})"
+
+
+class AgentEvent(models.Model):
+    """Persistent, tenant-scoped lifecycle and conversation event for an agent run."""
+
+    class Type(models.TextChoices):
+        QUEUED = "queued", "Queued"
+        STARTED = "started", "Started"
+        PROGRESS = "progress", "Progress"
+        HANDOFF = "handoff", "Handoff"
+        BLOCKED = "blocked", "Blocked"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="agent_events",
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name="agent_events",
+    )
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="agent_events",
+    )
+    trace = models.ForeignKey(
+        AgentExecutionTrace,
+        on_delete=models.CASCADE,
+        related_name="events",
+        null=True,
+        blank=True,
+    )
+    session_id = models.CharField(max_length=128, db_index=True)
+    event_type = models.CharField(max_length=20, choices=Type.choices)
+    sender = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        related_name="agent_events",
+        null=True,
+        blank=True,
+    )
+    sender_key = models.CharField(max_length=64, blank=True)
+    recipient_key = models.CharField(max_length=64, blank=True)
+    message = models.TextField()
+    current_work = models.TextField(blank=True)
+    remaining_work = models.JSONField(default=list, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+        indexes = [
+            models.Index(
+                fields=["organization", "project", "id"],
+                name="agents_agen_organiz_0ca188_idx",
+            ),
+            models.Index(
+                fields=["task", "session_id", "id"],
+                name="agents_agen_task_id_f80b84_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.session_id}: {self.event_type} ({self.sender_key or 'system'})"

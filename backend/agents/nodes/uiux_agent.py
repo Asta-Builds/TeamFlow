@@ -2,6 +2,7 @@ import time
 from typing import Dict, Any
 from agents.state import TicketState
 from agents.tools.app_tool import add_ticket_comment, log_task_activity
+from agents.events import emit_state_event
 
 
 def uiux_agent_node(state: TicketState) -> Dict[str, Any]:
@@ -14,6 +15,14 @@ def uiux_agent_node(state: TicketState) -> Dict[str, Any]:
     history = list(state.get("history", []))
     total_tokens = state.get("total_tokens", 0) + 410
     total_cost = state.get("total_cost_usd", 0.0) + 0.0041
+    emit_state_event(
+        state,
+        event_type="progress",
+        sender_key="designer",
+        message="I am reviewing the interaction and accessibility requirements before handing specifications to frontend.",
+        current_work="Reviewing UI/UX requirements",
+        remaining_work=["design handoff", "frontend implementation", "QA decision"],
+    )
 
     step_log = {
         "node": "designer",
@@ -25,6 +34,15 @@ def uiux_agent_node(state: TicketState) -> Dict[str, Any]:
         "cost_usd": 0.0041,
     }
     history.append(step_log)
+    emit_state_event(
+        state,
+        event_type="handoff",
+        sender_key="designer",
+        recipient_key="frontend_app",
+        message="I completed the design review step and handed the specifications to frontend.",
+        current_work="Waiting for frontend implementation",
+        remaining_work=["frontend implementation", "QA decision"],
+    )
 
     if ticket_id:
         add_ticket_comment(

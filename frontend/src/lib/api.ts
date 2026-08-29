@@ -209,12 +209,72 @@ export async function executeSwarmChain(taskId: number, instruction?: string) {
     message: string;
     task_id: number;
     task_status: import("./types").TaskStatus;
-    chain_events: unknown[];
-    events_count: number;
+    trace: import("./types").AgentExecutionTrace;
   }>(`/agents/swarm-chain/${taskId}/`, {
     method: "POST",
     body: { instruction: instruction || "" },
   });
+}
+
+interface AgentEventQuery {
+  projectId?: number;
+  taskId?: number;
+  sessionId?: string;
+  after?: number;
+}
+
+function agentEventQuery({ projectId, taskId, sessionId, after }: AgentEventQuery) {
+  const query = new URLSearchParams();
+  if (projectId) query.set("project", String(projectId));
+  if (taskId) query.set("task", String(taskId));
+  if (sessionId) query.set("session", sessionId);
+  if (after) query.set("after", String(after));
+  return query.toString();
+}
+
+export async function getAgentEvents(options: AgentEventQuery = {}) {
+  const query = agentEventQuery(options);
+  return apiFetch<{
+    events: import("./types").AgentEvent[];
+    last_event_id: number;
+  }>(`/agents/events/${query ? `?${query}` : ""}`);
+}
+
+export async function streamAgentEvents(
+  options: AgentEventQuery,
+  onEvent: (event: import("./types").AgentEvent) => void,
+  signal: AbortSignal,
+  retry = true,
+) {
+  const query = agentEventQuery(options);
+  const token = getToken();
+  const response = await fetch(`${API_BASE}/agents/events/stream/${query ? `?${query}` : ""}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    signal,
+  });
+
+  if (response.status === 401 && retry) {
+    const refreshed = await refreshAccess();
+    if (refreshed) return streamAgentEvents(options, onEvent, signal, false);
+  }
+  if (!response.ok || !response.body) {
+    throw new ApiError(response.status, { detail: "Agent event stream unavailable." });
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (!signal.aborted) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split("\n\n");
+    buffer = blocks.pop() || "";
+    for (const block of blocks) {
+      const dataLine = block.split("\n").find((line) => line.startsWith("data: "));
+      if (dataLine) onEvent(JSON.parse(dataLine.slice(6)) as import("./types").AgentEvent);
+    }
+  }
 }
 
 

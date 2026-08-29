@@ -1,21 +1,23 @@
-import base64
 import json
 import logging
-import os
 import urllib.request
 import urllib.parse
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import OpenApiTypes, extend_schema
 from rest_framework import generics, permissions, serializers, status, viewsets, decorators
 from rest_framework.response import Response
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from organizations.models import Organization
 from teamflow.permissions import IsPrivilegedOrReadOnly
+from .keycloak import KeycloakTokenError, role_from_claims, verify_keycloak_token
 from .serializers import (
     ChangePasswordSerializer,
     MemberCreateSerializer,
+    ProfileSerializer,
     RegisterSerializer,
     UserSerializer,
 )
@@ -39,7 +41,7 @@ class RegisterView(generics.CreateAPIView):
 class MeView(generics.RetrieveUpdateAPIView):
     """GET/PATCH /api/auth/me/ — the current authenticated user."""
 
-    serializer_class = UserSerializer
+    serializer_class = ProfileSerializer
 
     def get_object(self):
         return self.request.user
@@ -67,7 +69,6 @@ class KeycloakAuthView(APIView):
     Accepts:
       - 'code' + 'redirect_uri' (Authorization Code Flow)
       - 'token' / 'access_token' / 'id_token' (Direct / Implicit Token Flow)
-      - 'email' + 'name' (Direct user sync fallback)
     Returns TeamFlow JWT tokens + User info.
     """
     permission_classes = [permissions.AllowAny]
@@ -76,74 +77,43 @@ class KeycloakAuthView(APIView):
         code = request.data.get("code")
         redirect_uri = request.data.get("redirect_uri") or "http://localhost:3000/auth/callback"
         token = request.data.get("token") or request.data.get("access_token") or request.data.get("id_token")
-        email = request.data.get("email")
-        name = request.data.get("name", "")
-        role = request.data.get("role")
 
         # 1. If an authorization code was received, exchange it with Keycloak
         if code and not token:
-            keycloak_url = os.environ.get("KEYCLOAK_URL", "http://keycloak:8080/realms/teamflow")
-            # Fallback to localhost if outside container
-            urls_to_try = [
-                f"{keycloak_url}/protocol/openid-connect/token",
-                "http://localhost:8080/realms/teamflow/protocol/openid-connect/token",
-                "http://127.0.0.1:8080/realms/teamflow/protocol/openid-connect/token",
-            ]
-            
-            token_payload = None
-            for token_url in urls_to_try:
-                try:
-                    data = urllib.parse.urlencode({
-                        "grant_type": "authorization_code",
-                        "client_id": "teamflow-app",
-                        "code": code,
-                        "redirect_uri": redirect_uri,
-                    }).encode("utf-8")
-                    req = urllib.request.Request(token_url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
-                    with urllib.request.urlopen(req, timeout=5) as resp:
-                        token_res = json.loads(resp.read().decode("utf-8"))
-                        token = token_res.get("access_token") or token_res.get("id_token")
-                        if token:
-                            break
-                except Exception as ex:
-                    logger.debug(f"Could not connect to Keycloak at {token_url}: {ex}")
-
-        # 2. Parse JWT payload from token
-        if token:
             try:
-                parts = token.split(".")
-                if len(parts) >= 2:
-                    padding = "=" * (4 - len(parts[1]) % 4)
-                    payload_bytes = base64.urlsafe_b64decode(parts[1] + padding)
-                    payload = json.loads(payload_bytes)
-                    email = payload.get("email") or payload.get("preferred_username") or email
-                    name = payload.get("name") or payload.get("given_name", "") or name
-                    
-                    # Extract realm roles
-                    realm_access = payload.get("realm_access", {})
-                    realm_roles = realm_access.get("roles", [])
-                    for r in [
-                        User.Role.CEO,
-                        User.Role.TECH_LEAD,
-                        User.Role.DEVOPS,
-                        User.Role.QA,
-                        User.Role.BACKEND,
-                        User.Role.FRONTEND,
-                        User.Role.DESIGNER,
-                        User.Role.SEO,
-                        User.Role.ADMIN,
-                    ]:
-                        if r in realm_roles:
-                            role = r
-                            break
-            except Exception as e:
-                logger.warning(f"Failed to parse Keycloak JWT: {e}")
+                data = urllib.parse.urlencode({
+                    "grant_type": "authorization_code",
+                    "client_id": settings.KEYCLOAK_CLIENT_ID,
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                }).encode("utf-8")
+                req = urllib.request.Request(
+                    settings.KEYCLOAK_TOKEN_URL,
+                    data=data,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                )
+                with urllib.request.urlopen(
+                    req,
+                    timeout=settings.KEYCLOAK_HTTP_TIMEOUT_SECONDS,
+                ) as resp:
+                    token_res = json.loads(resp.read().decode("utf-8"))
+                    token = token_res.get("access_token") or token_res.get("id_token")
+            except Exception as exc:
+                logger.warning("Keycloak authorization-code exchange failed: %s", exc)
+                raise AuthenticationFailed("Keycloak authorization-code exchange failed.") from exc
 
-        if not email:
-            return Response(
-                {"detail": "Unable to extract email from Keycloak authentication. Check Keycloak client scopes."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if not token:
+            raise AuthenticationFailed("A verified Keycloak token or authorization code is required.")
+
+        # 2. Trust identity and roles only after full JWT verification.
+        try:
+            claims = verify_keycloak_token(token)
+        except KeycloakTokenError as exc:
+            raise AuthenticationFailed(str(exc)) from exc
+
+        email = (claims.get("email") or claims.get("preferred_username")).lower()
+        name = claims.get("name") or claims.get("given_name", "") or email.split("@")[0]
+        role = role_from_claims(claims, {choice for choice, _label in User.Role.choices})
 
         # 3. Get or create default Organization
         org, _ = Organization.objects.get_or_create(
@@ -205,6 +175,7 @@ class UserViewSet(viewsets.ModelViewSet):
     """CRUD over team members. Constrained to the user's organization."""
 
     serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated, IsPrivilegedOrReadOnly]
     filterset_fields = ["role", "user_status", "is_active"]
     search_fields = ["email", "name"]
 
@@ -225,11 +196,11 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         if not self.request.user.is_privileged:
-            raise permissions.exceptions.PermissionDenied("Only Tech Lead, CEO or Admin can add members.")
+            raise PermissionDenied("Only Tech Lead, CEO or Admin can add members.")
         serializer.save()
 
     def perform_update(self, serializer):
         if "role" in self.request.data or "user_status" in self.request.data:
             if not self.request.user.is_privileged:
-                raise permissions.exceptions.PermissionDenied("Only Tech Lead, CEO or Admin can change member roles.")
+                raise PermissionDenied("Only Tech Lead, CEO or Admin can change member roles.")
         serializer.save()

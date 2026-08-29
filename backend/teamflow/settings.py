@@ -18,6 +18,10 @@ env = environ.Env(
     CSRF_TRUSTED_ORIGINS=(list, ["http://localhost:3000", "http://127.0.0.1:3000"]),
     DATABASE_URL=(str, ""),
     CELERY_BROKER_URL=(str, "redis://localhost:6379/0"),
+    KEYCLOAK_URL=(str, "http://localhost:8080/realms/teamflow"),
+    KEYCLOAK_ISSUER_URL=(str, "http://localhost:8080/realms/teamflow"),
+    KEYCLOAK_CLIENT_ID=(str, "teamflow-app"),
+    KEYCLOAK_HTTP_TIMEOUT_SECONDS=(int, 5),
 )
 
 # Load a .env file if present (dev convenience).
@@ -174,6 +178,15 @@ CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+
+# Keycloak uses a back-channel URL for token exchange/JWKS and a public issuer
+# URL matching the token's ``iss`` claim.
+KEYCLOAK_URL = env("KEYCLOAK_URL").rstrip("/")
+KEYCLOAK_ISSUER_URL = env("KEYCLOAK_ISSUER_URL").rstrip("/")
+KEYCLOAK_CLIENT_ID = env("KEYCLOAK_CLIENT_ID")
+KEYCLOAK_HTTP_TIMEOUT_SECONDS = env("KEYCLOAK_HTTP_TIMEOUT_SECONDS")
+KEYCLOAK_TOKEN_URL = f"{KEYCLOAK_URL}/protocol/openid-connect/token"
+KEYCLOAK_JWKS_URL = f"{KEYCLOAK_URL}/protocol/openid-connect/certs"
 
 # CORS — allow the Next.js frontend during development and production.
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")

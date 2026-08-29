@@ -1,6 +1,7 @@
 import time
 import logging
 from typing import Dict, Any, Optional
+from django.utils import timezone
 
 from langgraph.graph import StateGraph, END
 
@@ -14,6 +15,7 @@ from .nodes.uiux_agent import uiux_agent_node
 from .nodes.seo_agent import seo_agent_node
 from .observability.langfuse_client import get_langfuse_callback, generate_langfuse_trace_url
 from .models import AgentExecutionTrace
+from .events import emit_agent_event, ensure_task_organization
 
 logger = logging.getLogger(__name__)
 
@@ -100,15 +102,37 @@ agent_app = build_teamflow_agent_graph()
 def execute_ticket_swarm(
     task,
     initial_assigned_agent: Optional[str] = None,
+    trace: Optional[AgentExecutionTrace] = None,
 ) -> Dict[str, Any]:
     """
     Executes the multi-agent graph for a TeamFlow task.
     Traced to Langfuse with session_id = task.id.
     Persists AgentExecutionTrace in PostgreSQL.
     """
+    task = ensure_task_organization(task)
     start_time = time.time()
-    session_id = f"ticket-{task.id}-{int(start_time)}"
+    session_id = trace.session_id if trace else f"ticket-{task.id}-{int(start_time)}"
     langfuse_url = generate_langfuse_trace_url(session_id)
+
+    if trace is None:
+        trace = AgentExecutionTrace.objects.create(
+            task=task,
+            session_id=session_id,
+            status=AgentExecutionTrace.Status.RUNNING,
+            graph_state={"mode": "graph", "phase": "starting"},
+            langfuse_url=langfuse_url,
+        )
+
+    emit_agent_event(
+        task=task,
+        trace=trace,
+        session_id=session_id,
+        event_type="started",
+        sender_key="tech_lead",
+        message="I am reviewing the ticket context and deciding which specialist should take the first work item.",
+        current_work="Analyzing ticket scope and project context",
+        remaining_work=["specialist work", "review", "QA decision", "release handoff"],
+    )
 
     initial_state: TicketState = {
         "ticket_id": task.id,
@@ -162,17 +186,26 @@ def execute_ticket_swarm(
             task.pr_url = final_state.get("pr_url")
         task.save()
 
-        # Record trace in database
-        trace = AgentExecutionTrace.objects.create(
+        trace.status = AgentExecutionTrace.Status.COMPLETED
+        trace.graph_state = final_state
+        trace.steps = final_state.get("history", [])
+        trace.tokens_used = final_state.get("total_tokens", 0)
+        trace.cost_usd = final_state.get("total_cost_usd", 0.0)
+        trace.duration_seconds = duration
+        trace.langfuse_url = langfuse_url
+        trace.finished_at = timezone.now()
+        trace.save(update_fields=[
+            "status", "graph_state", "steps", "tokens_used", "cost_usd",
+            "duration_seconds", "langfuse_url", "finished_at",
+        ])
+        emit_agent_event(
             task=task,
+            trace=trace,
             session_id=session_id,
-            status=AgentExecutionTrace.Status.COMPLETED,
-            graph_state=final_state,
-            steps=final_state.get("history", []),
-            tokens_used=final_state.get("total_tokens", 0),
-            cost_usd=final_state.get("total_cost_usd", 0.0),
-            duration_seconds=duration,
-            langfuse_url=langfuse_url,
+            event_type="completed",
+            message="The orchestration run has finished. Review the recorded artifacts and validation evidence before accepting the result.",
+            current_work="Run completed",
+            remaining_work=[],
         )
 
         return {
@@ -188,14 +221,24 @@ def execute_ticket_swarm(
     except Exception as e:
         logger.error(f"Multi-agent execution error for task #{task.id}: {e}", exc_info=True)
         duration = round(time.time() - start_time, 2)
-        trace = AgentExecutionTrace.objects.create(
+        trace.status = AgentExecutionTrace.Status.FAILED
+        trace.graph_state = {"error": str(e)}
+        trace.steps = [{"node": "error", "message": str(e), "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ")}]
+        trace.duration_seconds = duration
+        trace.langfuse_url = langfuse_url
+        trace.finished_at = timezone.now()
+        trace.save(update_fields=[
+            "status", "graph_state", "steps", "duration_seconds",
+            "langfuse_url", "finished_at",
+        ])
+        emit_agent_event(
             task=task,
+            trace=trace,
             session_id=session_id,
-            status=AgentExecutionTrace.Status.FAILED,
-            graph_state={"error": str(e)},
-            steps=[{"node": "error", "message": str(e), "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ")}],
-            duration_seconds=duration,
-            langfuse_url=langfuse_url,
+            event_type="failed",
+            message=f"The orchestration run stopped because: {e}",
+            current_work="Run failed",
+            remaining_work=["resolve the reported blocker", "retry the run"],
         )
         return {
             "ok": False,

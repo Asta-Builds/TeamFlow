@@ -127,9 +127,18 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         # If comment contains @agent tags (e.g. @tech_lead, @backend, @qa), generate autonomous AI Agent response
         agent_replies = []
+        agent_run = None
         if "@" in comment.body:
-            from agents.agent_prompter import process_ceo_prompt
-            agent_replies = process_ceo_prompt(task, comment.body, request.user)
+            from agents.queue import AgentQueueError, queue_prompt_run
+            from agents.serializers import AgentExecutionTraceSerializer
+            try:
+                trace = queue_prompt_run(task, comment.body, request.user)
+                agent_run = AgentExecutionTraceSerializer(trace).data
+            except AgentQueueError as exc:
+                return response.Response(
+                    {"detail": str(exc), "comment_id": comment.id},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
 
         # Notify assignee & creator
         recipients = {task.assignee, task.created_by} - {request.user, None}
@@ -149,8 +158,9 @@ class TaskViewSet(viewsets.ModelViewSet):
             "task_status": task.status,
             "pr_url": task.pr_url,
             "task": TaskSerializer(task, context={"request": request}).data,
-            "agent_replies": agent_replies
-        }, status=201)
+            "agent_replies": agent_replies,
+            "agent_run": agent_run,
+        }, status=status.HTTP_202_ACCEPTED if agent_run else status.HTTP_201_CREATED)
 
     @decorators.action(detail=True, methods=["post"])
     def prompt_agent(self, request, pk=None):
@@ -180,9 +190,15 @@ class TaskViewSet(viewsets.ModelViewSet):
             details={"prompt": prompt_text[:100], "agent_tag": agent_tag or "auto"}
         )
 
-        # Generate agent response(s)
-        from agents.agent_prompter import process_ceo_prompt
-        agent_replies = process_ceo_prompt(task, prompt_text, request.user, specific_tag=agent_tag)
+        from agents.queue import AgentQueueError, queue_prompt_run
+        from agents.serializers import AgentExecutionTraceSerializer
+        try:
+            trace = queue_prompt_run(task, prompt_text, request.user, specific_tag=agent_tag)
+        except AgentQueueError as exc:
+            return response.Response(
+                {"detail": str(exc), "comment_id": ceo_comment.id},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         task.refresh_from_db()
         return response.Response({
@@ -191,8 +207,9 @@ class TaskViewSet(viewsets.ModelViewSet):
             "pr_url": task.pr_url,
             "task": TaskSerializer(task, context={"request": request}).data,
             "ceo_comment": CommentSerializer(ceo_comment, context={"request": request}).data,
-            "agent_replies": agent_replies,
-        })
+            "agent_replies": [],
+            "agent_run": AgentExecutionTraceSerializer(trace).data,
+        }, status=status.HTTP_202_ACCEPTED)
 
     @decorators.action(detail=True, methods=["post"])
     def qa_validate(self, request, pk=None):
@@ -280,7 +297,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         user = request.user
         activities = TaskActivity.objects.filter(
             task__organization=user.organization
-        ).select_related("actor", "task", "task__project").order_by("-created_at")[:40]
+        ).select_related("actor", "task", "task__project").order_by("-created_at")
 
         project_id = request.query_params.get("project")
         if project_id:
@@ -289,6 +306,8 @@ class TaskViewSet(viewsets.ModelViewSet):
         action_filter = request.query_params.get("action")
         if action_filter:
             activities = activities.filter(action=action_filter)
+
+        activities = activities[:40]
 
         data = [
             {

@@ -4,6 +4,7 @@ from agents.state import TicketState
 from agents.tools.rag_tool import retrieve_context
 from agents.tools.slack_tool import post_slack_message
 from agents.tools.app_tool import add_ticket_comment, log_task_activity
+from agents.events import emit_state_event
 
 
 def tech_lead_node(state: TicketState) -> Dict[str, Any]:
@@ -23,10 +24,22 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
     total_tokens = state.get("total_tokens", 0) + 420
     total_cost = state.get("total_cost_usd", 0.0) + 0.0042
 
+    emit_state_event(
+        state,
+        event_type="progress",
+        sender_key="tech_lead",
+        message="I am checking the architecture context, current ticket state, and the safest next owner.",
+        current_work="Reviewing architecture and routing",
+        remaining_work=["specialist implementation", "code review", "QA decision", "release handoff"],
+    )
+
     # Step 1: Query RAG for architectural context if not already fetched
     retrieved = state.get("retrieved_context", [])
     if not retrieved:
-        retrieved = retrieve_context(f"{title} {description}", project_id=state.get("project_id"))
+        retrieved = retrieve_context(
+            f"{title} {description}",
+            project_id=state.get("project_id"),
+        )
 
     # Step 2: Determine if this is an initial breakdown OR a PR review step
     has_pr = bool(state.get("pr_url"))
@@ -49,6 +62,15 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
         if ticket_id:
             add_ticket_comment(ticket_id, "lead@teamflow.dev", f"🎯 Tech Lead: Code review completed on {state['pr_url']}. Moving ticket to QA.")
             log_task_activity(ticket_id, "Sarah Jenkins", "reviewed_pr", {"pr_url": state["pr_url"]})
+        emit_state_event(
+            state,
+            event_type="handoff",
+            sender_key="tech_lead",
+            recipient_key="qa",
+            message="I completed the orchestration review step and handed the recorded result to QA for independent validation.",
+            current_work="Waiting for QA decision",
+            remaining_work=["QA decision", "release handoff"],
+        )
         
         return {
             "status": "in_review",
@@ -90,6 +112,17 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
             "lead@teamflow.dev",
             f"🎯 Tech Lead: Ticket analyzed and context retrieved via pgvector RAG. Assigned to {new_subtasks[0]['role']} agent."
         )
+
+    emit_state_event(
+        state,
+        event_type="handoff",
+        sender_key="tech_lead",
+        recipient_key=new_subtasks[0]["role"],
+        message=f"I finished the initial breakdown and assigned the first work item to {new_subtasks[0]['role']}.",
+        current_work="Waiting for specialist update",
+        remaining_work=["specialist implementation", "code review", "QA decision", "release handoff"],
+        metadata={"subtasks": new_subtasks},
+    )
 
     return {
         "status": "in_progress",

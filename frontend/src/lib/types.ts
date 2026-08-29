@@ -18,6 +18,7 @@ export interface User {
   email: string;
   name: string;
   role: Role;
+  agent_key?: string;
   is_ai_agent?: boolean;
   user_status?: UserStatus;
   avatar_url: string;
@@ -229,13 +230,46 @@ export interface AgentExecutionTrace {
   finished_at?: string | null;
 }
 
+export type AgentEventType =
+  | "queued"
+  | "started"
+  | "progress"
+  | "handoff"
+  | "blocked"
+  | "completed"
+  | "failed";
+
+export interface AgentEvent {
+  id: number;
+  session_id: string;
+  event_type: AgentEventType;
+  sender_key: string;
+  sender_name: string;
+  sender_role: string;
+  recipient_key: string;
+  message: string;
+  current_work: string;
+  remaining_work: string[];
+  metadata: Record<string, unknown>;
+  task: number;
+  task_title: string;
+  project: number;
+  project_name: string;
+  trace: number | null;
+  created_at: string;
+}
+
 export interface AgentClusterStatus {
   orchestration_framework: string;
+  model_engine_status?: "ready" | "offline";
+  worker_queue_status?: "ready" | "offline";
+  event_bus_status?: "ready" | "offline";
   vector_store: string;
   observability: string;
   memory_queue: string;
   total_agent_seats: number;
   active_agents: Array<{
+    key: string;
     role: string;
     name: string;
     title: string;

@@ -47,7 +47,20 @@
         "https://*"
       ],
       "webOrigins": ["*"],
-      "fullScopeAllowed": true
+      "fullScopeAllowed": true,
+      "protocolMappers": [
+        {
+          "name": "teamflow-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "teamflow-app",
+            "id.token.claim": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [

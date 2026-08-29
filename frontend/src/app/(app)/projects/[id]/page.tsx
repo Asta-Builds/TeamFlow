@@ -1,20 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   apiFetch,
   dispatchAgentSwarm,
   executeSwarmChain,
+  getAgentEvents,
   getAgentTraces,
-  getSwarmLiveFeed,
   ingestRAGKnowledge,
-  type SwarmFeedItem,
+  streamAgentEvents,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import type {
   AgentExecutionTrace,
+  AgentEvent,
   Paginated,
   Priority,
   Project,
@@ -71,6 +72,7 @@ interface PmGenerateTasksResponse {
 
 interface TaskCommentResponse {
   agent_replies?: Array<{ agent_name?: string }>;
+  agent_run?: AgentExecutionTrace;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -760,13 +762,10 @@ function TaskDetailPanel({
   async function handleRunSwarm() {
     setRunningSwarm(true);
     try {
-      await dispatchAgentSwarm(detail.id);
-      const updated = await apiFetch<Task>(`/tasks/${detail.id}/`);
-      setDetail(updated);
-      onChanged(updated);
-      getAgentTraces(detail.id).then(setTraces);
+      const result = await dispatchAgentSwarm(detail.id);
+      setTraces((current) => [result.trace, ...current]);
       setActiveTab("agents");
-      toast.success(`Autonomous swarm completed! Ticket transitioned to ${updated.status}`);
+      toast.success("Autonomous swarm queued. Live updates will appear in the agent stream.");
     } catch (err) {
       toast.error("Error executing multi-agent swarm: " + String(err));
     } finally {
@@ -778,13 +777,10 @@ function TaskDetailPanel({
     setRunningChain(true);
     try {
       const res = await executeSwarmChain(detail.id, comment.trim());
-      const updated = await apiFetch<Task>(`/tasks/${detail.id}/`);
-      setDetail(updated);
-      onChanged(updated);
-      getAgentTraces(detail.id).then(setTraces);
-      setActiveTab("comments");
+      setTraces((current) => [res.trace, ...current]);
+      setActiveTab("agents");
       setComment("");
-      toast.success(`⚡ Flux Autonome Exécuté ! ${res.events_count || 6} étapes et passages de relais complétés.`);
+      toast.success("Flux autonome mis en file d’attente. Suivez son avancement dans le flux en direct.");
     } catch (err) {
       toast.error("Erreur lors de l'exécution du flux autonome : " + getErrorMessage(err));
     } finally {
@@ -809,6 +805,9 @@ function TaskDetailPanel({
       if (res.agent_replies && res.agent_replies.length > 0) {
         const agentName = res.agent_replies[0].agent_name || "AI Agent";
         toast.success(`${agentName} responded & updated status to ${updated.status}!`);
+      } else if (res.agent_run) {
+        setTraces((current) => [res.agent_run!, ...current]);
+        toast.success("Agent prompt queued. The response will arrive in the live stream.");
       } else {
         toast.success("Comment added");
       }
@@ -1330,7 +1329,7 @@ function TaskDetailPanel({
               <div className="space-y-4">
                 <div className="max-h-72 overflow-y-auto space-y-3 pr-1">
                   {detail.comments?.map((c) => {
-                    const isAi = c.author_detail?.role !== "ceo";
+                    const isAi = Boolean(c.author_detail?.is_ai_agent);
                     const isHandoff = c.body.includes("➔ @");
                     return (
                       <div
@@ -1524,17 +1523,20 @@ function SwarmLiveFeedModal({
   projectName: string;
   onClose: () => void;
 }) {
-  const [feed, setFeed] = useState<SwarmFeedItem[]>([]);
+  const [feed, setFeed] = useState<AgentEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterAgent, setFilterAgent] = useState("all");
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [liveStream, setLiveStream] = useState(true);
+  const [streamError, setStreamError] = useState("");
+  const lastEventId = useRef(0);
 
   const fetchFeed = useCallback(() => {
-    getSwarmLiveFeed(projectId)
+    getAgentEvents({ projectId })
       .then((res) => {
-        setFeed(res.feed || []);
+        setFeed(res.events || []);
+        lastEventId.current = res.last_event_id || 0;
       })
-      .catch((err) => console.error("Error fetching swarm feed:", err))
+      .catch((err) => setStreamError(getErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [projectId]);
 
@@ -1543,15 +1545,42 @@ function SwarmLiveFeedModal({
   }, [fetchFeed]);
 
   useEffect(() => {
-    if (!autoRefresh) return;
-    const interval = setInterval(fetchFeed, 3500);
-    return () => clearInterval(interval);
-  }, [autoRefresh, fetchFeed]);
+    if (!liveStream || loading) return;
+    const controller = new AbortController();
+
+    async function connect() {
+      while (!controller.signal.aborted) {
+        try {
+          await streamAgentEvents(
+            { projectId, after: lastEventId.current },
+            (event) => {
+              lastEventId.current = Math.max(lastEventId.current, event.id);
+              setFeed((current) => {
+                if (current.some((item) => item.id === event.id)) return current;
+                return [...current, event].slice(-200);
+              });
+              setStreamError("");
+            },
+            controller.signal,
+          );
+        } catch (error) {
+          if (!controller.signal.aborted) setStreamError(getErrorMessage(error));
+        }
+        if (!controller.signal.aborted) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+    }
+
+    void connect();
+    return () => controller.abort();
+  }, [liveStream, loading, projectId]);
 
   const filteredFeed = feed.filter((item) => {
     if (filterAgent === "all") return true;
     return (
       item.sender_role?.toLowerCase().includes(filterAgent.toLowerCase()) ||
+      item.sender_key?.toLowerCase().includes(filterAgent.toLowerCase()) ||
       item.sender_name?.toLowerCase().includes(filterAgent.toLowerCase())
     );
   });
@@ -1572,7 +1601,7 @@ function SwarmLiveFeedModal({
                 </h3>
                 <span className="flex items-center gap-1 bg-emerald-950 border border-emerald-800/60 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping"></span>
-                  LIVE STREAM
+                  {liveStream ? "LIVE STREAM" : "STREAM PAUSED"}
                 </span>
               </div>
               <p className="text-xs text-slate-400">
@@ -1627,19 +1656,26 @@ function SwarmLiveFeedModal({
           <label className="flex items-center gap-1.5 text-slate-400 cursor-pointer select-none">
             <input
               type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
+              checked={liveStream}
+              onChange={(e) => setLiveStream(e.target.checked)}
               className="rounded accent-emerald-500"
             />
-            <span className="text-[11px] font-medium">Auto-sync (3.5s)</span>
+            <span className="text-[11px] font-medium">Authenticated live stream</span>
           </label>
         </div>
+
+        {streamError && (
+          <div className="border-b border-amber-900/60 bg-amber-950/40 px-4 py-2 text-[11px] text-amber-300">
+            Live stream reconnecting: {streamError}
+          </div>
+        )}
 
         {/* Feed Messages Container */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-900/60">
           {filteredFeed.map((item) => {
-            const isHandoff = item.content.includes("➔ @");
-            const isDone = item.content.includes("DONE") || item.content.includes("COMPLETED");
+            const isHandoff = item.event_type === "handoff";
+            const isDone = item.event_type === "completed";
+            const isFailed = item.event_type === "failed" || item.event_type === "blocked";
 
             return (
               <div
@@ -1647,6 +1683,8 @@ function SwarmLiveFeedModal({
                 className={`p-4 rounded-2xl border transition space-y-2 ${
                   isHandoff
                     ? "bg-slate-950 border-indigo-800/50 shadow-md ring-1 ring-indigo-500/20"
+                    : isFailed
+                    ? "bg-slate-950 border-red-800/50"
                     : isDone
                     ? "bg-slate-950 border-emerald-800/50"
                     : "bg-slate-950/70 border-slate-800"
@@ -1654,19 +1692,19 @@ function SwarmLiveFeedModal({
               >
                 <div className="flex items-center justify-between gap-2 border-b border-slate-800/60 pb-2">
                   <div className="flex items-center gap-2.5">
-                    <Avatar name={item.sender_name} size={32} />
+                    <Avatar name={item.sender_name || "TeamFlow Orchestrator"} size={32} />
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-white">{item.sender_name}</span>
-                        {item.target_agent && item.target_agent !== "Swarm" && (
+                        <span className="text-xs font-bold text-white">{item.sender_name || "TeamFlow Orchestrator"}</span>
+                        {item.recipient_key && (
                           <span className="text-[11px] font-extrabold text-indigo-400 bg-indigo-950 border border-indigo-800/60 px-2 py-0.5 rounded-md flex items-center gap-1">
                             <span>➔</span>
-                            <span>@{item.target_agent}</span>
+                            <span>@{item.recipient_key}</span>
                           </span>
                         )}
                       </div>
                       <span className="text-[10px] text-slate-400 font-medium">
-                        Ticket #{item.task_id} : {item.task_title}
+                        Ticket #{item.task} : {item.task_title}
                       </span>
                     </div>
                   </div>
@@ -1677,8 +1715,19 @@ function SwarmLiveFeedModal({
                 </div>
 
                 <div className="text-xs text-slate-300 font-normal leading-relaxed whitespace-pre-wrap pl-1">
-                  {item.content}
+                  {item.message}
                 </div>
+                <div className="flex flex-wrap items-center gap-2 pl-1 text-[10px]">
+                  <span className="rounded-md border border-slate-700 bg-slate-900 px-2 py-0.5 font-bold uppercase tracking-wider text-slate-300">
+                    {item.event_type}
+                  </span>
+                  {item.current_work && <span className="text-slate-400">Now: {item.current_work}</span>}
+                </div>
+                {item.remaining_work.length > 0 && (
+                  <div className="pl-1 text-[10px] text-slate-500">
+                    Remaining: {item.remaining_work.join(" · ")}
+                  </div>
+                )}
               </div>
             );
           })}

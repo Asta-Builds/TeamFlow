@@ -1,231 +1,303 @@
+import json
+import os
 import re
-from rest_framework import status, views, permissions
-from rest_framework.response import Response
+import time
+
+from django.db import close_old_connections
+from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
-from tasks.models import Task
-from .models import AgentExecutionTrace, CodebaseEmbedding
-from .registry import active_agent_status
-from .serializers import AgentExecutionTraceSerializer, CodebaseEmbeddingSerializer
-from .graph import execute_ticket_swarm
+from rest_framework import permissions, status, views
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
+
+from projects.models import Project
+from tasks.models import Comment, Task
+
+from .models import AgentEvent, AgentExecutionTrace, CodebaseEmbedding
+from .ollama_service import is_ollama_available
+from .queue import (
+    AgentQueueError,
+    is_worker_available,
+    queue_chain_run,
+    queue_graph_run,
+    queue_prompt_run,
+)
 from .rag.ingest import ingest_sample_knowledge_base
+from .registry import active_agent_status
+from .serializers import AgentEventSerializer, AgentExecutionTraceSerializer
+from .tools.redis_tool import is_event_bus_available
+
+
+def _organization_task(request, task_id):
+    if request.user.organization_id is None:
+        raise PermissionDenied("An organization is required for agent operations.")
+    return get_object_or_404(
+        Task.objects.select_related("project", "organization"),
+        pk=task_id,
+        organization=request.user.organization,
+    )
+
+
+def _event_queryset(request):
+    if request.user.organization_id is None:
+        raise PermissionDenied("An organization is required for agent operations.")
+    queryset = AgentEvent.objects.filter(
+        organization=request.user.organization,
+    ).select_related("sender", "task", "project", "trace")
+    project_id = request.query_params.get("project")
+    task_id = request.query_params.get("task")
+    session_id = request.query_params.get("session")
+    if project_id:
+        queryset = queryset.filter(project_id=project_id)
+    if task_id:
+        queryset = queryset.filter(task_id=task_id)
+    if session_id:
+        queryset = queryset.filter(session_id=session_id)
+    return queryset
+
+
+def _queue_error_response(exc):
+    return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 class AgentDispatchView(views.APIView):
-    """
-    POST /api/agents/dispatch/<int:task_id>/
-    Dispatches the LangGraph Multi-Agent Swarm on a specific ticket.
-    """
+    """Queue a LangGraph run for an organization-owned ticket."""
+
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, task_id):
-        task = get_object_or_404(Task, pk=task_id)
-        result = execute_ticket_swarm(task)
-        
-        if result.get("ok"):
-            task.refresh_from_db()
-            trace = AgentExecutionTrace.objects.get(pk=result["trace_id"])
-            return Response(
-                {
-                    "message": "Multi-agent swarm execution completed successfully.",
-                    "trace": AgentExecutionTraceSerializer(trace).data,
-                    "task_status": task.status,
-                },
-                status=status.HTTP_200_OK,
-            )
-        else:
-            return Response(
-                {
-                    "message": "Multi-agent execution encountered an issue.",
-                    "error": result.get("error"),
-                    "trace_id": result.get("trace_id"),
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        task = _organization_task(request, task_id)
+        try:
+            trace = queue_graph_run(task)
+        except AgentQueueError as exc:
+            return _queue_error_response(exc)
+        return Response(
+            {
+                "message": "Multi-agent swarm queued.",
+                "trace": AgentExecutionTraceSerializer(trace).data,
+                "task_status": task.status,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )
 
 
 class AgentTracesView(views.APIView):
-    """
-    GET /api/agents/traces/
-    GET /api/agents/traces/<int:task_id>/
-    Retrieves multi-agent trace logs and Langfuse session links.
-    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, task_id=None):
+        if request.user.organization_id is None:
+            raise PermissionDenied("An organization is required for agent operations.")
+        traces = AgentExecutionTrace.objects.filter(
+            task__organization=request.user.organization,
+        ).select_related("task", "task__project")
         if task_id:
-            traces = AgentExecutionTrace.objects.filter(task_id=task_id).order_by("-created_at")
+            traces = traces.filter(task_id=task_id)
         else:
-            traces = AgentExecutionTrace.objects.all().order_by("-created_at")[:50]
-        
-        serializer = AgentExecutionTraceSerializer(traces, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+            traces = traces[:50]
+        return Response(AgentExecutionTraceSerializer(traces, many=True).data)
 
 
 class AgentIngestRAGView(views.APIView):
-    """
-    POST /api/agents/ingest-rag/
-    Ingests codebase, ADRs, and documentation chunks into pgvector store.
-    """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        if request.user.organization_id is None:
+            raise PermissionDenied("An organization is required for agent operations.")
         project_id = request.data.get("project_id")
         project = None
         if project_id:
-            from projects.models import Project
-            project = get_object_or_404(Project, pk=project_id)
-
-        count = ingest_sample_knowledge_base(project=project)
+            project = get_object_or_404(
+                Project,
+                pk=project_id,
+                organization=request.user.organization,
+            )
+        count = ingest_sample_knowledge_base(project=project, organization=request.user.organization)
         return Response(
             {
-                "message": f"Successfully ingested {count} architectural documents & code chunks into pgvector RAG store.",
+                "message": f"Successfully ingested {count} scoped knowledge chunks.",
                 "chunks_ingested": count,
-            },
-            status=status.HTTP_200_OK,
+            }
         )
 
 
 class AgentStatusView(views.APIView):
-    """
-    GET /api/agents/status/
-    Returns multi-agent cluster status, Antigravity SDK readiness, pgvector stats, and seats.
-    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        total_embeddings = CodebaseEmbedding.objects.count()
-        total_traces = AgentExecutionTrace.objects.count()
-        successful_traces = AgentExecutionTrace.objects.filter(status=AgentExecutionTrace.Status.COMPLETED).count()
-
-        agents_list = active_agent_status()
-
+        organization = request.user.organization
+        if organization is None:
+            raise PermissionDenied("An organization is required for agent operations.")
+        model_available = is_ollama_available() or bool(os.getenv("OPENAI_API_KEY"))
+        event_bus_available = is_event_bus_available()
+        worker_available = event_bus_available and is_worker_available()
+        traces = AgentExecutionTrace.objects.filter(task__organization=organization)
+        agents_list = active_agent_status(engine_available=model_available)
         return Response(
             {
-                "orchestration_framework": "Google Antigravity SDK & LangGraph Swarm",
-                "antigravity_sdk_status": "enabled",
+                "orchestration_framework": "Google Antigravity SDK compatibility layer & LangGraph",
+                "model_engine_status": "ready" if model_available else "offline",
+                "worker_queue_status": "ready" if worker_available else "offline",
+                "event_bus_status": "ready" if event_bus_available else "offline",
                 "vector_store": "PostgreSQL + pgvector",
                 "observability": "Langfuse",
                 "memory_queue": "Redis",
                 "total_agent_seats": len(agents_list),
                 "active_agents": agents_list,
-                "rag_embeddings_count": total_embeddings,
-                "total_swarms_executed": total_traces,
-                "successful_swarms": successful_traces,
-            },
-            status=status.HTTP_200_OK,
+                "rag_embeddings_count": CodebaseEmbedding.objects.filter(organization=organization).count(),
+                "total_swarms_executed": traces.count(),
+                "successful_swarms": traces.filter(status=AgentExecutionTrace.Status.COMPLETED).count(),
+            }
         )
 
 
 class AntigravityAgentRunView(views.APIView):
-    """
-    POST /api/agents/antigravity/run/
-    Executes an autonomous agent directly using the Google Antigravity SDK.
-    Body: { "task_id": 1, "agent_role": "tech_lead", "prompt": "@tech_lead review architecture" }
-    """
+    """Queue a prompt for a specific organization-owned agent seat."""
+
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         task_id = request.data.get("task_id")
         agent_role = request.data.get("agent_role", "tech_lead")
         prompt = request.data.get("prompt", "").strip()
-
         if not task_id or not prompt:
-            return Response({"detail": "Both task_id and prompt are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-        task = get_object_or_404(Task, pk=task_id)
-
-        from .antigravity_sdk import run_antigravity_agent
-        result = run_antigravity_agent(
-            task=task,
-            agent_role=agent_role,
-            prompt=prompt,
-            user=request.user
+            return Response(
+                {"detail": "Both task_id and prompt are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        task = _organization_task(request, task_id)
+        try:
+            trace = queue_prompt_run(task, prompt, request.user, specific_tag=agent_role)
+        except AgentQueueError as exc:
+            return _queue_error_response(exc)
+        return Response(
+            {"message": "Agent prompt queued.", "trace": AgentExecutionTraceSerializer(trace).data},
+            status=status.HTTP_202_ACCEPTED,
         )
-
-        return Response(result, status=status.HTTP_200_OK)
 
 
 class SwarmChainExecuteView(views.APIView):
-    """
-    POST /api/agents/swarm-chain/<int:task_id>/
-    Triggers the full multi-agent sequential chain where agents communicate, hand off,
-    write code, run tests, and merge into main.
-    """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, task_id):
-        task = get_object_or_404(Task, pk=task_id)
+        task = _organization_task(request, task_id)
         instruction = request.data.get("instruction", "").strip()
-
-        from .swarm_chain import execute_full_swarm_chain
-        events = execute_full_swarm_chain(
-            task=task,
-            trigger_user=request.user,
-            instruction=instruction
+        try:
+            trace = queue_chain_run(task, instruction)
+        except AgentQueueError as exc:
+            return _queue_error_response(exc)
+        return Response(
+            {
+                "message": f"Multi-agent swarm chain queued for ticket #{task.id}.",
+                "task_id": task.id,
+                "task_status": task.status,
+                "trace": AgentExecutionTraceSerializer(trace).data,
+            },
+            status=status.HTTP_202_ACCEPTED,
         )
-        task.refresh_from_db()
-
-        return Response({
-            "message": f"Multi-agent swarm chain completed for ticket #{task.id}.",
-            "task_id": task.id,
-            "task_status": task.status,
-            "chain_events": events,
-            "events_count": len(events),
-        }, status=status.HTTP_200_OK)
 
 
-class SwarmLiveFeedView(views.APIView):
-    """
-    GET /api/agents/swarm-feed/?project=<id>&task=<id>
-    Real-time communication flux & activity stream between agents and the CEO.
-    """
+class AgentEventsView(views.APIView):
+    """Return persisted lifecycle events, incrementally after an event ID."""
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        from tasks.models import TaskActivity, Comment
+        try:
+            after_id = max(0, int(request.query_params.get("after", 0)))
+            limit = min(200, max(1, int(request.query_params.get("limit", 100))))
+        except (TypeError, ValueError):
+            return Response({"detail": "after and limit must be integers."}, status=400)
+        events = _event_queryset(request).filter(id__gt=after_id).order_by("id")[:limit]
+        data = AgentEventSerializer(events, many=True).data
+        return Response({"events": data, "last_event_id": data[-1]["id"] if data else after_id})
+
+
+class AgentEventStreamView(views.APIView):
+    """Authenticated SSE stream with bounded connections and resumable IDs."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        try:
+            after_id = max(0, int(request.query_params.get("after", 0)))
+        except (TypeError, ValueError):
+            return Response({"detail": "after must be an integer."}, status=400)
+
+        organization_id = request.user.organization_id
         project_id = request.query_params.get("project")
         task_id = request.query_params.get("task")
+        session_id = request.query_params.get("session")
 
-        comments_qs = Comment.objects.all().select_related("author", "task", "task__project").order_by("-created_at")
+        def stream():
+            last_id = after_id
+            deadline = time.monotonic() + 25
+            while time.monotonic() < deadline:
+                close_old_connections()
+                queryset = AgentEvent.objects.filter(
+                    organization_id=organization_id,
+                    id__gt=last_id,
+                ).select_related("sender", "task", "project", "trace").order_by("id")
+                if project_id:
+                    queryset = queryset.filter(project_id=project_id)
+                if task_id:
+                    queryset = queryset.filter(task_id=task_id)
+                if session_id:
+                    queryset = queryset.filter(session_id=session_id)
+
+                sent = False
+                for event in queryset[:100]:
+                    payload = AgentEventSerializer(event).data
+                    last_id = event.id
+                    sent = True
+                    yield f"id: {event.id}\nevent: agent_event\ndata: {json.dumps(payload)}\n\n"
+                if not sent:
+                    yield ": keep-alive\n\n"
+                time.sleep(1)
+            close_old_connections()
+
+        response = StreamingHttpResponse(stream(), content_type="text/event-stream")
+        response["Cache-Control"] = "no-cache, no-transform"
+        response["X-Accel-Buffering"] = "no"
+        return response
+
+
+class SwarmLiveFeedView(views.APIView):
+    """Legacy comment feed retained for existing clients, now tenant scoped."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        comments_qs = Comment.objects.filter(
+            task__organization=request.user.organization,
+        ).select_related("author", "task", "task__project").order_by("-created_at")
+        project_id = request.query_params.get("project")
+        task_id = request.query_params.get("task")
         if project_id:
             comments_qs = comments_qs.filter(task__project_id=project_id)
         if task_id:
             comments_qs = comments_qs.filter(task_id=task_id)
 
-        comments = comments_qs[:50]
-
         feed_items = []
-        for c in comments:
-            author_name = c.author.name or c.author.email if c.author else "TeamFlow Agent"
-            author_role = getattr(c.author, "role", "agent") if c.author else "agent"
-            
-            # Detect target agent in body (e.g. ➔ @Cleopatra or @backend)
+        for comment in comments_qs[:50]:
+            author_name = comment.author.name or comment.author.email if comment.author else "TeamFlow"
+            author_role = getattr(comment.author, "role", "system") if comment.author else "system"
             target_agent = "Swarm"
-            if "➔ @" in c.body:
-                target_match = re.search(r'➔\s*@([a-zA-Z0-9_\s\(\)]+?)(?:\]|\n|\:)', c.body)
-                if target_match:
-                    target_agent = target_match.group(1).strip()
-            elif "@" in c.body:
-                target_match = re.search(r'@([a-zA-Z0-9_]+)', c.body)
-                if target_match:
-                    target_agent = target_match.group(1).strip()
-
-            feed_items.append({
-                "id": f"comment-{c.id}",
-                "type": "agent_message" if "@" in c.body or "➔" in c.body else "comment",
-                "sender_name": author_name,
-                "sender_role": author_role,
-                "target_agent": target_agent,
-                "content": c.body,
-                "task_id": c.task_id,
-                "task_title": c.task.title,
-                "project_id": c.task.project_id,
-                "project_name": c.task.project.name if c.task.project else "Project",
-                "created_at": c.created_at.isoformat(),
-            })
-
-        return Response({
-            "feed": feed_items,
-            "total_events": len(feed_items),
-        }, status=status.HTTP_200_OK)
-
+            target_match = re.search(r"➔\s*@([a-zA-Z0-9_\s\(\)]+?)(?:\]|\n|\:)", comment.body)
+            if target_match:
+                target_agent = target_match.group(1).strip()
+            feed_items.append(
+                {
+                    "id": f"comment-{comment.id}",
+                    "type": "comment",
+                    "sender_name": author_name,
+                    "sender_role": author_role,
+                    "target_agent": target_agent,
+                    "content": comment.body,
+                    "task_id": comment.task_id,
+                    "task_title": comment.task.title,
+                    "project_id": comment.task.project_id,
+                    "project_name": comment.task.project.name,
+                    "created_at": comment.created_at.isoformat(),
+                }
+            )
+        return Response({"feed": feed_items, "total_events": len(feed_items)})

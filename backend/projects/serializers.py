@@ -48,3 +48,18 @@ class ProjectSerializer(serializers.ModelSerializer):
             if not validated_data.get("owner"):
                 validated_data["owner"] = request.user
         return super().create(validated_data)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return attrs
+
+        organization_id = request.user.organization_id
+        owner = attrs.get("owner", getattr(self.instance, "owner", None))
+        members = attrs.get("members", [])
+        if owner and owner.organization_id != organization_id:
+            raise serializers.ValidationError({"owner": "Owner does not belong to your organization."})
+        if any(member.organization_id != organization_id for member in members):
+            raise serializers.ValidationError({"members": "All members must belong to your organization."})
+        return attrs

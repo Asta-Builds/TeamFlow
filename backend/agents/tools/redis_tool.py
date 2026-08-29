@@ -14,6 +14,14 @@ except Exception:
 _MEMORY_STORE: Dict[str, Any] = {}
 
 
+def is_event_bus_available() -> bool:
+    """Return whether Redis is reachable across web and worker processes."""
+    try:
+        return bool(redis_client and redis_client.ping())
+    except Exception:
+        return False
+
+
 def save_short_term_memory(key: str, data: Any, ttl_seconds: int = 3600) -> bool:
     """Redis Tool: Stores agent conversation buffer and ticket working memory."""
     try:

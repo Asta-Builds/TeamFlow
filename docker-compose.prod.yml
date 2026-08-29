@@ -67,6 +67,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       CELERY_BROKER_URL: redis://redis:6379/0
       KEYCLOAK_URL: http://keycloak:8080/realms/teamflow
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/teamflow}
+      KEYCLOAK_CLIENT_ID: teamflow-app
       LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-teamflow-demo}
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-teamflow-demo}
       LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
@@ -77,6 +79,7 @@ services:
         condition: service_healthy
     volumes:
       - backend_prod_staticfiles:/app/staticfiles
+      - generated_projects:/workspace/generated_projects
 
   celery_worker:
     build:
@@ -84,17 +87,27 @@ services:
       dockerfile: Dockerfile
     container_name: teamflow-prod-celery
     restart: always
+    entrypoint: []
     command: celery -A teamflow worker --loglevel=info
     environment:
       DEBUG: "False"
       SECRET_KEY: ${SECRET_KEY:-django-insecure-teamflow-production-secret-key-change-me}
       DATABASE_URL: postgres://${POSTGRES_USER:-teamflow}:${POSTGRES_PASSWORD:-teamflow_secure_password_prod}@db:5432/${POSTGRES_DB:-teamflow}
       CELERY_BROKER_URL: redis://redis:6379/0
+      REDIS_URL: redis://redis:6379/0
+      KEYCLOAK_URL: http://keycloak:8080/realms/teamflow
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-http://localhost:8080/realms/teamflow}
+      KEYCLOAK_CLIENT_ID: teamflow-app
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-pk-lf-teamflow-demo}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-sk-lf-teamflow-demo}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-https://cloud.langfuse.com}
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - generated_projects:/workspace/generated_projects
 
   frontend:
     build:
@@ -133,3 +146,4 @@ volumes:
   postgres_prod_data:
   redis_prod_data:
   backend_prod_staticfiles:
+  generated_projects:

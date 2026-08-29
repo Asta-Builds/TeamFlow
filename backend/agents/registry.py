@@ -159,7 +159,16 @@ def resolve_agent_key(value: str) -> str:
 
 def get_agent_spec(value: str) -> dict[str, Any]:
     """Fetch a seat specification, resolving a supported alias first."""
-    return AGENT_SEATS[resolve_agent_key(value)]
+    spec = AGENT_SEATS[resolve_agent_key(value)]
+    return {
+        **spec,
+        "system_instructions": (
+            f"You are {spec['name']}, TeamFlow's {spec['title']}. "
+            f"Your responsibility is {spec['specialty']} "
+            "Report only work that was actually performed, surface blockers clearly, "
+            "and identify the next concrete action before handing work off."
+        ),
+    }
 
 
 def blueprint_agent_keys() -> list[str]:
@@ -167,8 +176,8 @@ def blueprint_agent_keys() -> list[str]:
     return [key for key, spec in AGENT_SEATS.items() if spec["blueprint_seat"]]
 
 
-def active_agent_status() -> list[dict[str, str]]:
-    """Build the public cluster-status payload from the canonical roster."""
+def active_agent_status(engine_available: bool = False) -> list[dict[str, str]]:
+    """Build the public roster using measured model-engine availability."""
     return [
         {
             "key": spec["key"],
@@ -176,7 +185,7 @@ def active_agent_status() -> list[dict[str, str]]:
             "name": spec["name"],
             "title": spec["title"],
             "engine": "Google Antigravity SDK",
-            "status": "active",
+            "status": "ready" if engine_available else "offline",
         }
         for key, spec in AGENT_SEATS.items()
         if spec["blueprint_seat"]
