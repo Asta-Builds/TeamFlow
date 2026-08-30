@@ -280,6 +280,80 @@ export interface AgentClusterStatus {
   successful_swarms: number;
 }
 
+export type PulseTimeBlock = "morning" | "afternoon" | "evening";
+export type PulseFocusStatus = "active" | "paused" | "completed";
+
+export interface PulsePlanItem {
+  id: number;
+  task: number;
+  task_title: string;
+  project_id: number;
+  project_name: string;
+  task_status: TaskStatus;
+  task_priority: Priority;
+  task_type: TaskType;
+  due_date: string | null;
+  date: string;
+  time_block: PulseTimeBlock;
+  position: number;
+  can_complete_task: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PulseCandidateTask {
+  id: number;
+  title: string;
+  project_id: number;
+  project_name: string;
+  priority: Priority;
+  status: TaskStatus;
+  due_date: string | null;
+}
+
+export interface PulseNote {
+  id?: number;
+  date: string;
+  body: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PulseFocusSession {
+  id: number;
+  plan_item: number | null;
+  task_title: string | null;
+  project_name: string | null;
+  status: PulseFocusStatus;
+  started_at: string;
+  running_since: string | null;
+  elapsed_seconds: number;
+  ended_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PulseWeeklyProgress {
+  date: string;
+  total: number;
+  completed: number;
+}
+
+export interface PulseDashboard {
+  date: string;
+  plan_items: PulsePlanItem[];
+  candidate_tasks: PulseCandidateTask[];
+  note: PulseNote;
+  current_session: PulseFocusSession | null;
+  summary: {
+    planned: number;
+    completed: number;
+    completion_percentage: number;
+    focused_seconds: number;
+  };
+  weekly_progress: PulseWeeklyProgress[];
+}
+
 export interface Paginated<T> {
   count: number;
   next: string | null;

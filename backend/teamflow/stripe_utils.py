@@ -1,4 +1,3 @@
-import os
 from django.conf import settings
 
 # Attempt to import stripe, fall back to mock if not installed or keys missing
@@ -10,7 +9,7 @@ except ImportError:
 
 
 def is_stripe_configured():
-    return stripe is not None and stripe.api_key is not None
+    return bool(stripe is not None and stripe.api_key)
 
 
 def create_checkout_session(org, tier, success_url, cancel_url):

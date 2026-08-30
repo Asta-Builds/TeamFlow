@@ -1,7 +1,8 @@
 import json
 import logging
-import urllib.request
 import urllib.parse
+import urllib.request
+from urllib.parse import urlparse
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import OpenApiTypes, extend_schema
@@ -24,6 +25,45 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
+
+
+def _keycloak_endpoint(path):
+    return f"{settings.KEYCLOAK_URL.rstrip('/')}/protocol/openid-connect/{path}"
+
+
+def _keycloak_json_request(url, *, data=None, headers=None):
+    request = urllib.request.Request(url, data=data, headers=headers or {})
+    with urllib.request.urlopen(request, timeout=8) as api_response:
+        return json.loads(api_response.read().decode("utf-8"))
+
+
+def _is_allowed_redirect_uri(redirect_uri):
+    parsed = urlparse(redirect_uri)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return False
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    return origin in settings.CORS_ALLOWED_ORIGINS
+
+
+def _role_from_keycloak_claims(claims):
+    realm_access = claims.get("realm_access")
+    if not isinstance(realm_access, dict) or "roles" not in realm_access:
+        return None
+    realm_roles = realm_access.get("roles", [])
+    valid_roles = [
+        User.Role.CEO,
+        User.Role.PM,
+        User.Role.TECH_LEAD,
+        User.Role.DEVOPS,
+        User.Role.QA,
+        User.Role.BACKEND,
+        User.Role.FRONTEND,
+        User.Role.DESIGNER,
+        User.Role.SEO,
+        User.Role.ADMIN,
+        User.Role.MEMBER,
+    ]
+    return next((role for role in valid_roles if role in realm_roles), User.Role.MEMBER)
 
 
 class LogoutSerializer(serializers.Serializer):
@@ -136,7 +176,7 @@ class KeycloakAuthView(APIView):
             user.set_unusable_password()
             user.save()
         else:
-            if role and user.role != role:
+            if role is not None and user.role != role:
                 user.role = role
                 user.save(update_fields=["role"])
             if not user.organization:

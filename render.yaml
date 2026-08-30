@@ -27,6 +27,8 @@ services:
           type: redis
           name: teamflow-redis
           property: connectionString
+      - key: SEED_DEMO_DATA
+        value: "False"
 
   # Next.js Frontend Web Service
   - type: web

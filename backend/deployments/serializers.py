@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from accounts.serializers import UserSerializer
+from teamflow.permissions import user_can_access_project
 from .models import Deployment
 
 
@@ -36,7 +37,6 @@ class DeploymentSerializer(serializers.ModelSerializer):
 
     def validate_project(self, project):
         request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            if project.organization_id != request.user.organization_id:
-                raise serializers.ValidationError("Project does not belong to your organization.")
+        if request and not user_can_access_project(request.user, project):
+            raise serializers.ValidationError("Project does not belong to your organization.")
         return project

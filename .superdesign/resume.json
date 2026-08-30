@@ -1,0 +1,22 @@
+{
+  "projectId": "7c7699c6-1461-42b2-ad27-11907dec42c8",
+  "projectUrl": "https://superdesign.dev/teams/5dea6b1e-23cc-4b95-9fa7-f9fcc139937c/projects/7c7699c6-1461-42b2-ad27-11907dec42c8",
+  "feature": "TeamFlow Pulse native execution workspace",
+  "baselineDraft": {
+    "draftId": "67edad46-d6ee-4f75-8df8-eb591e7ab799",
+    "title": "TeamFlow Dashboard Reproduction"
+  },
+  "reviewDrafts": [
+    {
+      "draftId": "b1bdae7e-58ae-422c-85dd-753146cddbeb",
+      "title": "TeamFlow Pulse — Personal Execution Workspace",
+      "direction": "Schedule-first focus rail"
+    },
+    {
+      "draftId": "4e924587-df0a-4d63-872b-d5aa6cc174e5",
+      "title": "TeamFlow Pulse — Personal Execution Cockpit",
+      "direction": "Dense execution cockpit"
+    }
+  ],
+  "nextStep": "Await user approval of one Pulse direction before implementing application code."
+}

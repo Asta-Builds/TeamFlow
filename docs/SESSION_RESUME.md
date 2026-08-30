@@ -5,6 +5,11 @@
 **CEO / Fondateur :** Abdelilah Dahou (`ceo@teamflow.dev`)  
 **Dépôt GitHub :** [https://github.com/Asta-Builds/TeamFlow.git](https://github.com/Asta-Builds/TeamFlow.git) (branche `main`)
 
+> **Mise à jour 2026-08-27 :** Les modèles Ollama historiques (`hermes3:8b`
+> et `qwen2.5-coder:7b`) ainsi que le cache Docker local ont été supprimés à
+> la demande du CEO. Aucun service Docker ne doit être démarré sans une
+> décision explicite de reprovisionner un modèle et son stockage.
+
 ---
 
 ## 🧭 Comment Reprendre cette Session sur une Deuxième Machine

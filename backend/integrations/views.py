@@ -1,5 +1,10 @@
 import logging
+import hashlib
+import hmac
+import time
+from django.conf import settings
 from rest_framework import views, status, permissions
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from .models import SlackIntegration
@@ -7,6 +12,31 @@ from .serializers import SlackIntegrationSerializer
 from .slack_service import send_slack_notification
 
 logger = logging.getLogger(__name__)
+
+
+def require_workspace_admin(request):
+    if not request.user.is_privileged:
+        raise PermissionDenied("Only Tech Lead, CEO or Admin can manage Slack integrations.")
+
+
+def has_valid_slack_signature(request):
+    signing_secret = getattr(settings, "SLACK_SIGNING_SECRET", "")
+    timestamp = request.headers.get("X-Slack-Request-Timestamp", "")
+    signature = request.headers.get("X-Slack-Signature", "")
+    if not signing_secret or not timestamp or not signature:
+        return False
+
+    try:
+        if abs(time.time() - int(timestamp)) > 300:
+            return False
+    except ValueError:
+        return False
+
+    base_string = b"v0:" + timestamp.encode("utf-8") + b":" + request.body
+    expected = "v0=" + hmac.new(
+        signing_secret.encode("utf-8"), base_string, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
 
 
 class SlackIntegrationView(views.APIView):
@@ -18,6 +48,7 @@ class SlackIntegrationView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        require_workspace_admin(request)
         integration, _ = SlackIntegration.objects.get_or_create(
             organization=request.user.organization
         )
@@ -25,6 +56,7 @@ class SlackIntegrationView(views.APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
+        require_workspace_admin(request)
         integration, _ = SlackIntegration.objects.get_or_create(
             organization=request.user.organization
         )
@@ -43,6 +75,7 @@ class SlackTestView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        require_workspace_admin(request)
         integration = SlackIntegration.objects.filter(
             organization=request.user.organization
         ).first()
@@ -82,6 +115,14 @@ class SlackEventsWebhookView(views.APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        if not getattr(settings, "SLACK_SIGNING_SECRET", ""):
+            return Response(
+                {"detail": "Slack event signing secret is not configured."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        if not has_valid_slack_signature(request):
+            return Response({"detail": "Invalid Slack request signature."}, status=status.HTTP_403_FORBIDDEN)
+
         # 1. Handle Slack URL Verification Challenge
         if request.data.get("type") == "url_verification":
             return Response({"challenge": request.data.get("challenge")})

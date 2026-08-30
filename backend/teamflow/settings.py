@@ -21,7 +21,13 @@ env = environ.Env(
     KEYCLOAK_URL=(str, "http://localhost:8080/realms/teamflow"),
     KEYCLOAK_ISSUER_URL=(str, "http://localhost:8080/realms/teamflow"),
     KEYCLOAK_CLIENT_ID=(str, "teamflow-app"),
+    KEYCLOAK_CLIENT_SECRET=(str, ""),
     KEYCLOAK_HTTP_TIMEOUT_SECONDS=(int, 5),
+    SLACK_SIGNING_SECRET=(str, ""),
+    STRIPE_SECRET_KEY=(str, ""),
+    STRIPE_WEBHOOK_SECRET=(str, ""),
+    STRIPE_PRICE_GROWTH=(str, ""),
+    STRIPE_PRICE_ENTERPRISE=(str, ""),
 )
 
 # Load a .env file if present (dev convenience).
@@ -61,6 +67,7 @@ INSTALLED_APPS = [
     "notifications",
     "agents",
     "integrations",
+    "pulse",
 ]
 
 MIDDLEWARE = [
@@ -180,13 +187,22 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
 # Keycloak uses a back-channel URL for token exchange/JWKS and a public issuer
+# Keycloak uses a back-channel URL for token exchange/JWKS and a public issuer
 # URL matching the token's ``iss`` claim.
 KEYCLOAK_URL = env("KEYCLOAK_URL").rstrip("/")
 KEYCLOAK_ISSUER_URL = env("KEYCLOAK_ISSUER_URL").rstrip("/")
 KEYCLOAK_CLIENT_ID = env("KEYCLOAK_CLIENT_ID")
+KEYCLOAK_CLIENT_SECRET = env("KEYCLOAK_CLIENT_SECRET")
 KEYCLOAK_HTTP_TIMEOUT_SECONDS = env("KEYCLOAK_HTTP_TIMEOUT_SECONDS")
 KEYCLOAK_TOKEN_URL = f"{KEYCLOAK_URL}/protocol/openid-connect/token"
 KEYCLOAK_JWKS_URL = f"{KEYCLOAK_URL}/protocol/openid-connect/certs"
 
 # CORS — allow the Next.js frontend during development and production.
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+SLACK_SIGNING_SECRET = env("SLACK_SIGNING_SECRET")
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
+STRIPE_PRICES = {
+    "growth": env("STRIPE_PRICE_GROWTH"),
+    "enterprise": env("STRIPE_PRICE_ENTERPRISE"),
+}

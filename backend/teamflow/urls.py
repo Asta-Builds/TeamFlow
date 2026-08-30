@@ -25,6 +25,7 @@ from organizations.views import (
     StripeWebhookView,
 )
 from projects.views import ProjectViewSet
+from pulse.views import PulseDashboardView, PulseFocusSessionViewSet, PulseNoteView, PulsePlanItemViewSet
 from seo.views import SEOAuditViewSet
 from tasks.views import CommentViewSet, TaskViewSet
 
@@ -36,6 +37,8 @@ router.register("comments", CommentViewSet, basename="comment")
 router.register("deployments", DeploymentViewSet, basename="deployment")
 router.register("seo/audits", SEOAuditViewSet, basename="seoaudit")
 router.register("notifications", NotificationViewSet, basename="notification")
+router.register("pulse/plan-items", PulsePlanItemViewSet, basename="pulse-plan-item")
+router.register("pulse/focus-sessions", PulseFocusSessionViewSet, basename="pulse-focus-session")
 
 
 def health(_request):
@@ -72,6 +75,8 @@ urlpatterns = [
     path("api/auth/", include(auth_patterns)),
     path("api/agents/", include("agents.urls")),
     path("api/integrations/", include("integrations.urls")),
+    path("api/pulse/dashboard/", PulseDashboardView.as_view(), name="pulse-dashboard"),
+    path("api/pulse/note/", PulseNoteView.as_view(), name="pulse-note"),
     path("api/", include(router.urls)),
     # Billing
     path("api/billing/create-checkout-session/", CreateCheckoutSessionView.as_view(), name="billing-checkout"),

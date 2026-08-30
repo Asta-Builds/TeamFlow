@@ -7,9 +7,13 @@ echo "==============================================="
 
 # Check environment file
 if [ ! -f ".env.production" ]; then
-    echo "Warning: .env.production not found. Creating from example..."
-    cp .env.production.example .env.production
-    echo "Please configure .env.production before running in live production."
+    echo "Missing .env.production. Copy .env.production.example, set every required value, then rerun." >&2
+    exit 1
+fi
+
+if grep -Eq 'generate-a-strong|choose-a-strong|yourdomain\.com' .env.production; then
+    echo ".env.production still contains example values. Configure production secrets and domain values before deployment." >&2
+    exit 1
 fi
 
 # Build and start all production services

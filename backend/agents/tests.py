@@ -276,3 +276,29 @@ class MultiAgentTestCase(TestCase):
         self.assertEqual(response.status_code, 202, response.content)
         self.assertEqual(response.data["agent_run"]["status"], "running")
         delay.assert_called_once()
+
+    def test_member_cannot_dispatch_agents_or_read_another_workspace_trace(self):
+        other_org = Organization.objects.create(name="Other Org Member")
+        other_user = User.objects.create_user(
+            email="member@other-org.dev",
+            password="password123",
+            organization=other_org,
+        )
+        other_project = Project.objects.create(name="Other Project", owner=other_user, organization=other_org)
+        other_task = Task.objects.create(
+            project=other_project,
+            title="Other task",
+            created_by=other_user,
+            organization=other_org,
+        )
+        AgentExecutionTrace.objects.create(
+            task=other_task,
+            session_id="ticket-other",
+            status=AgentExecutionTrace.Status.COMPLETED,
+        )
+
+        self.client.force_authenticate(user=other_user)
+        self.assertEqual(self.client.post(f"/api/agents/dispatch/{other_task.id}/").status_code, 403)
+
+        self.client.force_authenticate(user=self.user)
+        self.assertEqual(self.client.get(f"/api/agents/traces/{other_task.id}/").data, [])

@@ -4,6 +4,7 @@ import re
 import time
 
 from django.db import close_old_connections
+from django.db.models import Q
 from django.http import StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, views
@@ -12,6 +13,7 @@ from rest_framework.response import Response
 
 from projects.models import Project
 from tasks.models import Comment, Task
+from teamflow.permissions import visible_projects_for, visible_tasks_for
 
 from .models import AgentEvent, AgentExecutionTrace, CodebaseEmbedding
 from .ollama_service import is_ollama_available
@@ -24,7 +26,7 @@ from .queue import (
 )
 from .rag.ingest import ingest_sample_knowledge_base
 from .registry import active_agent_status
-from .serializers import AgentEventSerializer, AgentExecutionTraceSerializer
+from .serializers import AgentEventSerializer, AgentExecutionTraceSerializer, CodebaseEmbeddingSerializer
 from .tools.redis_tool import is_event_bus_available
 
 
@@ -60,12 +62,22 @@ def _queue_error_response(exc):
     return Response({"detail": str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
+def get_visible_task_or_404(request, task_id):
+    return get_object_or_404(visible_tasks_for(request.user), pk=task_id)
+
+
+def require_orchestration_access(request):
+    if not request.user.is_privileged:
+        raise PermissionDenied("Only Tech Lead, CEO or Admin can run autonomous agents.")
+
+
 class AgentDispatchView(views.APIView):
     """Queue a LangGraph run for an organization-owned ticket."""
 
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, task_id):
+        require_orchestration_access(request)
         task = _organization_task(request, task_id)
         try:
             trace = queue_graph_run(task)
@@ -87,13 +99,18 @@ class AgentTracesView(views.APIView):
     def get(self, request, task_id=None):
         if request.user.organization_id is None:
             raise PermissionDenied("An organization is required for agent operations.")
-        traces = AgentExecutionTrace.objects.filter(
-            task__organization=request.user.organization,
-        ).select_related("task", "task__project")
+        visible_tasks = visible_tasks_for(request.user)
         if task_id:
-            traces = traces.filter(task_id=task_id)
+            traces = AgentExecutionTrace.objects.filter(
+                task__in=visible_tasks,
+                task__organization=request.user.organization,
+                task_id=task_id,
+            ).select_related("task", "task__project").order_by("-created_at")
         else:
-            traces = traces[:50]
+            traces = AgentExecutionTrace.objects.filter(
+                task__in=visible_tasks,
+                task__organization=request.user.organization,
+            ).select_related("task", "task__project").order_by("-created_at")[:50]
         return Response(AgentExecutionTraceSerializer(traces, many=True).data)
 
 
@@ -101,6 +118,7 @@ class AgentIngestRAGView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        require_orchestration_access(request)
         if request.user.organization_id is None:
             raise PermissionDenied("An organization is required for agent operations.")
         project_id = request.data.get("project_id")
@@ -156,6 +174,7 @@ class AntigravityAgentRunView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        require_orchestration_access(request)
         task_id = request.data.get("task_id")
         agent_role = request.data.get("agent_role", "tech_lead")
         prompt = request.data.get("prompt", "").strip()
@@ -179,6 +198,7 @@ class SwarmChainExecuteView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request, task_id):
+        require_orchestration_access(request)
         task = _organization_task(request, task_id)
         instruction = request.data.get("instruction", "").strip()
         try:
@@ -268,6 +288,7 @@ class SwarmLiveFeedView(views.APIView):
 
     def get(self, request):
         comments_qs = Comment.objects.filter(
+            task__in=visible_tasks_for(request.user),
             task__organization=request.user.organization,
         ).select_related("author", "task", "task__project").order_by("-created_at")
         project_id = request.query_params.get("project")

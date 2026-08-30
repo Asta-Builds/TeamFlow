@@ -115,3 +115,24 @@ class AuthenticationSecurityTests(APITestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_member_cannot_update_another_member_through_the_users_api(self):
+        organization = Organization.objects.create(name="Secure Org")
+        member = User.objects.create_user(
+            email="member@example.com",
+            password="safe-password-123",
+            organization=organization,
+            role=User.Role.MEMBER,
+        )
+        other_member = User.objects.create_user(
+            email="other@example.com",
+            password="safe-password-123",
+            organization=organization,
+            role=User.Role.MEMBER,
+            bio="Original bio",
+        )
+        self.client.force_authenticate(user=member)
+        response = self.client.patch(f"/api/users/{other_member.id}/", {"bio": "Changed"}, format="json")
+        self.assertEqual(response.status_code, 403)
+        other_member.refresh_from_db()
+        self.assertEqual(other_member.bio, "Original bio")

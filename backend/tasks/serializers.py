@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from accounts.serializers import UserSerializer
+from teamflow.permissions import user_can_access_project
 from .models import Comment, Task, TaskActivity
 
 
@@ -21,7 +22,7 @@ class CommentSerializer(serializers.ModelSerializer):
     def validate_task(self, task):
         request = self.context.get("request")
         if request and request.user.is_authenticated:
-            if task.organization_id != request.user.organization_id:
+            if not user_can_access_project(request.user, task.project):
                 raise serializers.ValidationError("Task does not belong to your organization.")
         return task
 
@@ -87,7 +88,7 @@ class TaskSerializer(serializers.ModelSerializer):
         organization_id = request.user.organization_id
         project = attrs.get("project") or getattr(self.instance, "project", None)
         assignee = attrs.get("assignee", getattr(self.instance, "assignee", None))
-        if project and project.organization_id != organization_id:
+        if project and not user_can_access_project(request.user, project):
             raise serializers.ValidationError({"project": "Project does not belong to your organization."})
         if assignee and assignee.organization_id != organization_id:
             raise serializers.ValidationError({"assignee": "Assignee does not belong to your organization."})

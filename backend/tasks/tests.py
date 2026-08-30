@@ -172,3 +172,40 @@ class APIFlowTests(APITestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["action"], "commented")
+
+    def test_non_member_cannot_read_or_create_tasks_in_a_private_project(self):
+        org = Organization.objects.create(name="TeamFlow Corp Private")
+        owner = User.objects.create_user(
+            email="owner-priv@teamflow.dev", password="pw-owner-1234", role=User.Role.MEMBER, organization=org
+        )
+        project = Project.objects.create(name="Private", owner=owner, organization=org)
+        task = Task.objects.create(project=project, title="Private task", created_by=owner, organization=org)
+        User.objects.create_user(
+            email="member-priv@teamflow.dev", password="pw-member-1234", role=User.Role.MEMBER, organization=org
+        )
+
+        self._auth("member-priv@teamflow.dev", "pw-member-1234")
+        self.assertEqual(self.client.get(f"/api/tasks/{task.id}/").status_code, 404)
+        self.assertEqual(self.client.get("/api/tasks/").data["count"], 0)
+        self.assertEqual(
+            self.client.post("/api/tasks/", {"project": project.id, "title": "Unauthorized"}, format="json").status_code,
+            400,
+        )
+
+    def test_activity_feed_excludes_projects_the_member_cannot_access(self):
+        org = Organization.objects.create(name="TeamFlow Corp Feed")
+        owner = User.objects.create_user(
+            email="owner-feed@teamflow.dev", password="pw-owner-1234", role=User.Role.MEMBER, organization=org
+        )
+        project = Project.objects.create(name="Private Feed", owner=owner, organization=org)
+        task = Task.objects.create(project=project, title="Private task", created_by=owner)
+        TaskActivity.objects.create(task=task, actor=owner, action="created")
+        User.objects.create_user(
+            email="member-feed@teamflow.dev", password="pw-member-1234", role=User.Role.MEMBER, organization=org
+        )
+
+        self._auth("member-feed@teamflow.dev", "pw-member-1234")
+        response = self.client.get("/api/tasks/feed/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, [])

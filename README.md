@@ -29,7 +29,7 @@
   - 🧠 **Athena (Product Manager):** Decomposes natural language roadmaps into assigned, structured backlog tickets.
 - **🔒 Dedicated Repository Isolation:** Every user project is developed in an isolated directory (`generated_projects/<id>_<slug>/`) with its own standalone Git repository. The parent TeamFlow platform is never polluted.
 - **📡 Real-Time Swarm Live Stream:** Interactive UI modal with auto-sync (3.5s) streaming inter-agent dialogues (`➔ @Marcus Aurelius`) and handoffs.
-- **⚡ Local GPU Inference:** 100% private, sub-second inference running on local **NVIDIA CUDA GPUs** via Ollama (`qwen2.5-coder:7b` & `hermes3:8b`).
+- **⚡ Local GPU Inference:** Optional private inference through Ollama on local **NVIDIA CUDA GPUs**. No model is bundled or preloaded; choose and provision a model for the environment that needs it.
 - **📊 Enterprise Observability:** Every agent invocation is traced to **Langfuse** with `session_id = ticket-{id}` and grounded in **pgvector RAG**.
 
 ---
@@ -72,7 +72,7 @@ docker compose up --build -d
 | **Frontend Application** | [http://localhost:3000](http://localhost:3000) | `ceo@teamflow.dev` / `teamflow-demo-pw` |
 | **Backend API & Swagger Docs**| [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/) | Open access / JWT Bearer |
 | **Langfuse Observability** | [http://localhost:3001](http://localhost:3001) | Auto-configured session traces |
-| **Ollama GPU Inference** | [http://localhost:11434](http://localhost:11434) | `qwen2.5-coder:7b` & `hermes3:8b` |
+| **Ollama GPU Inference** | [http://localhost:11434](http://localhost:11434) | Optional; provision a model separately |
 
 ---
 

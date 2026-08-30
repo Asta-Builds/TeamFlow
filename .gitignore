@@ -7,6 +7,8 @@ db.sqlite3
 backend/staticfiles/
 backend/server.log
 .env
+/.env.*
+!/.env.production.example
 !.env.example
 
 # Node / Next.js
@@ -24,3 +26,7 @@ Thumbs.db
 
 # Generated user projects (isolated codebases)
 generated_projects/
+
+# External prototypes and temp design files
+/Pulse/
+.superdesign/temp/

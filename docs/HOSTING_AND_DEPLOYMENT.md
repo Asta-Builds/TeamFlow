@@ -27,7 +27,7 @@ cd TeamFlow
 ### 2. Configure Environment Variables
 Copy and adjust `.env.production`:
 ```bash
-cp .env.example .env.production
+cp .env.production.example .env.production
 ```
 
 Key environment variables in `.env.production`:
@@ -43,7 +43,16 @@ REDIS_URL=redis://redis:6379/0
 
 # Keycloak SSO
 KEYCLOAK_URL=http://keycloak:8080/realms/teamflow
+KEYCLOAK_CLIENT_ID=teamflow-app
+KEYCLOAK_CLIENT_SECRET=
 NEXT_PUBLIC_KEYCLOAK_URL=https://auth.yourdomain.com
+
+# Integration credentials (optional, but never commit these values)
+SLACK_SIGNING_SECRET=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_GROWTH=
+STRIPE_PRICE_ENTERPRISE=
 
 # Ollama GPU Backend
 OLLAMA_BASE_URL=http://ollama:11434
@@ -59,8 +68,13 @@ LANGFUSE_HOST=http://langfuse:3000
 
 ### 3. Launch Stack with GPU Support
 ```bash
-docker compose -f docker-compose.yml up --build -d
+docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
 ```
+
+The production composition fails fast when the database password, Keycloak admin
+credentials, Django secret, allowed hosts, CORS origins, or CSRF origins are
+missing. It does not seed demonstration users. Local demo data is enabled only
+by `docker-compose.yml` through `SEED_DEMO_DATA=true`.
 
 ### 4. Verify Services Health
 ```bash
@@ -144,8 +158,23 @@ sudo certbot --nginx -d teamflow.yourdomain.com
 - **Kubernetes:** Manifests located in `k8s/`:
   ```bash
   kubectl apply -f k8s/namespace.yaml
+  # Create this locally from real, uncommitted values first.
+  kubectl -n teamflow create secret generic teamflow-secrets \
+    --from-literal=SECRET_KEY='...' \
+    --from-literal=DATABASE_URL='postgres://...' \
+    --from-literal=CELERY_BROKER_URL='redis://...' \
+    --dry-run=client -o yaml | kubectl apply -f -
   kubectl apply -f k8s/configmap-secrets.yaml
   kubectl apply -f k8s/backend-deployment.yaml
   kubectl apply -f k8s/frontend-deployment.yaml
   kubectl apply -f k8s/ingress.yaml
   ```
+
+## CI/CD boundary
+
+`.github/workflows/ci.yml` validates migrations, backend tests, frontend lint,
+and the production build. `.github/workflows/deploy.yml` publishes verified
+backend and frontend images to GHCR; it intentionally does not apply a release
+to a cloud account or Kubernetes cluster. Connect that publish step to a
+CEO-approved target and store deployment credentials in the target platform's
+secrets manager before enabling automatic rollout.

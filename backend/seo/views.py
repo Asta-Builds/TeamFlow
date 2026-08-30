@@ -5,6 +5,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from projects.models import Project
 from tasks.models import Task
+from teamflow.permissions import visible_projects_for
 from .models import SEOAudit
 from .serializers import SEOAuditSerializer
 
@@ -113,9 +114,10 @@ class SEOAuditViewSet(viewsets.ModelViewSet):
         if not project_id:
             return response.Response({"project_id": ["Project is required."]}, status=400)
 
-        if issue_index >= len(audit.issues):
+        if issue_index < 0 or issue_index >= len(audit.issues):
             return response.Response({"detail": "Invalid issue index."}, status=400)
 
+        project = get_object_or_404(visible_projects_for(request.user), pk=project_id)
         issue = audit.issues[issue_index]
         project = get_object_or_404(
             Project,

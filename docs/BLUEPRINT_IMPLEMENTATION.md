@@ -51,6 +51,25 @@ trace metadata retain that seat identity while Django's existing `backend` and
 - Passed `python .venv\\Scripts\\python.exe backend/manage.py test agents --verbosity 2`:
   **7 tests passed**.
 
+## 2026-08-27: Completion and production-hardening pass
+
+- Enforced workspace boundaries for project ownership, memberships, tasks,
+  comments, deployment records, SEO-created tasks, live feeds, agent traces,
+  RAG ingestion, and agent execution.
+- Prevented role escalation through the current-user profile API and restricted
+  team-member writes, Slack administration, and autonomous swarm execution to
+  their intended privileged roles.
+- Made Slack integration secrets write-only, added official-webhook validation,
+  and require a timestamped Slack signature for Events API requests.
+- Reworked Keycloak SSO so TeamFlow issues JWTs only after validation with the
+  configured Keycloak userinfo endpoint; browser-supplied identity and role data
+  is no longer trusted.
+- Hardened production configuration: required deployment secrets, no automatic
+  demo seeding, no committed Kubernetes secret values, and explicit separation
+  between GHCR image publishing and a real environment rollout.
+- Added Stripe and Requests as explicit runtime dependencies and increased the
+  full regression suite to **26 passing tests**.
+
 ## External prerequisites — not provisioned automatically
 
 These blueprint items require CEO-owned credentials or an infrastructure
@@ -64,6 +83,9 @@ decision and therefore remain intentionally unconfigured:
    approvals.
 4. Production database migrations and pgvector ingestion; local test coverage
    uses Django's isolated in-memory test database.
+5. An approved deployment target and credentials for a GHCR image rollout. The
+   checked-in GitHub workflow publishes images only; it does not deploy them.
 
 No credentials, external accounts, deployments, or production changes were
 created as part of this implementation slice.
+codex resume 01a03fb0-e490-7fe0-832d-2e0e0744fdd6

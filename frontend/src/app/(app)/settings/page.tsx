@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { User, Shield, Building2, Download, Key, CheckCircle2, Send, MessageSquare } from "lucide-react";
 
 interface SlackIntegrationResponse {
-  webhook_url?: string;
+  webhook_configured?: boolean;
   default_channel?: string;
   devops_channel?: string;
   qa_channel?: string;
@@ -41,6 +41,7 @@ export default function SettingsPage() {
 
   // Slack Integration Form
   const [slackWebhook, setSlackWebhook] = useState("");
+  const [slackWebhookConfigured, setSlackWebhookConfigured] = useState(false);
   const [slackDefaultChannel, setSlackDefaultChannel] = useState("#general");
   const [slackDevopsChannel, setSlackDevopsChannel] = useState("#devops");
   const [slackQaChannel, setSlackQaChannel] = useState("#qa");
@@ -64,7 +65,7 @@ export default function SettingsPage() {
     apiFetch<SlackIntegrationResponse>("/integrations/slack/")
       .then((data) => {
         if (data) {
-          if (data.webhook_url) setSlackWebhook(data.webhook_url);
+          setSlackWebhookConfigured(Boolean(data.webhook_configured));
           if (data.default_channel) setSlackDefaultChannel(data.default_channel);
           if (data.devops_channel) setSlackDevopsChannel(data.devops_channel);
           if (data.qa_channel) setSlackQaChannel(data.qa_channel);
@@ -120,7 +121,7 @@ export default function SettingsPage() {
       await apiFetch("/integrations/slack/connect/", {
         method: "POST",
         body: {
-          webhook_url: slackWebhook,
+          ...(slackWebhook.trim() ? { webhook_url: slackWebhook.trim() } : {}),
           default_channel: slackDefaultChannel,
           devops_channel: slackDevopsChannel,
           qa_channel: slackQaChannel,
@@ -132,6 +133,8 @@ export default function SettingsPage() {
           is_enabled: true,
         },
       });
+      setSlackWebhookConfigured(Boolean(slackWebhook.trim()) || slackWebhookConfigured);
+      setSlackWebhook("");
       toast.success("Slack integration settings saved!");
     } catch {
       toast.error("Failed to save Slack settings.");
@@ -409,11 +412,13 @@ export default function SettingsPage() {
                 type="url"
                 value={slackWebhook}
                 onChange={(e) => setSlackWebhook(e.target.value)}
-                placeholder="https://hooks.slack.com/services/T000/B000/XXXXXX"
+                placeholder={slackWebhookConfigured ? "Webhook configured — enter a new URL to replace it" : "https://hooks.slack.com/services/T000/B000/XXXXXX"}
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none"
               />
               <p className="text-[11px] text-slate-500 mt-1">
-                Create an Incoming Webhook in your Slack App to receive notifications.
+                {slackWebhookConfigured
+                  ? "A webhook is configured. Enter a new URL only when you need to rotate it."
+                  : "Create an Incoming Webhook in your Slack App to receive notifications."}
               </p>
             </div>
 
@@ -514,7 +519,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={handleTestSlack}
-                disabled={testingSlack || !slackWebhook.trim()}
+                disabled={testingSlack || (!slackWebhook.trim() && !slackWebhookConfigured)}
                 className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
               >
                 <Send className="h-3.5 w-3.5 text-indigo-400" />

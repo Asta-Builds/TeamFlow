@@ -1,6 +1,6 @@
 from rest_framework import decorators, permissions, response, status, viewsets
 
-from teamflow.permissions import IsOwnerOrPrivileged
+from teamflow.permissions import IsOwnerOrPrivileged, visible_tasks_for
 from notifications.models import Notification
 from .models import Comment, Task, TaskActivity
 from .serializers import CommentSerializer, TaskActivitySerializer, TaskSerializer
@@ -20,7 +20,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated or user.organization is None:
             return Task.objects.none()
 
-        qs = Task.objects.filter(organization=user.organization).select_related(
+        qs = visible_tasks_for(user).select_related(
             "assignee", "created_by", "project"
         ).prefetch_related("comments__author", "activities__actor")
 
@@ -296,7 +296,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         """GET /api/tasks/feed/ — real-time activity feed for dashboard."""
         user = request.user
         activities = TaskActivity.objects.filter(
-            task__organization=user.organization
+            task__in=visible_tasks_for(user)
         ).select_related("actor", "task", "task__project").order_by("-created_at")
 
         project_id = request.query_params.get("project")
@@ -339,7 +339,9 @@ class CommentViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated or user.organization is None:
             return Comment.objects.none()
 
-        return Comment.objects.filter(task__organization=user.organization).select_related(
+        return Comment.objects.filter(
+            task__in=visible_tasks_for(user)
+        ).select_related(
             "author", "task"
         )
 

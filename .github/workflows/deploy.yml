@@ -1,4 +1,4 @@
-name: Production Build & Deploy
+name: Production Image Build & Publish
 
 on:
   push:

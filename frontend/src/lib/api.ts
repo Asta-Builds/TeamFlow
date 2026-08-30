@@ -277,4 +277,52 @@ export async function streamAgentEvents(
   }
 }
 
+// --- Pulse execution workspace ---
+
+export function getPulseDashboard(date: string) {
+  return apiFetch<import("./types").PulseDashboard>(
+    `/pulse/dashboard/?date=${encodeURIComponent(date)}`
+  );
+}
+
+export function savePulseNote(date: string, body: string) {
+  return apiFetch<import("./types").PulseNote>(
+    `/pulse/note/?date=${encodeURIComponent(date)}`,
+    { method: "PUT", body: { body } }
+  );
+}
+
+export function createPulsePlanItem(payload: {
+  task: number;
+  date: string;
+  time_block: import("./types").PulseTimeBlock;
+  position: number;
+}) {
+  return apiFetch<import("./types").PulsePlanItem>("/pulse/plan-items/", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function deletePulsePlanItem(id: number) {
+  return apiFetch<void>(`/pulse/plan-items/${id}/`, { method: "DELETE" });
+}
+
+export function startPulseFocus(planItem?: number) {
+  return apiFetch<import("./types").PulseFocusSession>("/pulse/focus-sessions/start/", {
+    method: "POST",
+    body: planItem ? { plan_item: planItem } : {},
+  });
+}
+
+export function updatePulseFocus(
+  id: number,
+  action: "pause" | "resume" | "complete"
+) {
+  return apiFetch<import("./types").PulseFocusSession>(
+    `/pulse/focus-sessions/${id}/${action}/`,
+    { method: "POST" }
+  );
+}
+
 

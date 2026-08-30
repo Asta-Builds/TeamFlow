@@ -74,6 +74,12 @@ class Task(models.Model):
     class Meta:
         ordering = ["order", "-created_at"]
 
+    def save(self, *args, **kwargs):
+        """Keep every ticket in the same workspace as its parent project."""
+        if self.organization_id is None and self.project_id:
+            self.organization_id = self.project.organization_id
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.title
 

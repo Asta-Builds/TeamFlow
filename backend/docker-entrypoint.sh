@@ -6,7 +6,6 @@ echo "=== TeamFlow Backend Initializing ==="
 # Configure Git safe directories and defaults for swarm agents
 git config --global --add safe.directory /workspace || true
 git config --global --add safe.directory /app || true
-git config --global --add safe.directory "*" || true
 git config --global user.email "swarm@teamflow.dev" || true
 git config --global user.name "TeamFlow AI Swarm" || true
 git config --global init.defaultBranch main || true
@@ -56,8 +55,12 @@ fi
 echo "Applying database migrations..."
 python manage.py migrate --noinput
 
-echo "Seeding initial demo data..."
-python manage.py seed_demo || echo "Demo data already initialized or skipped."
+if [ "${SEED_DEMO_DATA:-false}" = "true" ]; then
+  echo "Seeding demo data..."
+  python manage.py seed_demo || echo "Demo data already initialized or skipped."
+else
+  echo "Skipping demo-data seed. Set SEED_DEMO_DATA=true for a local demo environment."
+fi
 
 echo "Collecting static files..."
 python manage.py collectstatic --noinput --clear || true

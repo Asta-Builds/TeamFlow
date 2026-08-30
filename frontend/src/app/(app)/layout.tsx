@@ -23,11 +23,13 @@ import {
   Crown,
   Bot,
   X,
+  Timer,
 } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects & Kanban", icon: Kanban },
+  { href: "/pulse", label: "Pulse", icon: Timer },
   { href: "/team", label: "Team & AI Seats", icon: Users },
   { href: "/deployments", label: "Deployments", icon: Rocket },
   { href: "/compliance", label: "SEO Audits", icon: SearchCheck },

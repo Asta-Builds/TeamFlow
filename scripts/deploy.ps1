@@ -4,9 +4,14 @@ Write-Host "       TeamFlow Production Deployment          " -ForegroundColor Cy
 Write-Host "===============================================" -ForegroundColor Cyan
 
 if (-not (Test-Path ".env.production")) {
-    Write-Host "Creating .env.production from example..." -ForegroundColor Yellow
-    Copy-Item ".env.production.example" ".env.production"
-    Write-Host "Please check .env.production for custom domain & credentials." -ForegroundColor Yellow
+    Write-Host "Missing .env.production. Copy .env.production.example, set every required value, then rerun." -ForegroundColor Red
+    exit 1
+}
+
+$productionEnv = Get-Content ".env.production" -Raw
+if ($productionEnv -match "generate-a-strong|choose-a-strong|yourdomain\.com") {
+    Write-Host ".env.production still contains example values. Configure production secrets and domain values before deployment." -ForegroundColor Red
+    exit 1
 }
 
 Write-Host "1. Building and launching production containers..." -ForegroundColor Green
