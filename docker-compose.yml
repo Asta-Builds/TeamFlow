@@ -81,8 +81,6 @@ services:
       LANGFUSE_PUBLIC_KEY: "pk-lf-teamflow-demo"
       LANGFUSE_SECRET_KEY: "sk-lf-teamflow-demo"
       LANGFUSE_HOST: "http://langfuse:3000"
-      OLLAMA_BASE_URL: "http://ollama:11434"
-      OLLAMA_MODEL: "qwen2.5-coder:7b"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -92,8 +90,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      ollama:
-        condition: service_started
     volumes:
       - backend_staticfiles:/app/staticfiles
       - generated_projects:/workspace/generated_projects
@@ -118,8 +114,6 @@ services:
       LANGFUSE_PUBLIC_KEY: "pk-lf-teamflow-demo"
       LANGFUSE_SECRET_KEY: "sk-lf-teamflow-demo"
       LANGFUSE_HOST: "http://langfuse:3000"
-      OLLAMA_BASE_URL: "http://ollama:11434"
-      OLLAMA_MODEL: "qwen2.5-coder:7b"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -127,31 +121,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      ollama:
-        condition: service_started
     volumes:
       - generated_projects:/workspace/generated_projects
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: teamflow-ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      OLLAMA_KEEP_ALIVE: "-1"
-      OLLAMA_FLASH_ATTENTION: "1"
-      OLLAMA_NUM_PARALLEL: "2"
-      CUDA_VISIBLE_DEVICES: "0"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
   langfuse:
     image: langfuse/langfuse:2
@@ -194,6 +165,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  ollama_data:
   backend_staticfiles:
   generated_projects:
