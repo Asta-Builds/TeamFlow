@@ -24,6 +24,30 @@ def is_worker_available() -> bool:
         return False
 
 
+def reap_stale_traces(task, max_age_seconds: int = 1200) -> None:
+    """Reap orphaned or timed-out traces to prevent deadlock."""
+    stale_threshold = timezone.now() - timezone.timedelta(seconds=max_age_seconds)
+    stale_traces = AgentExecutionTrace.objects.filter(
+        task=task,
+        status=AgentExecutionTrace.Status.RUNNING,
+        created_at__lt=stale_threshold,
+    )
+    for trace in stale_traces:
+        trace.status = AgentExecutionTrace.Status.FAILED
+        trace.graph_state = {**trace.graph_state, "phase": "timed_out", "error": "Execution timed out without worker heartbeat."}
+        trace.finished_at = timezone.now()
+        trace.save(update_fields=["status", "graph_state", "finished_at"])
+
+
+def get_active_trace(task) -> AgentExecutionTrace | None:
+    """Return an active trace for the task if one was dispatched recently."""
+    reap_stale_traces(task)
+    return AgentExecutionTrace.objects.filter(
+        task=task,
+        status=AgentExecutionTrace.Status.RUNNING,
+    ).order_by("-created_at").first()
+
+
 def _dispatch(trace, celery_task, *args):
     try:
         result = celery_task.delay(trace.id, *args)
@@ -51,6 +75,10 @@ def _dispatch(trace, celery_task, *args):
 
 
 def queue_graph_run(task):
+    active_trace = get_active_trace(task)
+    if active_trace:
+        return active_trace
+
     trace = create_pending_trace(task, "graph")
     emit_agent_event(
         task=task,
@@ -65,6 +93,10 @@ def queue_graph_run(task):
 
 
 def queue_chain_run(task, instruction: str = ""):
+    active_trace = get_active_trace(task)
+    if active_trace:
+        return active_trace
+
     trace = create_pending_trace(task, "chain")
     emit_agent_event(
         task=task,

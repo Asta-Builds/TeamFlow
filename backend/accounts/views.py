@@ -155,9 +155,23 @@ class KeycloakAuthView(APIView):
         name = claims.get("name") or claims.get("given_name", "") or email.split("@")[0]
         role = role_from_claims(claims, {choice for choice, _label in User.Role.choices})
 
-        # 3. Get or create default Organization
+        # 3. Resolve or create tenant Organization based on claims or email domain
+        org_name = (
+            claims.get("organization")
+            or claims.get("org")
+            or claims.get("tenant")
+            or claims.get("workspace")
+        )
+        if not org_name:
+            if "@" in email:
+                domain = email.split("@")[-1]
+                company = domain.split(".")[0].capitalize()
+                org_name = f"{company} Workspace" if company.lower() not in {"gmail", "yahoo", "hotmail", "outlook", "example"} else "TeamFlow Workspace"
+            else:
+                org_name = "TeamFlow Workspace"
+
         org, _ = Organization.objects.get_or_create(
-            name="TeamFlow Workspace",
+            name=org_name,
             defaults={
                 "subscription_tier": Organization.Tier.GROWTH,
                 "subscription_status": Organization.Status.ACTIVE,
