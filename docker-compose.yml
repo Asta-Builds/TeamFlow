@@ -141,6 +141,27 @@ services:
       ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
       TELEMETRY_ENABLED: "false"
 
+  backend_nest:
+    build:
+      context: ./backend-nest
+      dockerfile: Dockerfile
+    container_name: teamflow-backend-nest
+    restart: unless-stopped
+    environment:
+      PORT: 8001
+      DATABASE_URL: "postgresql://teamflow:teamflow_password@db:5432/teamflow"
+      JWT_SECRET: "teamflow-secret-key-super-secure-change-in-prod"
+      JWT_REFRESH_SECRET: "teamflow-refresh-secret-super-secure"
+      FRONTEND_URL: "http://localhost:3000"
+      PYTHON_AI_SERVICE_URL: "http://backend:8000"
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   frontend:
     build:
       context: ./frontend

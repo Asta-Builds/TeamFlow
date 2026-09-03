@@ -1,0 +1,428 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ceo
+  pm
+  tech_lead
+  backend
+  frontend
+  devops
+  qa
+  designer
+  seo
+  admin
+  member
+}
+
+enum UserStatus {
+  active
+  offline
+  pending
+  disabled
+}
+
+enum ProjectStatus {
+  active
+  on_hold
+  completed
+  archived
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  in_review
+  qa
+  done
+}
+
+enum TaskType {
+  feature
+  bug
+  task
+}
+
+enum Priority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum DeploymentStatus {
+  queued
+  in_progress
+  success
+  failed
+  rolled_back
+  cancelled
+}
+
+enum DeploymentEnvironment {
+  dev
+  staging
+  production
+}
+
+enum TimeBlock {
+  morning
+  afternoon
+  evening
+}
+
+enum FocusSessionStatus {
+  active
+  paused
+  completed
+}
+
+model Organization {
+  id                   Int      @id @default(autoincrement())
+  name                 String   @db.VarChar(255)
+  stripeCustomerId     String?  @map("stripe_customer_id") @db.VarChar(255)
+  stripeSubscriptionId String?  @map("stripe_subscription_id") @db.VarChar(255)
+  subscriptionTier     String   @default("starter") @map("subscription_tier") @db.VarChar(20)
+  subscriptionStatus   String   @default("active") @map("subscription_status") @db.VarChar(20)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  users              User[]
+  projects           Project[]
+  tasks              Task[]
+  deployments        Deployment[]
+  pulsePlanItems     PulsePlanItem[]
+  pulseNotes         PulseNote[]
+  pulseFocusSessions PulseFocusSession[]
+  notifications      Notification[]
+  seoAudits          SEOAudit[]
+  codebaseEmbeddings CodebaseEmbedding[]
+  agentEvents        AgentEvent[]
+
+  @@map("organizations_organization")
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  password    String   @db.VarChar(128)
+  lastLogin   DateTime? @map("last_login") @db.Timestamptz(6)
+  isSuperuser Boolean  @default(false) @map("is_superuser")
+  email       String   @unique @db.VarChar(254)
+  name        String   @default("") @db.VarChar(150)
+  role        String   @default("member") @db.VarChar(20)
+  agentKey    String   @default("") @map("agent_key") @db.VarChar(64)
+  userStatus  String   @default("active") @map("user_status") @db.VarChar(20)
+  avatarUrl   String   @default("") @map("avatar_url") @db.VarChar(200)
+  bio         String   @default("") @db.Text
+  isStaff     Boolean  @default(false) @map("is_staff")
+  isActive    Boolean  @default(true) @map("is_active")
+  dateJoined  DateTime @default(now()) @map("date_joined") @db.Timestamptz(6)
+
+  organizationId Int?          @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  ownedProjects       Project[]             @relation("ProjectOwner")
+  projectMemberships  ProjectMember[]
+  assignedTasks       Task[]                @relation("TaskAssignee")
+  createdTasks        Task[]                @relation("TaskCreatedBy")
+  comments            Comment[]
+  taskActivities      TaskActivity[]
+  pulsePlanItems      PulsePlanItem[]
+  pulseNotes          PulseNote[]
+  pulseFocusSessions  PulseFocusSession[]
+  notificationsRx     Notification[]        @relation("NotificationRecipient")
+  notificationsTx     Notification[]        @relation("NotificationActor")
+  deploymentsTriggered Deployment[]         @relation("DeploymentTriggeredBy")
+  agentEventsSent     AgentEvent[]
+
+  @@index([agentKey])
+  @@map("accounts_user")
+}
+
+model Project {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(200)
+  description  String   @default("") @db.Text
+  status       String   @default("active") @db.VarChar(20)
+  githubRepo   String   @default("Asta-Builds/TeamFlow") @map("github_repo") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ownerId        Int?          @map("owner_id")
+  owner          User?         @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  organizationId Int?          @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  members            ProjectMember[]
+  tasks              Task[]
+  deployments        Deployment[]
+  codebaseEmbeddings CodebaseEmbedding[]
+  agentEvents        AgentEvent[]
+
+  @@map("projects_project")
+}
+
+model ProjectMember {
+  id        Int     @id @default(autoincrement())
+  projectId Int     @map("project_id")
+  userId    Int     @map("user_id")
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("projects_project_members")
+}
+
+model Task {
+  id                      Int      @id @default(autoincrement())
+  title                   String   @db.VarChar(255)
+  description             String   @default("") @db.Text
+  status                  String   @default("todo") @db.VarChar(20)
+  taskType                String   @default("task") @map("task_type") @db.VarChar(20)
+  priority                String   @default("medium") @db.VarChar(20)
+  dueDate                 DateTime? @map("due_date") @db.Date
+  prUrl                   String   @default("") @map("pr_url") @db.VarChar(200)
+  validationContract      Json     @default("[]") @map("validation_contract")
+  contractComplianceScore Float    @default(0.0) @map("contract_compliance_score")
+  qaRejected              Boolean  @default(false) @map("qa_rejected")
+  qaRejectionReason       String   @default("") @map("qa_rejection_reason") @db.Text
+  order                   Int      @default(0)
+  createdAt               DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  projectId      Int           @map("project_id")
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assigneeId     Int?          @map("assignee_id")
+  assignee       User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdById    Int?          @map("created_by_id")
+  createdBy      User?         @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  organizationId Int?          @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  comments       Comment[]
+  activities     TaskActivity[]
+  pulsePlanItems PulsePlanItem[]
+  agentTraces    AgentExecutionTrace[]
+  agentEvents    AgentEvent[]
+
+  @@map("tasks_task")
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  taskId   Int   @map("task_id")
+  task     Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId Int?  @map("author_id")
+  author   User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@map("tasks_comment")
+}
+
+model TaskActivity {
+  id        Int      @id @default(autoincrement())
+  action    String   @db.VarChar(50)
+  details   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  taskId  Int   @map("task_id")
+  task    Task  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId Int?  @map("actor_id")
+  actor   User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@map("tasks_taskactivity")
+}
+
+model Deployment {
+  id              Int       @id @default(autoincrement())
+  environment     String    @default("staging") @db.VarChar(20)
+  status          String    @default("queued") @db.VarChar(20)
+  commitSha       String    @default("") @map("commit_sha") @db.VarChar(40)
+  branch          String    @default("main") @db.VarChar(100)
+  logs            String    @default("") @db.Text
+  durationSeconds Int       @default(0) @map("duration_seconds")
+  startedAt       DateTime  @default(now()) @map("started_at") @db.Timestamptz(6)
+  finishedAt      DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  projectId      Int           @map("project_id")
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  triggeredById  Int?          @map("triggered_by_id")
+  triggeredBy    User?         @relation("DeploymentTriggeredBy", fields: [triggeredById], references: [id], onDelete: SetNull)
+  organizationId Int?          @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("deployments_deployment")
+}
+
+model PulsePlanItem {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  timeBlock String   @default("morning") @map("time_block") @db.VarChar(12)
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organizationId Int                 @map("organization_id")
+  organization   Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         Int                 @map("user_id")
+  user           User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId         Int                 @map("task_id")
+  task           Task                @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  focusSessions  PulseFocusSession[]
+
+  @@unique([userId, date, taskId], name: "pulse_unique_daily_task_per_user")
+  @@index([organizationId, userId, date])
+  @@map("pulse_pulseplanitem")
+}
+
+model PulseNote {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  body      String   @default("") @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organizationId Int          @map("organization_id")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         Int          @map("user_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date], name: "pulse_unique_daily_note_per_user")
+  @@index([organizationId, userId, date])
+  @@map("pulse_pulsenote")
+}
+
+model PulseFocusSession {
+  id             Int       @id @default(autoincrement())
+  status         String    @default("active") @db.VarChar(12)
+  startedAt      DateTime  @map("started_at") @db.Timestamptz(6)
+  lastResumedAt  DateTime? @map("last_resumed_at") @db.Timestamptz(6)
+  elapsedSeconds Int       @default(0) @map("elapsed_seconds")
+  endedAt        DateTime? @map("ended_at") @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organizationId Int           @map("organization_id")
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         Int           @map("user_id")
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planItemId     Int?          @map("plan_item_id")
+  planItem       PulsePlanItem? @relation(fields: [planItemId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, userId, status])
+  @@index([organizationId, userId, startedAt])
+  @@map("pulse_pulsefocussession")
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  title     String   @db.VarChar(255)
+  message   String   @db.Text
+  link      String   @default("") @db.VarChar(255)
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipientId    Int           @map("recipient_id")
+  recipient      User          @relation("NotificationRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  actorId        Int?          @map("actor_id")
+  actor          User?         @relation("NotificationActor", fields: [actorId], references: [id], onDelete: SetNull)
+  organizationId Int?          @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("notifications_notification")
+}
+
+model SEOAudit {
+  id               Int      @id @default(autoincrement())
+  url              String   @db.VarChar(200)
+  score            Int      @default(0)
+  performanceScore Int      @default(90) @map("performance_score")
+  seoScore         Int      @default(92) @map("seo_score")
+  mobileScore      Int      @default(95) @map("mobile_score")
+  loadTimeMs       Int      @default(350) @map("load_time_ms")
+  issues           Json     @default("[]")
+  metrics          Json     @default("{}")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organizationId Int?          @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("seo_seoaudit")
+}
+
+model CodebaseEmbedding {
+  id         Int      @id @default(autoincrement())
+  filePath   String   @map("file_path") @db.VarChar(500)
+  chunkIndex Int      @default(0) @map("chunk_index")
+  content    String   @db.Text
+  metadata   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  organizationId Int?          @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      Int?          @map("project_id")
+  project        Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([filePath])
+  @@index([projectId])
+  @@map("agents_codebaseembedding")
+}
+
+model AgentExecutionTrace {
+  id              Int       @id @default(autoincrement())
+  sessionId       String    @map("session_id") @db.VarChar(128)
+  status          String    @default("running") @db.VarChar(32)
+  graphState      Json      @default("{}") @map("graph_state")
+  steps           Json      @default("[]")
+  tokensUsed      Int       @default(0) @map("tokens_used")
+  costUsd         Decimal   @default(0.0) @map("cost_usd") @db.Decimal(10, 4)
+  durationSeconds Float     @default(0.0) @map("duration_seconds")
+  langfuseUrl     String    @default("") @map("langfuse_url") @db.VarChar(500)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  finishedAt      DateTime? @map("finished_at") @db.Timestamptz(6)
+
+  taskId Int  @map("task_id")
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  events AgentEvent[]
+
+  @@index([sessionId])
+  @@map("agents_agentexecutiontrace")
+}
+
+model AgentEvent {
+  id            Int      @id @default(autoincrement())
+  sessionId     String   @map("session_id") @db.VarChar(128)
+  eventType     String   @map("event_type") @db.VarChar(20)
+  senderKey     String   @default("") @map("sender_key") @db.VarChar(64)
+  recipientKey  String   @default("") @map("recipient_key") @db.VarChar(64)
+  message       String   @db.Text
+  currentWork   String   @default("") @map("current_work") @db.Text
+  remainingWork Json     @default("[]") @map("remaining_work")
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  organizationId Int                  @map("organization_id")
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  projectId      Int                  @map("project_id")
+  project        Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  taskId         Int                  @map("task_id")
+  task           Task                 @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  traceId        Int?                 @map("trace_id")
+  trace          AgentExecutionTrace? @relation(fields: [traceId], references: [id], onDelete: Cascade)
+  senderId       Int?                 @map("sender_id")
+  sender         User?                @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, projectId, id])
+  @@index([taskId, sessionId, id])
+  @@map("agents_agentevent")
+}
