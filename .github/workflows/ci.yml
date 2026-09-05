@@ -7,14 +7,12 @@ on:
     branches: [ main, master ]
 
 jobs:
-  backend-tests:
-    name: Backend Tests & Lint
+  backend-django:
+    name: Backend Django (Tests & Migrations)
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        # Agent migrations create pgvector extension/indexes; plain PostgreSQL
-        # does not provide the required `vector` extension.
         image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: test_teamflow
@@ -63,8 +61,52 @@ jobs:
           cd backend
           python manage.py test
 
-  frontend-build:
-    name: Frontend Build & Typecheck
+  backend-nest:
+    name: Backend NestJS (74 Tests & Build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: backend-nest/package-lock.json
+
+      - name: Install NestJS Dependencies
+        run: |
+          cd backend-nest
+          npm ci --legacy-peer-deps
+
+      - name: Generate Prisma Client
+        run: |
+          cd backend-nest
+          npx prisma generate
+
+      - name: Lint NestJS Codebase
+        run: |
+          cd backend-nest
+          npm run lint
+
+      - name: Run NestJS Unit Tests (Vitest)
+        env:
+          JWT_SECRET: "ci-secret-jwt-key-minimum-32-characters-length"
+          JWT_REFRESH_SECRET: "ci-refresh-secret-jwt-key-minimum-32-chars"
+          PYTHON_AI_JWT_SECRET: "ci-bridge-secret-key-32-characters-minimum"
+        run: |
+          cd backend-nest
+          npm test
+
+      - name: Build NestJS Production Artifacts
+        run: |
+          cd backend-nest
+          npm run build
+
+  frontend:
+    name: Frontend Next.js 16 (26 Tests & Build)
     runs-on: ubuntu-latest
 
     steps:
@@ -83,10 +125,19 @@ jobs:
           cd frontend
           npm ci
 
-      - name: Next.js Typecheck and Build
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000/api
+      - name: Lint Frontend Codebase
         run: |
           cd frontend
           npm run lint
+
+      - name: Run Frontend Unit Tests (Vitest)
+        run: |
+          cd frontend
+          npm test
+
+      - name: Next.js Typecheck & Production Build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8001/api
+        run: |
+          cd frontend
           npm run build
