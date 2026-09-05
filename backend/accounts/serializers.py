@@ -90,14 +90,14 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class MemberCreateSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=False, default="teamflow-demo-pw")
+    password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
 
     class Meta:
         model = User
         fields = ["id", "email", "name", "role", "user_status", "password", "bio"]
 
     def create(self, validated_data):
-        password = validated_data.pop("password", "teamflow-demo-pw")
+        password = validated_data.pop("password")
         request = self.context.get("request")
         user = User(**validated_data)
         if request and request.user.organization:

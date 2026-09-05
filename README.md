@@ -69,7 +69,7 @@ docker compose up --build -d
 
 | Service | URL | Default Credentials |
 | :--- | :--- | :--- |
-| **Frontend Application** | [http://localhost:3000](http://localhost:3000) | `ceo@teamflow.dev` / `teamflow-demo-pw` |
+| **Frontend Application** | [http://localhost:3000](http://localhost:3000) | Standard signup or administrator account |
 | **Backend API & Swagger Docs**| [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/) | Open access / JWT Bearer |
 | **Langfuse Observability** | [http://localhost:3001](http://localhost:3001) | Auto-configured session traces |
 | **Ollama GPU Inference** | [http://localhost:11434](http://localhost:11434) | Optional; provision a model separately |

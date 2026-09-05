@@ -36,24 +36,13 @@ const NAV = [
   { href: "/settings", label: "Workspace Settings", icon: Settings },
 ];
 
-const DEMO_PERSONAS: Array<{ email: string; label: string; role: Role; desc: string; isAi: boolean }> = [
-  { email: "ceo@teamflow.dev", label: "CEO (Human Founder)", role: "ceo", desc: "Human Executive, KPI & Budget Control", isAi: false },
-  { email: "lead@teamflow.dev", label: "AI Tech Lead", role: "tech_lead", desc: "Autonomous Swarm Orchestration & Code Review", isAi: true },
-  { email: "backend1@teamflow.dev", label: "AI Backend Engineer", role: "backend", desc: "Autonomous PR Generation & Mutex Fixes", isAi: true },
-  { email: "qa@teamflow.dev", label: "AI QA Engineer", role: "qa", desc: "Autonomous Decision Gate & Regression Tests", isAi: true },
-  { email: "devops@teamflow.dev", label: "AI DevOps Engineer", role: "devops", desc: "Autonomous Staging Releases & 1-Click Rollback", isAi: true },
-  { email: "seo@teamflow.dev", label: "AI SEO Specialist", role: "seo", desc: "Autonomous Core Web Vitals Audits", isAi: true },
-];
-
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout, login } = useAuth();
+  const { user, loading, logout } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
-  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
-  const [switchingRole, setSwitchingRole] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -89,20 +78,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       );
     } catch {}
   };
-
-  async function handleSwitchPersona(email: string) {
-    setSwitchingRole(true);
-    try {
-      await login(email, "teamflow-demo-pw");
-      setShowRoleSwitcher(false);
-      toast.success(`Switched to ${email}`);
-      router.refresh();
-    } catch (err) {
-      toast.error("Error switching persona: " + String(err));
-    } finally {
-      setSwitchingRole(false);
-    }
-  }
 
   if (loading || !user) {
     return (
@@ -195,18 +170,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </nav>
         </div>
 
-        {/* Sidebar Footer & Role Switcher Trigger */}
+        {/* Sidebar Footer */}
         <div className="space-y-2 pt-4 border-t border-slate-800/80">
-          <button
-            onClick={() => setShowRoleSwitcher(true)}
-            className="w-full flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-          >
-            <div className="flex items-center gap-2">
-              <UserCog className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Switch Persona</span>
+          <div className="w-full flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-left text-xs font-semibold text-slate-300">
+            <div className="flex items-center gap-2 truncate">
+              <span className="truncate font-bold text-white">{user.name || user.email}</span>
             </div>
             <AgentTypeBadge role={user.role} isAi={!isHuman} />
-          </button>
+          </div>
 
           <button
             onClick={logout}
@@ -237,15 +208,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           {/* Right Toolbar */}
           <div className="flex items-center gap-3">
-            {/* Quick Switch Persona Button */}
-            <button
-              onClick={() => setShowRoleSwitcher(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white transition cursor-pointer"
-              title="Test the app from different role perspectives"
-            >
-              <UserCog className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Switch Role</span>
-            </button>
 
             {/* Notification Bell */}
             <div className="relative">
@@ -323,71 +285,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         {/* Main Content Area */}
         <main className="flex-1 overflow-auto p-6 lg:p-8 bg-slate-900 text-slate-100">{children}</main>
       </div>
-
-      {/* Quick Role Impersonator Modal */}
-      {showRoleSwitcher && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4" onClick={() => setShowRoleSwitcher(false)}>
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-5" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <UserCog className="h-4 w-4 text-indigo-400" />
-                  <span>Switch Active Persona</span>
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Experience TeamFlow as the <strong>Human CEO Founder</strong> or any <strong>Autonomous AI Agent</strong>.
-                </p>
-              </div>
-              <button onClick={() => setShowRoleSwitcher(false)} className="text-slate-400 hover:text-white text-base cursor-pointer">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {DEMO_PERSONAS.map((p) => (
-                <button
-                  key={p.email}
-                  onClick={() => handleSwitchPersona(p.email)}
-                  disabled={switchingRole || user.email === p.email}
-                  className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition cursor-pointer ${
-                    user.email === p.email
-                      ? "border-indigo-500 bg-indigo-950/50 shadow-xs cursor-default"
-                      : "border-slate-800 bg-slate-950/50 hover:bg-slate-800 hover:border-slate-700"
-                  }`}
-                >
-                  <div className="space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      {p.isAi ? (
-                        <Bot className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                      ) : (
-                        <Crown className="h-3.5 w-3.5 text-purple-400 shrink-0" />
-                      )}
-                      <span className="text-xs font-bold text-white">{p.label}</span>
-                      {user.email === p.email && (
-                        <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/60 px-1.5 py-0.2 rounded-md">
-                          Current
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-slate-400">{p.desc}</div>
-                  </div>
-
-                  <span className="text-xs font-mono text-slate-500">{p.email}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex justify-end pt-2 border-t border-slate-800">
-              <button
-                onClick={() => setShowRoleSwitcher(false)}
-                className="rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-700 transition cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

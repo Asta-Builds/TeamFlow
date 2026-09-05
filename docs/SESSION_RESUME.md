@@ -27,7 +27,7 @@ git pull origin main
 ```bash
 docker compose up --build -d
 ```
-- **Application Frontend :** [http://localhost:3000](http://localhost:3000) *(Connexion : `ceo@teamflow.dev` / `teamflow-demo-pw`)*
+- **Application Frontend :** [http://localhost:3000](http://localhost:3000) *(Connexion avec vos identifiants ou via inscription)*
 - **API Backend & Swagger :** [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/)
 - **Observabilité Langfuse :** [http://localhost:3001](http://localhost:3001)
 

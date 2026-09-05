@@ -22,24 +22,15 @@ const KEYCLOAK_URL = process.env.NEXT_PUBLIC_KEYCLOAK_URL || "http://localhost:8
 const KEYCLOAK_REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || "teamflow";
 const KEYCLOAK_CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "teamflow-app";
 
-const DEMO_ACCOUNTS = [
-  { label: "CEO (Human)", email: "ceo@teamflow.dev", name: "Abdelilah Dahou", icon: Crown },
-  { label: "Tech Lead (AI)", email: "lead@teamflow.dev", name: "Sarah Jenkins (AI)", icon: Code2 },
-  { label: "Backend (AI)", email: "backend1@teamflow.dev", name: "Marcus Aurelius (AI)", icon: Bot },
-  { label: "DevOps (AI)", email: "devops@teamflow.dev", name: "Joan of Arc (AI)", icon: Rocket },
-  { label: "QA (AI)", email: "qa@teamflow.dev", name: "Alan Turing (AI)", icon: ShieldCheck },
-  { label: "SEO (AI)", email: "seo@teamflow.dev", name: "Ada Lovelace (AI)", icon: SearchCheck },
-];
-
 export default function LoginPage() {
   const { user, loading, login } = useAuth();
   const router = useRouter();
 
   const [mode, setMode] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("lead@teamflow.dev");
+  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [organizationName, setOrganizationName] = useState("");
-  const [password, setPassword] = useState("teamflow-demo-pw");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -241,37 +232,6 @@ export default function LoginPage() {
                 : "Create Account"}
             </button>
           </form>
-
-          {/* Quick Demo Switcher */}
-          <div className="pt-2">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 text-center">
-              Quick Switch Demo Roles
-            </span>
-            <div className="flex flex-wrap items-center justify-center gap-1.5">
-              {DEMO_ACCOUNTS.map((acc) => {
-                const AccIcon = acc.icon;
-                return (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => {
-                      setEmail(acc.email);
-                      setPassword("teamflow-demo-pw");
-                      setMode("login");
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition flex items-center gap-1 cursor-pointer ${
-                      email === acc.email
-                        ? "bg-indigo-950 text-indigo-300 border-indigo-700 font-bold"
-                        : "bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800 hover:text-white"
-                    }`}
-                  >
-                    <AccIcon className="h-3 w-3 text-indigo-400" />
-                    <span>{acc.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Toggle Login / Register */}
           <div className="text-center text-xs text-slate-400">

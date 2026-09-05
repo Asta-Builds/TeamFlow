@@ -38,7 +38,10 @@ AGENT_KEYS = {
     "seo@teamflow.dev": "seo",
 }
 
-DEMO_PASSWORD = "teamflow-demo-pw"
+import os
+import secrets
+
+DEMO_PASSWORD = os.getenv("DEMO_PASSWORD") or secrets.token_urlsafe(16)
 
 TASKS = [
     ("Set up JWT auth endpoints", Task.Status.DONE, Task.Type.FEATURE, Task.Priority.HIGH, "backend1@teamflow.dev"),
