@@ -44,7 +44,7 @@ export class AuthService {
           email: dto.email.toLowerCase(),
           password: hashedPassword,
           name: dto.name || dto.email.split('@')[0],
-          role: 'member',
+          role: 'ceo',
           organizationId: org.id,
           avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(dto.email)}`,
         },

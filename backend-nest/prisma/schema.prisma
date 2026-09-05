@@ -113,6 +113,8 @@ model User {
   lastLogin   DateTime? @map("last_login") @db.Timestamptz(6)
   isSuperuser Boolean  @default(false) @map("is_superuser")
   email       String   @unique @db.VarChar(254)
+  firstName   String   @default("") @map("first_name") @db.VarChar(150)
+  lastName    String   @default("") @map("last_name") @db.VarChar(150)
   name        String   @default("") @db.VarChar(150)
   role        String   @default("member") @db.VarChar(20)
   agentKey    String   @default("") @map("agent_key") @db.VarChar(64)
