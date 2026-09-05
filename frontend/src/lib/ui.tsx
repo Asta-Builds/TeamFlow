@@ -1,6 +1,6 @@
 import React from "react";
 import type { Priority, Role, TaskStatus, TaskType, UserStatus } from "./types";
-import { Sparkles, Bug, CheckSquare, Shield, Code, Palette, Search, Terminal, Crown, UserCheck, Bot } from "lucide-react";
+import { Sparkles, Bug, CheckSquare, Crown, Bot } from "lucide-react";
 
 export const ROLE_LABELS: Record<Role, string> = {
   ceo: "CEO (Human Founder)",
@@ -110,7 +110,6 @@ export function Avatar({
   size = 32,
   showStatus = false,
   status = "active",
-  isAi = true,
 }: {
   name: string;
   email?: string;

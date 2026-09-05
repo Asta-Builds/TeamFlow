@@ -16,7 +16,6 @@ import type {
   Notification,
   User,
   PulseDashboard,
-  AgentEvent,
   TaskStatus,
 } from "./types";
 import { toast } from "sonner";

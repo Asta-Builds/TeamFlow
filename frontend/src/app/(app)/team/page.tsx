@@ -4,17 +4,16 @@ import { useEffect, useState } from "react";
 import { apiFetch, ApiError, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import TeamLoading from "./loading";
-import type { Paginated, Role, User, UserStatus } from "@/lib/types";
+import type { Role, User, UserStatus } from "@/lib/types";
 import {
   Avatar,
-  Badge,
   ROLE_COLORS,
   ROLE_LABELS,
   USER_STATUS_STYLES,
   AgentTypeBadge,
 } from "@/lib/ui";
 import { toast } from "sonner";
-import { Users, UserPlus, Target, Edit2, X, Bot, Crown, Cpu, Sparkles } from "lucide-react";
+import { UserPlus, Target, Edit2, X, Bot } from "lucide-react";
 
 export default function TeamPage() {
   const { user } = useAuth();
@@ -79,7 +78,7 @@ export default function TeamPage() {
       setMembers((prev) => prev.map((m) => (m.id === memberId ? updated : m)));
       setEditingMember(null);
       toast.success("Member role and status updated!");
-    } catch (err) {
+    } catch {
       toast.error("Error updating member role/status.");
     }
   }

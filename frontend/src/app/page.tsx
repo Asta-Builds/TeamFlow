@@ -17,7 +17,6 @@ import {
   CheckCircle2,
   ExternalLink,
   ArrowRight,
-  Sparkles,
   Zap,
   Lock,
 } from "lucide-react";

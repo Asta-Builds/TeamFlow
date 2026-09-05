@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { apiFetch, getAgentClusterStatus, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import DashboardLoading from "./loading";
-import type { ActivityFeedItem, AgentClusterStatus, Deployment, Paginated, Project, SEOAudit, Task } from "@/lib/types";
+import type { ActivityFeedItem, AgentClusterStatus, Deployment, Project, SEOAudit, Task } from "@/lib/types";
 import {
   Avatar,
   Badge,
@@ -25,17 +25,13 @@ import {
   ShieldCheck,
   Activity,
   ArrowRight,
-  Clock,
   Crown,
-  Cpu,
-  Layers,
   CheckCircle2,
-  AlertCircle,
   Code2,
   Calendar,
 } from "lucide-react";
 
-function SuperStatCard({
+const SuperStatCard = memo(function SuperStatCard({
   label,
   value,
   subtitle,
@@ -67,7 +63,7 @@ function SuperStatCard({
       {subtitle && <div className="text-[11px] text-slate-500 mt-0.5">{subtitle}</div>}
     </div>
   );
-}
+});
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -100,15 +96,19 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const openTickets = tasks.filter((t) => t.status !== "done");
-  const myTickets = tasks.filter((t) => t.assignee === user?.id);
-  const inReviewTickets = tasks.filter((t) => t.status === "in_review");
-  const qaTickets = tasks.filter((t) => t.status === "qa");
-  const latestDeploy = deployments[0];
-  const avgSeoScore =
-    seoAudits.length > 0
-      ? Math.round(seoAudits.reduce((acc, a) => acc + (a.score || 0), 0) / seoAudits.length)
-      : 92;
+  const { openTickets, myTickets, inReviewTickets, qaTickets, latestDeploy, avgSeoScore } = useMemo(() => {
+    return {
+      openTickets: tasks.filter((t) => t.status !== "done"),
+      myTickets: tasks.filter((t) => t.assignee === user?.id),
+      inReviewTickets: tasks.filter((t) => t.status === "in_review"),
+      qaTickets: tasks.filter((t) => t.status === "qa"),
+      latestDeploy: deployments[0],
+      avgSeoScore:
+        seoAudits.length > 0
+          ? Math.round(seoAudits.reduce((acc, a) => acc + (a.score || 0), 0) / seoAudits.length)
+          : 92,
+    };
+  }, [tasks, deployments, seoAudits, user?.id]);
 
   if (loading) {
     return <DashboardLoading />;

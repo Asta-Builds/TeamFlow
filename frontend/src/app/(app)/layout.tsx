@@ -5,8 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
-import type { Notification, Role } from "@/lib/types";
-import { Avatar, ROLE_COLORS, ROLE_LABELS, AgentTypeBadge } from "@/lib/ui";
+import type { Notification } from "@/lib/types";
+import { Avatar, AgentTypeBadge } from "@/lib/ui";
 import { toast } from "sonner";
 import {
   LayoutDashboard,
@@ -18,11 +18,7 @@ import {
   CreditCard,
   Bell,
   LogOut,
-  UserCog,
   Building2,
-  Crown,
-  Bot,
-  X,
   Timer,
 } from "lucide-react";
 

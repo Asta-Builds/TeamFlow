@@ -5,7 +5,7 @@ import Link from "next/link";
 import { apiFetch, ApiError, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import ProjectsLoading from "./loading";
-import type { Paginated, Project, ProjectStatus } from "@/lib/types";
+import type { Project, ProjectStatus } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
 import { toast } from "sonner";
 import { LayoutGrid, Table, Plus, FolderKanban, X } from "lucide-react";

@@ -5,18 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ApiError, register } from "@/lib/api";
 import { toast } from "sonner";
-import {
-  Lock,
-  Crown,
-  Code2,
-  Rocket,
-  ShieldCheck,
-  SearchCheck,
-  UserCheck,
-  Building2,
-  CheckCircle2,
-  Bot,
-} from "lucide-react";
+import { Lock } from "lucide-react";
 
 const KEYCLOAK_URL = process.env.NEXT_PUBLIC_KEYCLOAK_URL || "http://localhost:8080";
 const KEYCLOAK_REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || "teamflow";

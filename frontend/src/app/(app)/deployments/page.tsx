@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { apiFetch, ApiError, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import DeploymentsLoading from "./loading";
-import type { Deployment, Paginated, Project } from "@/lib/types";
+import type { Deployment, Project } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
 import { toast } from "sonner";
-import { Rocket, Terminal, RotateCcw, AlertTriangle, GitBranch, X, CheckCircle2 } from "lucide-react";
+import { Rocket, Terminal, RotateCcw, AlertTriangle, GitBranch, X } from "lucide-react";
 
 const DEPLOY_STYLES: Record<string, string> = {
   queued: "bg-slate-900 text-slate-400 border-slate-800",
@@ -65,15 +65,17 @@ export default function DeploymentsPage() {
         setDeployments(normalizeList<Deployment>(d));
         const projs = normalizeList<Project>(p);
         setProjects(projs);
-        if (projs.length > 0 && !selectedProjectId) {
-          setSelectedProjectId(projs[0].id);
+        if (projs.length > 0) {
+          setSelectedProjectId((prev) => (prev ? prev : projs[0].id));
         }
       })
       .catch((err) => console.error("Error loading deployments logs", err))
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   async function handleTrigger(e: React.FormEvent) {
     e.preventDefault();

@@ -18,7 +18,6 @@ import { KanbanSkeleton } from "@/components/skeletons/KanbanSkeleton";
 import type {
   AgentExecutionTrace,
   AgentEvent,
-  Paginated,
   Priority,
   Project,
   Task,
@@ -50,19 +49,12 @@ import {
   GitPullRequest,
   MessageSquare,
   Activity,
-  AlertTriangle,
   ExternalLink,
-  Code,
-  Terminal,
-  Cpu,
-  Layers,
   Calendar,
   X,
   Radio,
   Zap,
   RefreshCw,
-  Send,
-  Share2,
   ShieldCheck,
   Clock,
 } from "lucide-react";
@@ -825,7 +817,7 @@ function TaskDetailPanel({
       setDetail(res);
       onChanged(res);
       toast.success("Ticket QA Approved and marked Done!");
-    } catch (err) {
+    } catch {
       toast.error("QA validation failed.");
     }
   }
@@ -843,7 +835,7 @@ function TaskDetailPanel({
       setRejectModal(false);
       setRejectReason("");
       toast.warning("Ticket QA Rejected and sent back to In Progress.");
-    } catch (err) {
+    } catch {
       toast.error("QA rejection failed.");
     }
   }

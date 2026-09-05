@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { createCheckoutSession, createPortalSession, mockConfirmSubscription } from "@/lib/api";
 import { toast } from "sonner";
-import { CreditCard, CheckCircle2, XCircle, Zap, ShieldCheck } from "lucide-react";
+import { CreditCard, CheckCircle2, XCircle } from "lucide-react";
 
 export default function BillingPage() {
   const { user, refreshUser } = useAuth();

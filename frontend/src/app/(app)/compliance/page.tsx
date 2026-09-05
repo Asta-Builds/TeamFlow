@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { apiFetch, ApiError, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import ComplianceLoading from "./loading";
-import type { Paginated, Project, SEOAudit } from "@/lib/types";
+import type { Project, SEOAudit } from "@/lib/types";
 import { Badge } from "@/lib/ui";
 import { toast } from "sonner";
 import {
@@ -13,11 +13,9 @@ import {
   Smartphone,
   Gauge,
   CheckCircle2,
-  AlertTriangle,
   ExternalLink,
   Plus,
   X,
-  Sparkles,
 } from "lucide-react";
 
 const SEVERITY_BADGES: Record<string, string> = {
@@ -52,15 +50,17 @@ export default function CompliancePage() {
         setAudits(normalizeList<SEOAudit>(a));
         const projs = normalizeList<Project>(p);
         setProjects(projs);
-        if (projs.length > 0 && !targetProjectId) {
-          setTargetProjectId(projs[0].id);
+        if (projs.length > 0) {
+          setTargetProjectId((prev) => (prev ? prev : projs[0].id));
         }
       })
       .catch((err) => console.error("Error loading SEO audits", err))
       .finally(() => setLoading(false));
   }
 
-  useEffect(load, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const handleRunAudit = async (e: React.FormEvent) => {
     e.preventDefault();
