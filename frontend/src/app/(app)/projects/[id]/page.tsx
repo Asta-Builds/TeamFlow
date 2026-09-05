@@ -10,9 +10,11 @@ import {
   getAgentEvents,
   getAgentTraces,
   ingestRAGKnowledge,
+  normalizeList,
   streamAgentEvents,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { KanbanSkeleton } from "@/components/skeletons/KanbanSkeleton";
 import type {
   AgentExecutionTrace,
   AgentEvent,
@@ -151,13 +153,13 @@ export default function ProjectBoardPage() {
   const load = useCallback(() => {
     Promise.all([
       apiFetch<Project>(`/projects/${projectId}/`),
-      apiFetch<Paginated<Task>>(`/tasks/?project=${projectId}`),
-      apiFetch<Paginated<User>>("/users/"),
+      apiFetch<unknown>(`/tasks/?project=${projectId}`),
+      apiFetch<unknown>("/users/"),
     ])
       .then(([p, t, u]) => {
         setProject(p);
-        setTasks(t.results || []);
-        setTeamMembers(u.results || []);
+        setTasks(normalizeList<Task>(t));
+        setTeamMembers(normalizeList<User>(u));
       })
       .catch((err) => console.error("Error loading project board:", err))
       .finally(() => setLoading(false));
@@ -170,6 +172,9 @@ export default function ProjectBoardPage() {
   async function moveTask(task: Task, toStatus: TaskStatus) {
     if (task.status === toStatus) return;
 
+    // Snapshot for rollback
+    const previousTasks = [...tasks];
+
     // Optimistic UI update
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, status: toStatus } : t))
@@ -180,11 +185,11 @@ export default function ProjectBoardPage() {
         method: "PATCH",
         body: { status: toStatus },
       });
-      toast.info(`Moved ticket to ${TASK_STATUS_LABELS[toStatus]}`);
-      load();
-    } catch {
-      toast.error("Failed to move ticket");
-      load();
+      toast.success(`Ticket déplacé vers : ${TASK_STATUS_LABELS[toStatus]}`);
+    } catch (err) {
+      // Instant rollback
+      setTasks(previousTasks);
+      toast.error(`Échec du déplacement : ${err instanceof Error ? err.message : "Erreur réseau"}`);
     }
   }
 
@@ -237,11 +242,7 @@ export default function ProjectBoardPage() {
   });
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-slate-500 font-semibold text-xs tracking-wider uppercase">
-        Loading SuperDesign Kanban Board…
-      </div>
-    );
+    return <KanbanSkeleton />;
   }
   if (!project) return <div className="p-6 text-center text-slate-400">Project not found.</div>;
 

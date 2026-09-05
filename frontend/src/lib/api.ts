@@ -325,4 +325,37 @@ export function updatePulseFocus(
   );
 }
 
+// --- Data Normalization & Resilient Helpers ---
+
+export function normalizeList<T>(data: unknown): T[] {
+  if (!data) return [];
+  if (Array.isArray(data)) return data as T[];
+  if (typeof data === "object" && data !== null && "results" in data && Array.isArray((data as { results: unknown }).results)) {
+    return (data as { results: T[] }).results;
+  }
+  return [];
+}
+
+export function createSeoTask(auditId: number, payload: { project_id: number; issue_index: number }) {
+  return apiFetch<{ success: boolean; task_id: number; title: string }>(
+    `/seo/audits/${auditId}/create-task/`,
+    { method: "POST", body: payload }
+  );
+}
+
+export function rollbackDeployment(deploymentId: number) {
+  return apiFetch<import("./types").Deployment>(
+    `/deployments/${deploymentId}/rollback/`,
+    { method: "POST", body: {} }
+  );
+}
+
+export function qaValidateTask(taskId: number) {
+  return apiFetch<import("./types").Task>(
+    `/tasks/${taskId}/qa_validate/`,
+    { method: "POST" }
+  );
+}
+
+
 

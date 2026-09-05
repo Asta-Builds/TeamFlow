@@ -125,6 +125,7 @@ export interface Deployment {
   environment: string;
   status: DeploymentStatus;
   commit_sha: string;
+  target_commit?: string;
   branch?: string;
   logs?: string;
   duration_seconds?: number;

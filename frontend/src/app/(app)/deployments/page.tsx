@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, ApiError, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import DeploymentsLoading from "./loading";
 import type { Deployment, Paginated, Project } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
 import { toast } from "sonner";
@@ -57,14 +58,15 @@ export default function DeploymentsPage() {
 
   function load() {
     Promise.all([
-      apiFetch<Paginated<Deployment>>("/deployments/"),
-      apiFetch<Paginated<Project>>("/projects/").catch(() => ({ results: [] })),
+      apiFetch<unknown>("/deployments/"),
+      apiFetch<unknown>("/projects/").catch(() => []),
     ])
       .then(([d, p]) => {
-        setDeployments(d.results || []);
-        setProjects(p.results || []);
-        if (p.results?.length > 0 && !selectedProjectId) {
-          setSelectedProjectId(p.results[0].id);
+        setDeployments(normalizeList<Deployment>(d));
+        const projs = normalizeList<Project>(p);
+        setProjects(projs);
+        if (projs.length > 0 && !selectedProjectId) {
+          setSelectedProjectId(projs[0].id);
         }
       })
       .catch((err) => console.error("Error loading deployments logs", err))
@@ -115,11 +117,7 @@ export default function DeploymentsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-slate-500 font-semibold text-xs tracking-wider uppercase">
-        Loading deployment pipelines…
-      </div>
-    );
+    return <DeploymentsLoading />;
   }
 
   return (

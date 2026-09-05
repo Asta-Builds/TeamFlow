@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiFetch, getAgentClusterStatus } from "@/lib/api";
+import { apiFetch, getAgentClusterStatus, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import DashboardLoading from "./loading";
 import type { ActivityFeedItem, AgentClusterStatus, Deployment, Paginated, Project, SEOAudit, Task } from "@/lib/types";
 import {
   Avatar,
@@ -80,18 +81,18 @@ export default function DashboardPage() {
 
   useEffect(() => {
     Promise.all([
-      apiFetch<Paginated<Project>>("/projects/"),
-      apiFetch<Paginated<Task>>("/tasks/"),
-      apiFetch<Paginated<Deployment>>("/deployments/"),
-      apiFetch<Paginated<SEOAudit>>("/seo/audits/").catch(() => ({ results: [] })),
+      apiFetch<unknown>("/projects/"),
+      apiFetch<unknown>("/tasks/"),
+      apiFetch<unknown>("/deployments/"),
+      apiFetch<unknown>("/seo/audits/").catch(() => []),
       apiFetch<ActivityFeedItem[]>("/tasks/feed/").catch(() => []),
       getAgentClusterStatus().catch(() => null),
     ])
       .then(([p, t, d, s, feed, cluster]) => {
-        setProjects(p.results || []);
-        setTasks(t.results || []);
-        setDeployments(d.results || []);
-        setSeoAudits(s.results || []);
+        setProjects(normalizeList<Project>(p));
+        setTasks(normalizeList<Task>(t));
+        setDeployments(normalizeList<Deployment>(d));
+        setSeoAudits(normalizeList<SEOAudit>(s));
         if (Array.isArray(feed)) setActivityFeed(feed);
         if (cluster) setAgentCluster(cluster);
       })
@@ -110,11 +111,7 @@ export default function DashboardPage() {
       : 92;
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-slate-500 font-semibold text-xs tracking-wider uppercase">
-        Loading SuperDesign Insights…
-      </div>
-    );
+    return <DashboardLoading />;
   }
 
   return (

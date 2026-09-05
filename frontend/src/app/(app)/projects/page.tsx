@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, ApiError, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import ProjectsLoading from "./loading";
 import type { Paginated, Project, ProjectStatus } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
 import { toast } from "sonner";
@@ -33,8 +34,8 @@ export default function ProjectsPage() {
     user?.role === "admin";
 
   function load() {
-    apiFetch<Paginated<Project>>("/projects/")
-      .then((d) => setProjects(d.results || []))
+    apiFetch<unknown>("/projects/")
+      .then((d) => setProjects(normalizeList<Project>(d)))
       .catch((err) => console.error("Error loading projects", err))
       .finally(() => setLoading(false));
   }
@@ -65,6 +66,10 @@ export default function ProjectsPage() {
   const filteredProjects = statusFilter !== "all"
     ? projects.filter((p) => p.status === statusFilter)
     : projects;
+
+  if (loading) {
+    return <ProjectsLoading />;
+  }
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">

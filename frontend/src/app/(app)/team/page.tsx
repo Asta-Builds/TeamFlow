@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiFetch, ApiError, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import TeamLoading from "./loading";
 import type { Paginated, Role, User, UserStatus } from "@/lib/types";
 import {
   Avatar,
@@ -34,8 +35,8 @@ export default function TeamPage() {
     user?.role === "admin";
 
   function load() {
-    apiFetch<Paginated<User>>("/users/")
-      .then((d) => setMembers(d.results || []))
+    apiFetch<unknown>("/users/")
+      .then((d) => setMembers(normalizeList<User>(d)))
       .catch((err) => console.error("Error loading team directory", err))
       .finally(() => setLoading(false));
   }
@@ -84,11 +85,7 @@ export default function TeamPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-slate-500 font-semibold text-xs tracking-wider uppercase">
-        Loading team directory…
-      </div>
-    );
+    return <TeamLoading />;
   }
 
   const aiAgentsCount = members.filter((m) => m.role !== "ceo").length;
