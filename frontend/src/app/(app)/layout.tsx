@@ -20,6 +20,8 @@ import {
   LogOut,
   Building2,
   Timer,
+  Menu,
+  X,
 } from "lucide-react";
 
 const NAV = [
@@ -39,6 +41,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -196,12 +199,144 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
+      {/* Mobile Navigation Drawer Overlay */}
+      {mobileMenuOpen && (
+        <div
+          id="mobile-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Mobile Navigation"
+          className="fixed inset-0 z-50 md:hidden flex"
+        >
+          <div
+            className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => setMobileMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-72 max-w-[85vw] h-full bg-slate-950 border-r border-slate-800 p-4 flex flex-col justify-between shadow-2xl z-10 animate-in slide-in-from-left duration-200">
+            <div className="space-y-5">
+              <div className="flex items-center justify-between px-2 py-1">
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5"
+                  aria-label="TeamFlow Home"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-xs font-extrabold text-white shadow-md shadow-indigo-600/40">
+                    TF
+                  </div>
+                  <div>
+                    <span className="text-sm font-extrabold tracking-tight text-white block leading-none">
+                      TeamFlow
+                    </span>
+                    <span className="text-[10px] text-indigo-400 uppercase tracking-widest font-bold mt-0.5 block">
+                      Virtual Tech Co.
+                    </span>
+                  </div>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer"
+                  aria-label="Close navigation menu"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
+
+              {/* Active Workspace Selector Card */}
+              <div className="px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/70 text-xs text-slate-300 flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-2 truncate">
+                  <Building2 className="h-4 w-4 text-indigo-400 shrink-0" aria-hidden="true" />
+                  <span className="font-semibold text-white truncate">{user.organization_name || "Workspace"}</span>
+                </div>
+                <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" title="System Online"></span>
+              </div>
+
+              {/* Navigation Links */}
+              <nav aria-label="Mobile Navigation Links" className="space-y-1">
+                <div className="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                  Workspace Platform
+                </div>
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const active =
+                    pathname === item.href ||
+                    (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
+                        active
+                          ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold"
+                          : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                      }`}
+                      aria-current={active ? "page" : undefined}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </div>
+                      {active && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse motion-reduce:animate-none" aria-hidden="true"></span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+
+            {/* Mobile Footer */}
+            <div className="space-y-2 pt-4 border-t border-slate-800/80">
+              <Link
+                href="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:border-slate-700 transition"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <span className="truncate font-bold text-white">{user.name || user.email}</span>
+                </div>
+                <AgentTypeBadge role={user.role} isAi={!isHuman} />
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+                className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition cursor-pointer"
+              >
+                <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Sign out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main App Content Viewport */}
       <div className="flex min-w-0 flex-1 flex-col bg-slate-900">
         {/* App Header */}
-        <header role="banner" className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/80 px-6 backdrop-blur-md">
-          {/* Left: Breadcrumbs / Title */}
+        <header role="banner" className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/80 px-4 sm:px-6 backdrop-blur-md">
+          {/* Left: Mobile Toggle & Breadcrumbs / Title */}
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-1.5 rounded-xl text-slate-400 hover:bg-slate-900 hover:text-white transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer"
+              aria-label="Toggle Navigation Menu"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-drawer"
+            >
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" aria-hidden="true" />
+              ) : (
+                <Menu className="h-5 w-5" aria-hidden="true" />
+              )}
+            </button>
+
             <h1 className="text-sm font-extrabold text-white tracking-tight">
               {navItems.find((n) => pathname === n.href || pathname.startsWith(n.href + "/"))?.label ?? "TeamFlow"}
             </h1>

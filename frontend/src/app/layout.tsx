@@ -11,9 +11,42 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TeamFlow — Enterprise Multi-Agent Virtual Tech Management",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://teamflow.dev"),
+  title: {
+    default: "TeamFlow — Enterprise Multi-Agent Virtual Tech Management",
+    template: "%s | TeamFlow",
+  },
   description:
     "Autonomous software engineering management platform with LangGraph orchestration, pgvector RAG, and Langfuse tracing.",
+  keywords: [
+    "AI agents",
+    "virtual tech company",
+    "LangGraph",
+    "pgvector",
+    "Kanban",
+    "software engineering",
+    "autonomous devops",
+  ],
+  authors: [{ name: "TeamFlow Core Architecture Guild" }],
+  openGraph: {
+    title: "TeamFlow — Enterprise Multi-Agent Virtual Tech Management",
+    description:
+      "Autonomous software engineering management platform with LangGraph orchestration, pgvector RAG, and Langfuse tracing.",
+    url: "https://teamflow.dev",
+    siteName: "TeamFlow",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TeamFlow — Enterprise Multi-Agent Virtual Tech Management",
+    description:
+      "Autonomous software engineering management platform with LangGraph orchestration, pgvector RAG, and Langfuse tracing.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({

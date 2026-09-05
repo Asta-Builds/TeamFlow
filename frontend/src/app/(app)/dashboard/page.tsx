@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import DashboardLoading from "./loading";
@@ -14,6 +14,7 @@ import {
 } from "@/lib/queries";
 import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
+import { SwarmRunnerModal } from "@/components/SwarmRunnerModal";
 import {
   Avatar,
   PRIORITY_STYLES,
@@ -46,6 +47,7 @@ export default function DashboardPage() {
   const { data: seoAudits = [] } = useSeoAudits();
   const { data: activityFeed = [] } = useActivityFeed();
   const { data: agentCluster = null } = useAgentClusterStatus();
+  const [showSwarmModal, setShowSwarmModal] = useState(false);
 
   const loading = pLoading || tLoading || dLoading;
 
@@ -236,13 +238,15 @@ export default function DashboardPage() {
               </span>
             </div>
 
-            <Link
-              href="/projects"
-              className="rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer"
+            <button
+              type="button"
+              onClick={() => setShowSwarmModal(true)}
+              className="rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:outline-none"
+              aria-label="Run autonomous multi-agent swarm"
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Run Swarms</span>
-            </Link>
+            </button>
           </div>
         </div>
       )}
@@ -359,6 +363,11 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
+
+      <SwarmRunnerModal
+        isOpen={showSwarmModal}
+        onClose={() => setShowSwarmModal(false)}
+      />
     </div>
   );
 }
