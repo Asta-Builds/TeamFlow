@@ -4,9 +4,7 @@
 
 **Scope:** Repository diagnosis, two implementation passes, regression tests, and configuration documentation.
 
-**Branch:** `main`
-
-**Operational status:** Source changes verified locally. Running containers were not rebuilt or redeployed.
+**Operational status:** Source changes verified locally and running containers (`backend`, `backend_nest`, `celery_worker`) successfully rebuilt and deployed with cryptographic secrets in `.env`. Probed healthy on `http://localhost:8001/api/health`.
 
 This report records the work performed during this session. It supersedes older
 claims of NestJS production readiness where they conflict with the limitations
@@ -146,9 +144,9 @@ application code was changed.
 
 ## Remaining work and operational limits
 
-1. Running containers still use their existing images/configuration. These source
-   changes are not proof that the running deployment is hardened. Configure the
-   secrets and perform a separate controlled rollout before relying on them.
+1. Local Docker containers were rebuilt with the new hardened images and `.env`
+   secrets, verified via health probes on port 8001. For external production environments,
+   ensure separate strong secrets are provisioned before rolling out.
 2. Full integration against real PostgreSQL through both APIs and Celery job
    completion is still unverified. The compatibility check validates formats and
    libraries, not the production signing-key configuration or job lifecycle.
