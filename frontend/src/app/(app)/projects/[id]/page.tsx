@@ -261,42 +261,53 @@ export default function ProjectBoardPage() {
 
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() => setShowFeedModal(true)}
-            className="rounded-xl border border-emerald-700/60 bg-emerald-950/60 px-3.5 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="rounded-xl border border-emerald-700/60 bg-emerald-950/60 px-3.5 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none"
             title="Flux de Communication en Direct : Observez les agents collaborer et dialoguer en direct"
+            aria-label="Flux de Communication en Direct"
+            aria-haspopup="dialog"
           >
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <Radio className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" aria-hidden="true"></span>
+            <Radio className="h-3.5 w-3.5 text-emerald-400" aria-hidden="true" />
             <span>Flux de Communication</span>
           </button>
 
           <button
+            type="button"
             onClick={() => setShowPmModal(true)}
-            className="rounded-xl border border-violet-700/60 bg-violet-950/60 px-3.5 py-2 text-xs font-bold text-violet-200 hover:bg-violet-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="rounded-xl border border-violet-700/60 bg-violet-950/60 px-3.5 py-2 text-xs font-bold text-violet-200 hover:bg-violet-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:outline-none"
             title="AI Product Manager: Decompose plan into Kanban tickets and assign AI specialists"
+            aria-label="Plan with AI Product Manager"
+            aria-haspopup="dialog"
           >
-            <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+            <Sparkles className="h-3.5 w-3.5 text-violet-400" aria-hidden="true" />
             <span>Plan with AI PM</span>
           </button>
 
           <button
+            type="button"
             onClick={handleIngestRag}
             disabled={ingestingRag}
-            className="rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-bold text-slate-200 hover:bg-slate-700 transition flex items-center gap-1.5 cursor-pointer disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
             title="Ingest architecture documents & codebase chunks into pgvector"
+            aria-label="Ingest RAG Knowledge into pgvector"
           >
-            <Database className="h-3.5 w-3.5 text-indigo-400" />
+            <Database className="h-3.5 w-3.5 text-indigo-400" aria-hidden="true" />
             <span>{ingestingRag ? "Ingesting pgvector…" : "Ingest RAG Knowledge"}</span>
           </button>
 
           <button
+            type="button"
             onClick={() => {
               setTargetColumn("todo");
               setShowCreateModal(true);
             }}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer"
+            className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:outline-none"
+            aria-label="Create New Ticket"
+            aria-haspopup="dialog"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
             <span>New Ticket</span>
           </button>
         </div>
@@ -305,13 +316,14 @@ export default function ProjectBoardPage() {
       {/* Filters Toolbar */}
       <div className="flex flex-wrap items-center gap-3 bg-slate-900/90 p-3.5 rounded-2xl border border-slate-800 shadow-xs">
         <div className="flex-1 min-w-[200px] relative">
-          <Search className="h-3.5 w-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="h-3.5 w-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" aria-hidden="true" />
           <input
             type="text"
             placeholder="Search tickets by title..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-8.5 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+            aria-label="Search tickets by title"
+            className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-8.5 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
@@ -1664,7 +1676,13 @@ function SwarmLiveFeedModal({
         )}
 
         {/* Feed Messages Container */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-900/60">
+        <div
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions"
+          aria-label="Live Agent Communication Feed"
+          className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-slate-900/60"
+        >
           {filteredFeed.map((item) => {
             const isHandoff = item.event_type === "handoff";
             const isDone = item.event_type === "completed";

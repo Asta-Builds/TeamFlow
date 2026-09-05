@@ -80,9 +80,9 @@ export const PRIORITY_STYLES: Record<Priority, { label: string; style: string }>
 
 export const STATUS_DOT: Record<TaskStatus, string> = {
   todo: "bg-slate-500",
-  in_progress: "bg-amber-400",
-  in_review: "bg-indigo-400",
-  qa: "bg-purple-400",
+  in_progress: "bg-amber-400 animate-pulse motion-reduce:animate-none",
+  in_review: "bg-indigo-400 animate-pulse motion-reduce:animate-none",
+  qa: "bg-purple-400 animate-pulse motion-reduce:animate-none",
   done: "bg-emerald-400",
 };
 

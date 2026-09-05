@@ -74,9 +74,11 @@ describe("Frontend UI Primitives & Mappings", () => {
       expect(TASK_STATUS_LABELS.done).toBe("Done");
     });
 
-    it("provides status dot colors for all states", () => {
+    it("provides status dot colors for all states with motion-reduce guards", () => {
       expect(STATUS_DOT.todo).toBe("bg-slate-500");
       expect(STATUS_DOT.done).toBe("bg-emerald-400");
+      expect(STATUS_DOT.in_progress).toContain("motion-reduce:animate-none");
+      expect(STATUS_DOT.qa).toContain("motion-reduce:animate-none");
     });
   });
 
