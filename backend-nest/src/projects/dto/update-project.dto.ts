@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsInt, Min, IsOptional, IsString } from 'class-validator';
 
 export class UpdateProjectDto {
   @ApiPropertyOptional({ example: 'NextGen Core System' })
@@ -25,5 +25,7 @@ export class UpdateProjectDto {
   @ApiPropertyOptional({ example: [1, 2], type: [Number] })
   @IsOptional()
   @IsArray()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
   members?: number[];
 }

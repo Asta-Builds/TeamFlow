@@ -1,4 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  visibleProjects,
+  visibleTasks,
+  isPrivileged,
+} from '../common/access.js';
+import { randomUUID } from 'node:crypto';
+import { JwtService } from '@nestjs/jwt';
+import { requireSecret } from '../auth/security.js';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ServiceUnavailableException,
+  HttpException,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -88,25 +102,62 @@ export const AGENT_SEATS = [
 
 @Injectable()
 export class AgentsService {
-  private readonly pythonAiUrl = process.env.PYTHON_AI_SERVICE_URL || 'http://127.0.0.1:8000';
+  private readonly pythonAiUrl =
+    process.env.PYTHON_AI_SERVICE_URL || 'http://127.0.0.1:8000';
 
   constructor(
     private prisma: PrismaService,
     private httpService: HttpService,
   ) {}
 
-  getStatus() {
-    return {
-      agents: AGENT_SEATS,
-      orchestrator: 'LangGraph Multi-Agent Swarm',
-      engine: 'Google Antigravity SDK',
-      status: 'active',
-    };
+  private organizationId(user: any): number {
+    if (!user.organizationId)
+      throw new ForbiddenException(
+        'An organization is required for agent operations',
+      );
+    return user.organizationId;
+  }
+
+  private bridgeHeaders(user: any) {
+    const token = new JwtService().sign(
+      {
+        user_id: user.id,
+        token_type: 'access',
+        jti: randomUUID(),
+      },
+      {
+        secret: requireSecret('PYTHON_AI_JWT_SECRET'),
+        algorithm: 'HS256',
+        expiresIn: '60s',
+      },
+    );
+    return { Authorization: `Bearer ${token}` };
+  }
+
+  async getStatus(user: any) {
+    this.organizationId(user);
+    try {
+      const response = await this.httpService.axiosRef.get(
+        `${this.pythonAiUrl}/api/agents/status/`,
+        {
+          headers: this.bridgeHeaders(user),
+          timeout: 10000,
+        },
+      );
+      return response.data;
+    } catch {
+      throw new ServiceUnavailableException(
+        'Unable to verify agent runtime status',
+      );
+    }
   }
 
   async getSwarmFeed(user: any) {
     const events = await this.prisma.agentEvent.findMany({
-      where: user.organizationId ? { organizationId: user.organizationId } : {},
+      where: {
+        organizationId: this.organizationId(user),
+        ...(!isPrivileged(user) && { project: visibleProjects(user) }),
+      },
       include: {
         task: { select: { title: true, status: true } },
         project: { select: { name: true } },
@@ -134,7 +185,12 @@ export class AgentsService {
 
   async getTraces(user: any) {
     const traces = await this.prisma.agentExecutionTrace.findMany({
-      where: user.organizationId ? { task: { organizationId: user.organizationId } } : {},
+      where: {
+        task: {
+          ...visibleTasks(user),
+          organizationId: this.organizationId(user),
+        },
+      },
       include: {
         task: { select: { title: true, projectId: true } },
       },
@@ -160,64 +216,43 @@ export class AgentsService {
   }
 
   async dispatch(taskId: number, user: any) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
-      include: { project: true },
-    });
-
-    if (!task) {
-      throw new NotFoundException(`Task #${taskId} not found`);
+    const organizationId = this.organizationId(user);
+    if (
+      !user.isStaff &&
+      !user.isSuperuser &&
+      !['ceo', 'tech_lead', 'admin'].includes(user.role)
+    ) {
+      throw new ForbiddenException(
+        'Only Tech Lead, CEO or Admin can run autonomous agents',
+      );
     }
+    const task = await this.prisma.task.findFirst({
+      where: { id: taskId, organizationId },
+    });
+    if (!task) throw new NotFoundException(`Task #${taskId} not found`);
 
-    const sessionId = `task-${task.id}-${Date.now()}`;
-
-    // Try forwarding to Python AI service if running
     try {
-      const resp = await this.httpService.axiosRef.post(
+      const response = await this.httpService.axiosRef.post(
         `${this.pythonAiUrl}/api/agents/dispatch/${taskId}/`,
         {},
-        { timeout: 3000 },
+        { headers: this.bridgeHeaders(user), timeout: 10000 },
       );
-      return resp.data;
-    } catch {
-      // Fallback: create trace & start event directly in database
-      const trace = await this.prisma.agentExecutionTrace.create({
-        data: {
-          taskId: task.id,
-          sessionId,
-          status: 'running',
-          steps: [
-            {
-              agent: 'tech_lead',
-              step: 'context_retrieval',
-              status: 'completed',
-              message: 'Retrieved task specifications and contextual embeddings',
-            },
-          ],
-        },
-      });
-
-      await this.prisma.agentEvent.create({
-        data: {
-          organizationId: task.organizationId || user.organizationId,
-          projectId: task.projectId,
-          taskId: task.id,
-          traceId: trace.id,
-          sessionId,
-          eventType: 'started',
-          senderKey: 'tech_lead',
-          recipientKey: 'backend_core',
-          message: `Tech Lead dispatched swarm on ticket #${task.id}: ${task.title}`,
-          currentWork: 'Decomposing acceptance criteria and analyzing API requirements',
-        },
-      });
-
-      return {
-        session_id: sessionId,
-        status: 'queued',
-        trace_id: trace.id,
-        message: 'Swarm agent run initiated',
-      };
+      if (response.status !== 202)
+        throw new Error('Unexpected dispatch response');
+      return response.data;
+    } catch (error) {
+      const status = (error as { response?: { status?: number } }).response
+        ?.status;
+      if (status === 403 || status === 404) {
+        throw new HttpException(
+          'Agent dispatch denied by Python service',
+          status,
+        );
+      }
+      // A timeout may occur after acceptance. Do not retry or fabricate a trace.
+      throw new ServiceUnavailableException(
+        'Agent dispatch could not be confirmed. Check execution traces before retrying.',
+      );
     }
   }
 }

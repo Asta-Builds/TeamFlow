@@ -1,3 +1,4 @@
+import { requireOrganization } from '../common/access.js';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -29,6 +30,7 @@ export class NotificationsService {
     const notifications = await this.prisma.notification.findMany({
       where: {
         recipientId: user.id,
+        organizationId: requireOrganization(user),
       },
       include: {
         actor: true,
@@ -45,7 +47,11 @@ export class NotificationsService {
       where: { id },
     });
 
-    if (!notification || notification.recipientId !== user.id) {
+    if (
+      !notification ||
+      notification.recipientId !== user.id ||
+      notification.organizationId !== requireOrganization(user)
+    ) {
       throw new NotFoundException(`Notification #${id} not found`);
     }
 
@@ -62,6 +68,7 @@ export class NotificationsService {
     await this.prisma.notification.updateMany({
       where: {
         recipientId: user.id,
+        organizationId: requireOrganization(user),
         isRead: false,
       },
       data: { isRead: true },

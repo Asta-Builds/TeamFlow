@@ -1,4 +1,9 @@
 import {
+  visibleTasks,
+  requireProject,
+  requireTenantUsers,
+} from '../common/access.js';
+import {
   Injectable,
   NotFoundException,
   ForbiddenException,
@@ -91,10 +96,7 @@ export class TasksService {
       search?: string;
     },
   ) {
-    const where: any = {};
-    if (currentUser.organizationId) {
-      where.organizationId = currentUser.organizationId;
-    }
+    const where: any = { ...visibleTasks(currentUser) };
 
     if (query?.project) {
       where.projectId = query.project;
@@ -125,7 +127,10 @@ export class TasksService {
         assignee: true,
         createdBy: true,
         comments: { include: { author: true }, orderBy: { createdAt: 'asc' } },
-        activities: { include: { actor: true }, orderBy: { createdAt: 'desc' } },
+        activities: {
+          include: { actor: true },
+          orderBy: { createdAt: 'desc' },
+        },
       },
       orderBy: [{ order: 'asc' }, { createdAt: 'desc' }],
     });
@@ -134,14 +139,17 @@ export class TasksService {
   }
 
   async findOne(id: number, currentUser: any) {
-    const task = await this.prisma.task.findUnique({
-      where: { id },
+    const task = await this.prisma.task.findFirst({
+      where: { id, ...visibleTasks(currentUser) },
       include: {
         project: true,
         assignee: true,
         createdBy: true,
         comments: { include: { author: true }, orderBy: { createdAt: 'asc' } },
-        activities: { include: { actor: true }, orderBy: { createdAt: 'desc' } },
+        activities: {
+          include: { actor: true },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
 
@@ -149,7 +157,10 @@ export class TasksService {
       throw new NotFoundException(`Task with ID ${id} not found`);
     }
 
-    if (currentUser.organizationId && task.organizationId !== currentUser.organizationId) {
+    if (
+      currentUser.organizationId &&
+      task.organizationId !== currentUser.organizationId
+    ) {
       throw new ForbiddenException('Access denied across tenants');
     }
 
@@ -157,9 +168,13 @@ export class TasksService {
   }
 
   async create(dto: CreateTaskDto, currentUser: any) {
-    const project = await this.prisma.project.findUnique({ where: { id: dto.project } });
-    if (!project) {
-      throw new NotFoundException(`Project with ID ${dto.project} not found`);
+    const project = await requireProject(this.prisma, dto.project, currentUser);
+    if (dto.assignee != null)
+      await requireTenantUsers(this.prisma, [dto.assignee], currentUser);
+    if (dto.status === 'done' && !this.canValidateQa(currentUser)) {
+      throw new ForbiddenException(
+        'Only QA or privileged users can close tickets',
+      );
     }
 
     const task = await this.prisma.task.create({
@@ -213,8 +228,8 @@ export class TasksService {
   }
 
   async update(id: number, dto: UpdateTaskDto, currentUser: any) {
-    const oldTask = await this.prisma.task.findUnique({
-      where: { id },
+    const oldTask = await this.prisma.task.findFirst({
+      where: { id, ...visibleTasks(currentUser) },
       include: { project: true, assignee: true },
     });
 
@@ -222,9 +237,35 @@ export class TasksService {
       throw new NotFoundException(`Task with ID ${id} not found`);
     }
 
-    if (currentUser.organizationId && oldTask.organizationId !== currentUser.organizationId) {
+    if (
+      currentUser.organizationId &&
+      oldTask.organizationId !== currentUser.organizationId
+    ) {
       throw new ForbiddenException('Access denied across tenants');
     }
+
+    if (
+      !this.isPrivileged(currentUser) &&
+      oldTask.assigneeId !== currentUser.id &&
+      oldTask.createdById !== currentUser.id
+    ) {
+      throw new ForbiddenException(
+        'Only the assignee, creator or privileged users can edit this task',
+      );
+    }
+    if (
+      !this.canValidateQa(currentUser) &&
+      (dto.status === 'done' ||
+        dto.qa_rejected !== undefined ||
+        dto.qa_rejection_reason !== undefined ||
+        dto.contract_compliance_score !== undefined)
+    ) {
+      throw new ForbiddenException(
+        'Only QA or privileged users can change QA results',
+      );
+    }
+    if (dto.assignee != null)
+      await requireTenantUsers(this.prisma, [dto.assignee], currentUser);
 
     const data: any = {};
     if (dto.title !== undefined) data.title = dto.title;
@@ -233,12 +274,16 @@ export class TasksService {
     if (dto.task_type !== undefined) data.taskType = dto.task_type;
     if (dto.priority !== undefined) data.priority = dto.priority;
     if (dto.assignee !== undefined) data.assigneeId = dto.assignee;
-    if (dto.due_date !== undefined) data.dueDate = dto.due_date ? new Date(dto.due_date) : null;
+    if (dto.due_date !== undefined)
+      data.dueDate = dto.due_date ? new Date(dto.due_date) : null;
     if (dto.pr_url !== undefined) data.prUrl = dto.pr_url;
-    if (dto.validation_contract !== undefined) data.validationContract = dto.validation_contract;
-    if (dto.contract_compliance_score !== undefined) data.contractComplianceScore = dto.contract_compliance_score;
+    if (dto.validation_contract !== undefined)
+      data.validationContract = dto.validation_contract;
+    if (dto.contract_compliance_score !== undefined)
+      data.contractComplianceScore = dto.contract_compliance_score;
     if (dto.qa_rejected !== undefined) data.qaRejected = dto.qa_rejected;
-    if (dto.qa_rejection_reason !== undefined) data.qaRejectionReason = dto.qa_rejection_reason;
+    if (dto.qa_rejection_reason !== undefined)
+      data.qaRejectionReason = dto.qa_rejection_reason;
     if (dto.order !== undefined) data.order = dto.order;
 
     const updatedTask = await this.prisma.task.update({
@@ -281,7 +326,10 @@ export class TasksService {
           });
         }
       } else if (dto.status === 'done') {
-        if (updatedTask.createdById && updatedTask.createdById !== currentUser.id) {
+        if (
+          updatedTask.createdById &&
+          updatedTask.createdById !== currentUser.id
+        ) {
           await this.prisma.notification.create({
             data: {
               recipientId: updatedTask.createdById,
@@ -325,13 +373,28 @@ export class TasksService {
   }
 
   async remove(id: number, currentUser: any) {
-    const task = await this.prisma.task.findUnique({ where: { id } });
+    const task = await this.prisma.task.findFirst({
+      where: { id, ...visibleTasks(currentUser) },
+    });
     if (!task) {
       throw new NotFoundException(`Task with ID ${id} not found`);
     }
 
-    if (currentUser.organizationId && task.organizationId !== currentUser.organizationId) {
+    if (
+      currentUser.organizationId &&
+      task.organizationId !== currentUser.organizationId
+    ) {
       throw new ForbiddenException('Access denied across tenants');
+    }
+
+    if (
+      !this.isPrivileged(currentUser) &&
+      task.assigneeId !== currentUser.id &&
+      task.createdById !== currentUser.id
+    ) {
+      throw new ForbiddenException(
+        'Only the assignee, creator or privileged users can delete this task',
+      );
     }
 
     await this.prisma.task.delete({ where: { id } });
@@ -340,11 +403,20 @@ export class TasksService {
 
   async qaValidate(id: number, currentUser: any) {
     if (!this.canValidateQa(currentUser)) {
-      throw new ForbiddenException('Only QA Engineer, Tech Lead or CEO can validate QA');
+      throw new ForbiddenException(
+        'Only QA Engineer, Tech Lead or CEO can validate QA',
+      );
     }
 
+    const existing = await this.prisma.task.findFirst({
+      where: { id, ...visibleTasks(currentUser) },
+    });
+    if (!existing) throw new NotFoundException('Task not found');
+    if (existing.status !== 'qa')
+      throw new BadRequestException('Only tickets in QA can be reviewed');
+
     const task = await this.prisma.task.update({
-      where: { id },
+      where: { id, organizationId: currentUser.organizationId, status: 'qa' },
       data: {
         status: 'done',
         qaRejected: false,
@@ -380,15 +452,24 @@ export class TasksService {
 
   async qaReject(id: number, reason: string, currentUser: any) {
     if (!this.canValidateQa(currentUser)) {
-      throw new ForbiddenException('Only QA Engineer, Tech Lead or CEO can reject QA');
+      throw new ForbiddenException(
+        'Only QA Engineer, Tech Lead or CEO can reject QA',
+      );
     }
 
     if (!reason || !reason.trim()) {
       throw new BadRequestException('A rejection explanation is mandatory.');
     }
 
+    const existing = await this.prisma.task.findFirst({
+      where: { id, ...visibleTasks(currentUser) },
+    });
+    if (!existing) throw new NotFoundException('Task not found');
+    if (existing.status !== 'qa')
+      throw new BadRequestException('Only tickets in QA can be reviewed');
+
     const task = await this.prisma.task.update({
-      where: { id },
+      where: { id, organizationId: currentUser.organizationId, status: 'qa' },
       data: {
         status: 'in_progress',
         qaRejected: true,
@@ -431,8 +512,8 @@ export class TasksService {
   }
 
   async addComment(taskId: number, body: string, currentUser: any) {
-    const task = await this.prisma.task.findUnique({
-      where: { id: taskId },
+    const task = await this.prisma.task.findFirst({
+      where: { id: taskId, ...visibleTasks(currentUser) },
       include: { project: true },
     });
     if (!task) {
@@ -492,7 +573,7 @@ export class TasksService {
   async getMyTasks(currentUser: any) {
     const tasks = await this.prisma.task.findMany({
       where: {
-        organizationId: currentUser.organizationId,
+        ...visibleTasks(currentUser),
         assigneeId: currentUser.id,
       },
       include: {
@@ -509,7 +590,7 @@ export class TasksService {
   async getFeed(currentUser: any) {
     const activities = await this.prisma.taskActivity.findMany({
       where: {
-        task: { organizationId: currentUser.organizationId },
+        task: visibleTasks(currentUser),
       },
       include: {
         actor: true,
@@ -532,8 +613,8 @@ export class TasksService {
     }));
   }
 
-  async getComments(taskId?: number) {
-    const where: any = {};
+  async getComments(currentUser: any, taskId?: number) {
+    const where: any = { task: visibleTasks(currentUser) };
     if (taskId) where.taskId = taskId;
 
     const comments = await this.prisma.comment.findMany({

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'lead@teamflow.dev' })
@@ -15,11 +15,6 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   name?: string;
-
-  @ApiPropertyOptional({ example: 'tech_lead' })
-  @IsOptional()
-  @IsString()
-  role?: string;
 
   @ApiPropertyOptional({ example: 'TeamFlow HQ' })
   @IsOptional()

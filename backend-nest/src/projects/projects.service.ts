@@ -1,3 +1,4 @@
+import { requireTenantUsers } from '../common/access.js';
 import {
   Injectable,
   NotFoundException,
@@ -34,11 +35,15 @@ export class ProjectsService {
 
   private mapProject(project: any) {
     const totalTasks = project.tasks?.length ?? 0;
-    const doneTasks = project.tasks?.filter((t: any) => t.status === 'done').length ?? 0;
-    const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+    const doneTasks =
+      project.tasks?.filter((t: any) => t.status === 'done').length ?? 0;
+    const progress =
+      totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-    const memberIds = project.members?.map((m: any) => m.userId ?? m.user?.id) ?? [];
-    const membersDetail = project.members?.map((m: any) => this.mapUserSummary(m.user)) ?? [];
+    const memberIds =
+      project.members?.map((m: any) => m.userId ?? m.user?.id) ?? [];
+    const membersDetail =
+      project.members?.map((m: any) => this.mapUserSummary(m.user)) ?? [];
 
     return {
       id: project.id,
@@ -58,7 +63,11 @@ export class ProjectsService {
     };
   }
 
-  async findAll(currentUser: any, query?: { status?: string; search?: string }) {
+  async findAll(
+    currentUser: any,
+    query?: { status?: string; search?: string },
+  ) {
+    if (!currentUser.organizationId) return [];
     const where: any = {};
     if (currentUser.organizationId) {
       where.organizationId = currentUser.organizationId;
@@ -76,10 +85,13 @@ export class ProjectsService {
     }
 
     if (query?.search) {
-      where.OR = [
-        ...(where.OR || []),
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { description: { contains: query.search, mode: 'insensitive' } },
+      where.AND = [
+        {
+          OR: [
+            { name: { contains: query.search, mode: 'insensitive' } },
+            { description: { contains: query.search, mode: 'insensitive' } },
+          ],
+        },
       ];
     }
 
@@ -110,7 +122,10 @@ export class ProjectsService {
       throw new NotFoundException(`Project with ID ${id} not found`);
     }
 
-    if (currentUser.organizationId && project.organizationId !== currentUser.organizationId) {
+    if (
+      !currentUser.organizationId ||
+      project.organizationId !== currentUser.organizationId
+    ) {
       throw new ForbiddenException('Access denied across tenants');
     }
 
@@ -126,10 +141,15 @@ export class ProjectsService {
   }
 
   async create(dto: CreateProjectDto, currentUser: any) {
+    if (!currentUser.organizationId)
+      throw new ForbiddenException('An organization is required');
     if (!this.isPrivileged(currentUser)) {
-      throw new ForbiddenException('Only Tech Lead, CEO or Admin can create projects');
+      throw new ForbiddenException(
+        'Only Tech Lead, CEO or Admin can create projects',
+      );
     }
 
+    await requireTenantUsers(this.prisma, dto.members ?? [], currentUser);
     const project = await this.prisma.project.create({
       data: {
         name: dto.name,
@@ -140,7 +160,7 @@ export class ProjectsService {
         organizationId: currentUser.organizationId,
         members: dto.members?.length
           ? {
-              create: dto.members.map((userId) => ({ userId })),
+              create: [...new Set(dto.members)].map((userId) => ({ userId })),
             }
           : undefined,
       },
@@ -164,25 +184,31 @@ export class ProjectsService {
       throw new NotFoundException(`Project with ID ${id} not found`);
     }
 
-    if (currentUser.organizationId && project.organizationId !== currentUser.organizationId) {
+    if (
+      !currentUser.organizationId ||
+      project.organizationId !== currentUser.organizationId
+    ) {
       throw new ForbiddenException('Access denied across tenants');
     }
 
     if (!this.isPrivileged(currentUser) && project.ownerId !== currentUser.id) {
-      throw new ForbiddenException('Only owner or privileged users can edit this project');
+      throw new ForbiddenException(
+        'Only owner or privileged users can edit this project',
+      );
     }
 
-    if (dto.members) {
-      await this.prisma.projectMember.deleteMany({ where: { projectId: id } });
-      await this.prisma.projectMember.createMany({
-        data: dto.members.map((userId) => ({ projectId: id, userId })),
-        skipDuplicates: true,
-      });
-    }
+    if (dto.members)
+      await requireTenantUsers(this.prisma, dto.members, currentUser);
 
     const updated = await this.prisma.project.update({
       where: { id },
       data: {
+        ...(dto.members !== undefined && {
+          members: {
+            deleteMany: {},
+            create: [...new Set(dto.members)].map((userId) => ({ userId })),
+          },
+        }),
         ...(dto.name !== undefined && { name: dto.name }),
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.status !== undefined && { status: dto.status }),
@@ -200,7 +226,9 @@ export class ProjectsService {
 
   async remove(id: number, currentUser: any) {
     if (!this.isPrivileged(currentUser)) {
-      throw new ForbiddenException('Only Tech Lead, CEO or Admin can delete projects');
+      throw new ForbiddenException(
+        'Only Tech Lead, CEO or Admin can delete projects',
+      );
     }
 
     const project = await this.prisma.project.findUnique({ where: { id } });
@@ -208,7 +236,10 @@ export class ProjectsService {
       throw new NotFoundException(`Project with ID ${id} not found`);
     }
 
-    if (currentUser.organizationId && project.organizationId !== currentUser.organizationId) {
+    if (
+      !currentUser.organizationId ||
+      project.organizationId !== currentUser.organizationId
+    ) {
       throw new ForbiddenException('Access denied across tenants');
     }
 

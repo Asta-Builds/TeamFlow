@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  Min,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class CreateProjectDto {
   @ApiProperty({ example: 'NextGen Core System' })
@@ -7,7 +14,9 @@ export class CreateProjectDto {
   @IsString()
   name!: string;
 
-  @ApiPropertyOptional({ example: 'Microservices migration and swarm agent integration' })
+  @ApiPropertyOptional({
+    example: 'Microservices migration and swarm agent integration',
+  })
   @IsOptional()
   @IsString()
   description?: string;
@@ -25,5 +34,7 @@ export class CreateProjectDto {
   @ApiPropertyOptional({ example: [1, 2], type: [Number] })
   @IsOptional()
   @IsArray()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
   members?: number[];
 }

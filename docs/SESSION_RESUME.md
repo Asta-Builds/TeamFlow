@@ -1,3 +1,5 @@
+> **Latest implementation update ? 2026-09-05:** Read the [NestJS hardening report](NESTJS_SECURITY_HARDENING_2026-09-05.md) and [security setup guide](NESTJS_SECURITY_SETUP.md) before resuming. The report records the current changes, 62 service tests, six HTTP tests, compatibility verification, and remaining rollout work. The historical checkpoint below predates this work.
+
 # 🔄 TeamFlow Session Resume & Context Checkpoint
 
 **Session ID :** `e660e576-fe32-408b-8bbb-25211d1af28c`  

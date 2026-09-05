@@ -1,9 +1,11 @@
+import { requireSecret } from './security.js';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service.js';
 
 export interface JwtPayload {
+  token_type?: string;
   user_id?: number;
   sub?: number;
   email?: string;
@@ -16,13 +18,18 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'teamflow-secret-key-super-secure-change-in-prod',
+      algorithms: ['HS256'],
+      secretOrKey: requireSecret('JWT_SECRET'),
     });
   }
 
   async validate(payload: JwtPayload) {
     const userId = payload.user_id ?? payload.sub;
-    if (!userId) {
+    if (
+      !Number.isSafeInteger(userId) ||
+      !userId ||
+      payload.token_type !== 'access'
+    ) {
       throw new UnauthorizedException('Invalid token payload');
     }
 

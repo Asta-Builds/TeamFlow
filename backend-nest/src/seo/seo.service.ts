@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { requireOrganization } from '../common/access.js';
+import {
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateSeoAuditDto } from './dto/create-seo-audit.dto.js';
 
@@ -24,7 +29,7 @@ export class SeoService {
   async findAll(user: any) {
     const audits = await this.prisma.sEOAudit.findMany({
       where: {
-        organizationId: user.organizationId,
+        organizationId: requireOrganization(user),
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -33,40 +38,24 @@ export class SeoService {
   }
 
   async findOne(id: number, user: any) {
-    const audit = await this.prisma.sEOAudit.findUnique({
-      where: { id },
+    const audit = await this.prisma.sEOAudit.findFirst({
+      where: { id, organizationId: requireOrganization(user) },
     });
 
-    if (!audit || (user.organizationId && audit.organizationId !== user.organizationId)) {
+    if (
+      !audit ||
+      (user.organizationId && audit.organizationId !== user.organizationId)
+    ) {
       throw new NotFoundException(`SEO Audit #${id} not found`);
     }
 
     return this.mapAudit(audit);
   }
 
-  async create(dto: CreateSeoAuditDto, user: any) {
-    const audit = await this.prisma.sEOAudit.create({
-      data: {
-        url: dto.url,
-        score: 94,
-        performanceScore: 92,
-        seoScore: 96,
-        mobileScore: 95,
-        loadTimeMs: 280,
-        issues: [
-          { type: 'warning', message: 'Add explicit image dimensions to avoid layout shifts (CLS)' },
-          { type: 'notice', message: 'OpenGraph meta tags verified' },
-        ],
-        metrics: {
-          fcp: '0.6s',
-          lcp: '1.2s',
-          cls: '0.02',
-          fid: '12ms',
-        },
-        organizationId: user.organizationId,
-      },
-    });
-
-    return this.mapAudit(audit);
+  async create(_dto: CreateSeoAuditDto, user: any) {
+    requireOrganization(user);
+    throw new ServiceUnavailableException(
+      'SEO audit execution is not configured',
+    );
   }
 }

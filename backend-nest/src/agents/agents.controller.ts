@@ -1,5 +1,7 @@
 import {
   Controller,
+  HttpCode,
+  HttpStatus,
   Get,
   Post,
   Param,
@@ -17,9 +19,13 @@ export class AgentsController {
   constructor(private agentsService: AgentsService) {}
 
   @Get('status')
-  @ApiOperation({ summary: 'List status of all 9 AI agent specialists in the swarm' })
-  getStatus() {
-    return this.agentsService.getStatus();
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List status of all 9 AI agent specialists in the swarm',
+  })
+  getStatus(@CurrentUser() user: any) {
+    return this.agentsService.getStatus(user);
   }
 
   @Get('swarm-feed')
@@ -39,9 +45,12 @@ export class AgentsController {
   }
 
   @Post('dispatch/:taskId')
+  @HttpCode(HttpStatus.ACCEPTED)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Dispatch autonomous agent swarm on a specific ticket' })
+  @ApiOperation({
+    summary: 'Dispatch autonomous agent swarm on a specific ticket',
+  })
   async dispatch(
     @Param('taskId', ParseIntPipe) taskId: number,
     @CurrentUser() user: any,

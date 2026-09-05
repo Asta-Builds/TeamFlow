@@ -1,10 +1,11 @@
+import { requireOrganization } from '../common/access.js';
 import {
   Injectable,
   NotFoundException,
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { hashPassword } from '../auth/security.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
@@ -37,7 +38,9 @@ export class UsersService {
       avatar_url: user.avatarUrl,
       bio: user.bio,
       is_active: user.isActive,
-      date_joined: user.dateJoined ? user.dateJoined.toISOString() : new Date().toISOString(),
+      date_joined: user.dateJoined
+        ? user.dateJoined.toISOString()
+        : new Date().toISOString(),
       organization: user.organizationId,
       organization_name: user.organization?.name,
       organization_tier: user.organization?.subscriptionTier ?? 'starter',
@@ -47,7 +50,10 @@ export class UsersService {
     };
   }
 
-  async findAll(currentUser: any, query?: { role?: string; user_status?: string; search?: string }) {
+  async findAll(
+    currentUser: any,
+    query?: { role?: string; user_status?: string; search?: string },
+  ) {
     const where: any = {};
     if (currentUser.organizationId) {
       where.organizationId = currentUser.organizationId;
@@ -97,7 +103,11 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    if (currentUser.organizationId && user.organizationId !== currentUser.organizationId) {
+    if (
+      user.id !== currentUser.id &&
+      (!currentUser.organizationId ||
+        user.organizationId !== currentUser.organizationId)
+    ) {
       throw new ForbiddenException('Access denied across tenants');
     }
 
@@ -105,8 +115,11 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto, currentUser: any) {
+    requireOrganization(currentUser);
     if (!this.isPrivileged(currentUser)) {
-      throw new ForbiddenException('Only Tech Lead, CEO or Admin can add members');
+      throw new ForbiddenException(
+        'Only Tech Lead, CEO or Admin can add members',
+      );
     }
 
     const existing = await this.prisma.user.findUnique({
@@ -116,7 +129,7 @@ export class UsersService {
       throw new ConflictException('User with this email already exists');
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    const hashedPassword = await hashPassword(dto.password);
     const created = await this.prisma.user.create({
       data: {
         email: dto.email.toLowerCase(),
@@ -142,12 +155,24 @@ export class UsersService {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    if (currentUser.organizationId && user.organizationId !== currentUser.organizationId) {
+    if (
+      user.id !== currentUser.id &&
+      (!currentUser.organizationId ||
+        user.organizationId !== currentUser.organizationId)
+    ) {
       throw new ForbiddenException('Access denied across tenants');
     }
 
-    if ((dto.role || dto.user_status) && !this.isPrivileged(currentUser)) {
-      throw new ForbiddenException('Only Tech Lead, CEO or Admin can change member roles/status');
+    if (
+      !this.isPrivileged(currentUser) &&
+      (id !== currentUser.id ||
+        dto.role !== undefined ||
+        dto.user_status !== undefined ||
+        dto.is_active !== undefined)
+    ) {
+      throw new ForbiddenException(
+        'Only Tech Lead, CEO or Admin can change member roles/status',
+      );
     }
 
     const updated = await this.prisma.user.update({

@@ -19,7 +19,10 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
+    "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
+    "pretest:e2e": "npm run build",
+    "test:django-compat": "node scripts/verify-django-compat.mjs",
+    "pretest:django-compat": "npm run build"
   },
   "dependencies": {
     "@nestjs/axios": "^12.0.0",

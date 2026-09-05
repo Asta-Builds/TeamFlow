@@ -5,7 +5,8 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
+import { randomUUID } from 'node:crypto';
+import { hashPassword, verifyPassword, requireSecret } from './security.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -27,33 +28,27 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
-    let orgId: number | undefined;
-    if (dto.organization_name) {
-      const org = await this.prisma.organization.create({
+    const hashedPassword = await hashPassword(dto.password);
+    // Organization and account creation must succeed together. Public signups
+    // never join an existing tenant or choose their own privileged role.
+    const user = await this.prisma.$transaction(async (tx) => {
+      const org = await tx.organization.create({
         data: {
-          name: dto.organization_name,
+          name:
+            dto.organization_name?.trim() ||
+            `${dto.name || dto.email.split('@')[0]}'s workspace`,
         },
       });
-      orgId = org.id;
-    } else {
-      const firstOrg = await this.prisma.organization.findFirst();
-      orgId = firstOrg?.id;
-    }
-
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
-    const user = await this.prisma.user.create({
-      data: {
-        email: dto.email.toLowerCase(),
-        password: hashedPassword,
-        name: dto.name || dto.email.split('@')[0],
-        role: dto.role || 'member',
-        organizationId: orgId,
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(dto.email)}`,
-      },
-      include: {
-        organization: true,
-      },
+      return tx.user.create({
+        data: {
+          email: dto.email.toLowerCase(),
+          password: hashedPassword,
+          name: dto.name || dto.email.split('@')[0],
+          role: 'member',
+          organizationId: org.id,
+          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(dto.email)}`,
+        },
+      });
     });
 
     const tokens = this.generateTokens(user.id, user.email, user.role);
@@ -75,15 +70,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    let passwordValid = false;
-    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
-      passwordValid = await bcrypt.compare(dto.password, user.password);
-    } else {
-      // In dev fallback or Django plain/pbkdf2 placeholder during migration:
-      passwordValid = user.password === dto.password || dto.password === 'password' || dto.password === 'password123';
-    }
-
-    if (!passwordValid) {
+    if (
+      !user.isActive ||
+      !(await verifyPassword(dto.password, user.password))
+    ) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -99,8 +89,11 @@ export class AuthService {
   async refresh(dto: RefreshDto) {
     try {
       const payload = this.jwtService.verify(dto.refresh, {
-        secret: process.env.JWT_REFRESH_SECRET || 'teamflow-refresh-secret-super-secure',
+        secret: requireSecret('JWT_REFRESH_SECRET'),
+        algorithms: ['HS256'],
       });
+      if (payload.token_type !== 'refresh')
+        throw new UnauthorizedException('Invalid refresh token');
       const userId = payload.user_id ?? payload.sub;
       const user = await this.prisma.user.findUnique({ where: { id: userId } });
       if (!user || !user.isActive) {
@@ -120,18 +113,14 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
-    let valid = false;
-    if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {
-      valid = await bcrypt.compare(dto.old_password, user.password);
-    } else {
-      valid = user.password === dto.old_password;
-    }
-
-    if (!valid) {
+    if (
+      !user.isActive ||
+      !(await verifyPassword(dto.old_password, user.password))
+    ) {
       throw new BadRequestException('Incorrect old password');
     }
 
-    const newHash = await bcrypt.hash(dto.new_password, 10);
+    const newHash = await hashPassword(dto.new_password);
     await this.prisma.user.update({
       where: { id: userId },
       data: { password: newHash },
@@ -153,8 +142,12 @@ export class AuthService {
 
     if (!user) return null;
 
-    const openCount = user.assignedTasks.filter((t) => t.status !== 'done').length;
-    const closedCount = user.assignedTasks.filter((t) => t.status === 'done').length;
+    const openCount = user.assignedTasks.filter(
+      (t) => t.status !== 'done',
+    ).length;
+    const closedCount = user.assignedTasks.filter(
+      (t) => t.status === 'done',
+    ).length;
 
     return {
       id: user.id,
@@ -179,14 +172,20 @@ export class AuthService {
 
   generateTokens(userId: number, email: string, role: string) {
     const payload = { user_id: userId, sub: userId, email, role };
-    const access = this.jwtService.sign(payload, {
-      secret: process.env.JWT_SECRET || 'teamflow-secret-key-super-secure-change-in-prod',
-      expiresIn: '1d',
-    });
-    const refresh = this.jwtService.sign(payload, {
-      secret: process.env.JWT_REFRESH_SECRET || 'teamflow-refresh-secret-super-secure',
-      expiresIn: '7d',
-    });
+    const access = this.jwtService.sign(
+      { ...payload, token_type: 'access', jti: randomUUID() },
+      {
+        secret: requireSecret('JWT_SECRET'),
+        expiresIn: '1d',
+      },
+    );
+    const refresh = this.jwtService.sign(
+      { ...payload, token_type: 'refresh', jti: randomUUID() },
+      {
+        secret: requireSecret('JWT_REFRESH_SECRET'),
+        expiresIn: '7d',
+      },
+    );
 
     return { access, refresh };
   }

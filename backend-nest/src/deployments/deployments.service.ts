@@ -1,7 +1,9 @@
+import { requireOrganization, requireProject } from '../common/access.js';
 import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateDeploymentDto } from './dto/create-deployment.dto.js';
@@ -36,8 +38,11 @@ export class DeploymentsService {
     };
   }
 
-  async findAll(user: any, query?: { project?: number; environment?: string; status?: string }) {
-    const where: any = {};
+  async findAll(
+    user: any,
+    query?: { project?: number; environment?: string; status?: string },
+  ) {
+    const where: any = { organizationId: requireOrganization(user) };
     if (user.organizationId) {
       where.organizationId = user.organizationId;
     }
@@ -58,6 +63,7 @@ export class DeploymentsService {
   }
 
   async findOne(id: number, user: any) {
+    requireOrganization(user);
     const deployment = await this.prisma.deployment.findUnique({
       where: { id },
       include: {
@@ -70,7 +76,7 @@ export class DeploymentsService {
       throw new NotFoundException(`Deployment with ID ${id} not found`);
     }
 
-    if (user.organizationId && deployment.organizationId !== user.organizationId) {
+    if (deployment.organizationId !== user.organizationId) {
       throw new ForbiddenException('Access denied across tenants');
     }
 
@@ -79,82 +85,22 @@ export class DeploymentsService {
 
   async create(dto: CreateDeploymentDto, user: any) {
     if (!this.isPrivileged(user)) {
-      throw new ForbiddenException('Only DevOps Engineer, Tech Lead or CEO can trigger deployments.');
+      throw new ForbiddenException(
+        'Only DevOps Engineer, Tech Lead or CEO can trigger deployments.',
+      );
     }
 
-    const project = await this.prisma.project.findUnique({ where: { id: dto.project } });
-    if (!project) {
-      throw new NotFoundException(`Project with ID ${dto.project} not found`);
-    }
-
-    const env = dto.environment || 'staging';
-    const branch = dto.branch || 'main';
-    const commit = dto.commit_sha || 'head';
-    const duration = 4;
-    const now = new Date();
-
-    const logs = [
-      '=== Build & Deployment Pipeline Started ===',
-      `Target Environment: ${env}`,
-      `Branch: ${branch}`,
-      `Commit: ${commit}`,
-      `Triggered by: ${user.name || user.email}`,
-      '[INFO] Running linting and static analysis... OK',
-      '[INFO] Running unit and integration tests... OK (100% passed)',
-      `[INFO] Building Docker container image... Done (${duration}s)`,
-      '[INFO] Deploying container to Kubernetes cluster... Done',
-      '[INFO] Health checks passing (HTTP 200 OK). Deployment verified!',
-    ].join('\n');
-
-    const deployment = await this.prisma.deployment.create({
-      data: {
-        projectId: dto.project,
-        environment: env,
-        branch,
-        commitSha: commit,
-        status: 'success',
-        logs,
-        durationSeconds: duration,
-        triggeredById: user.id,
-        organizationId: user.organizationId,
-        startedAt: now,
-        finishedAt: new Date(now.getTime() + duration * 1000),
-      },
-      include: {
-        project: true,
-        triggeredBy: true,
-      },
-    });
-
-    // Notify team
-    const privilegedUsers = await this.prisma.user.findMany({
-      where: {
-        organizationId: user.organizationId,
-        role: { in: ['ceo', 'tech_lead', 'devops'] },
-      },
-    });
-
-    for (const p of privilegedUsers) {
-      if (p.id !== user.id) {
-        await this.prisma.notification.create({
-          data: {
-            recipientId: p.id,
-            actorId: user.id,
-            title: `Deployment Succeeded: ${project.name} (${env})`,
-            message: `Deployed branch ${branch} commit ${commit}.`,
-            link: '/deployments',
-            organizationId: user.organizationId,
-          },
-        });
-      }
-    }
-
-    return this.mapDeployment(deployment);
+    await requireProject(this.prisma, dto.project, user);
+    throw new ServiceUnavailableException(
+      'Deployment execution is not configured',
+    );
   }
 
   async rollback(id: number, user: any) {
     if (!this.isPrivileged(user)) {
-      throw new ForbiddenException('Only DevOps Engineer, Tech Lead or CEO can trigger rollback.');
+      throw new ForbiddenException(
+        'Only DevOps Engineer, Tech Lead or CEO can trigger rollback.',
+      );
     }
 
     const deployment = await this.prisma.deployment.findUnique({
@@ -166,39 +112,12 @@ export class DeploymentsService {
       throw new NotFoundException(`Deployment with ID ${id} not found`);
     }
 
-    const now = new Date();
-    const rollbackDuration = 2;
-    const rollbackLogs = [
-      `=== Emergency Rollback Triggered for Deployment #${id} ===`,
-      `Project: ${deployment.project.name}`,
-      `Environment: ${deployment.environment}`,
-      `Rolled back by: ${user.name || user.email}`,
-      '[INFO] Reverting Kubernetes deployment spec to previous stable revision...',
-      '[INFO] Terminating faulty pods... Done',
-      '[INFO] Restored traffic to stable container instances... Done',
-      '[INFO] Rollback completed successfully.',
-    ].join('\n');
-
-    const newDeployment = await this.prisma.deployment.create({
-      data: {
-        projectId: deployment.projectId,
-        environment: deployment.environment,
-        branch: deployment.branch,
-        commitSha: `revert-${deployment.commitSha || 'prev'}`,
-        status: 'rolled_back',
-        logs: rollbackLogs,
-        durationSeconds: rollbackDuration,
-        triggeredById: user.id,
-        organizationId: user.organizationId,
-        startedAt: now,
-        finishedAt: new Date(now.getTime() + rollbackDuration * 1000),
-      },
-      include: {
-        project: true,
-        triggeredBy: true,
-      },
-    });
-
-    return this.mapDeployment(newDeployment);
+    if (deployment.organizationId !== requireOrganization(user)) {
+      throw new NotFoundException('Deployment not found');
+    }
+    await requireProject(this.prisma, deployment.projectId, user);
+    throw new ServiceUnavailableException(
+      'Rollback execution is not configured',
+    );
   }
 }

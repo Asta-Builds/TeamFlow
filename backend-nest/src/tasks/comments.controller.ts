@@ -7,7 +7,12 @@ import {
   UseGuards,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { TasksService } from './tasks.service.js';
 import { CreateCommentDto } from './dto/create-comment.dto.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
@@ -23,9 +28,9 @@ export class CommentsController {
   @Get()
   @ApiOperation({ summary: 'List comments for a task' })
   @ApiQuery({ name: 'task', required: false, type: Number })
-  async findAll(@Query('task') task?: string) {
+  async findAll(@CurrentUser() user: any, @Query('task') task?: string) {
     const taskId = task ? parseInt(task, 10) : undefined;
-    return this.tasksService.getComments(taskId);
+    return this.tasksService.getComments(user, taskId);
   }
 
   @Post()

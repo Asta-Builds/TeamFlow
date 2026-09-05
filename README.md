@@ -133,7 +133,10 @@ TeamFlow/
 
 ## ⚡ Quickstart (Local Docker Stack)
 
-Launch the entire stack with a single command:
+Before launching, configure the required secrets in the root `.env` as described in
+[the NestJS security setup guide](docs/NESTJS_SECURITY_SETUP.md).
+
+Launch the entire stack with:
 
 ```bash
 docker compose up --build -d

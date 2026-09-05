@@ -1,3 +1,4 @@
+import { requireOrganization, visibleTasks } from '../common/access.js';
 import {
   Injectable,
   NotFoundException,
@@ -5,7 +6,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { CreatePlanItemDto, UpdateNoteDto, StartFocusSessionDto } from './dto/pulse.dto.js';
+import {
+  CreatePlanItemDto,
+  UpdateNoteDto,
+  StartFocusSessionDto,
+} from './dto/pulse.dto.js';
 
 @Injectable()
 export class PulseService {
@@ -14,7 +19,12 @@ export class PulseService {
   private computeElapsed(session: any, now = new Date()): number {
     let elapsed = session.elapsedSeconds ?? 0;
     if (session.status === 'active' && session.lastResumedAt) {
-      const diffSec = Math.max(0, Math.floor((now.getTime() - new Date(session.lastResumedAt).getTime()) / 1000));
+      const diffSec = Math.max(
+        0,
+        Math.floor(
+          (now.getTime() - new Date(session.lastResumedAt).getTime()) / 1000,
+        ),
+      );
       elapsed += diffSec;
     }
     return elapsed;
@@ -26,7 +36,9 @@ export class PulseService {
       id: session.id,
       status: session.status,
       started_at: session.startedAt.toISOString(),
-      last_resumed_at: session.lastResumedAt ? session.lastResumedAt.toISOString() : null,
+      last_resumed_at: session.lastResumedAt
+        ? session.lastResumedAt.toISOString()
+        : null,
       elapsed_seconds: this.computeElapsed(session),
       ended_at: session.endedAt ? session.endedAt.toISOString() : null,
       plan_item: session.planItemId,
@@ -42,6 +54,7 @@ export class PulseService {
   }
 
   async getDashboard(user: any, dateStr?: string) {
+    requireOrganization(user);
     const targetDate = dateStr ? new Date(dateStr) : new Date();
     targetDate.setHours(0, 0, 0, 0);
 
@@ -65,7 +78,11 @@ export class PulseService {
           },
         },
       },
-      orderBy: [{ timeBlock: 'asc' }, { position: 'asc' }, { createdAt: 'asc' }],
+      orderBy: [
+        { timeBlock: 'asc' },
+        { position: 'asc' },
+        { createdAt: 'asc' },
+      ],
     });
 
     // 2. Note for date
@@ -129,12 +146,14 @@ export class PulseService {
       stats: {
         focus_minutes_today: Math.round(totalSecondsToday / 60),
         total_sessions_today: sessionsToday.length,
-        completed_plan_items: planItems.filter((i) => i.task.status === 'done').length,
+        completed_plan_items: planItems.filter((i) => i.task.status === 'done')
+          .length,
       },
     };
   }
 
   async getNote(user: any, dateStr?: string) {
+    requireOrganization(user);
     const targetDate = dateStr ? new Date(dateStr) : new Date();
     targetDate.setHours(0, 0, 0, 0);
 
@@ -153,6 +172,7 @@ export class PulseService {
   }
 
   async updateNote(user: any, dto: UpdateNoteDto) {
+    requireOrganization(user);
     const targetDate = dto.date ? new Date(dto.date) : new Date();
     targetDate.setHours(0, 0, 0, 0);
 
@@ -181,6 +201,7 @@ export class PulseService {
   }
 
   async getPlanItems(user: any, dateStr?: string) {
+    requireOrganization(user);
     const targetDate = dateStr ? new Date(dateStr) : new Date();
     targetDate.setHours(0, 0, 0, 0);
 
@@ -214,6 +235,11 @@ export class PulseService {
   }
 
   async createPlanItem(user: any, dto: CreatePlanItemDto) {
+    requireOrganization(user);
+    const task = await this.prisma.task.findFirst({
+      where: { id: dto.task, ...visibleTasks(user) },
+    });
+    if (!task) throw new NotFoundException('Task not found');
     const targetDate = new Date(dto.date);
     targetDate.setHours(0, 0, 0, 0);
 
@@ -247,8 +273,13 @@ export class PulseService {
   }
 
   async deletePlanItem(user: any, id: number) {
+    requireOrganization(user);
     const item = await this.prisma.pulsePlanItem.findUnique({ where: { id } });
-    if (!item || item.userId !== user.id) {
+    if (
+      !item ||
+      item.userId !== user.id ||
+      item.organizationId !== user.organizationId
+    ) {
       throw new NotFoundException(`Plan item #${id} not found`);
     }
 
@@ -257,6 +288,18 @@ export class PulseService {
   }
 
   async startFocusSession(user: any, dto: StartFocusSessionDto) {
+    requireOrganization(user);
+    if (dto.plan_item != null) {
+      const item = await this.prisma.pulsePlanItem.findFirst({
+        where: {
+          id: dto.plan_item,
+          userId: user.id,
+          organizationId: user.organizationId,
+          task: visibleTasks(user),
+        },
+      });
+      if (!item) throw new NotFoundException('Plan item not found');
+    }
     const active = await this.prisma.pulseFocusSession.findFirst({
       where: {
         userId: user.id,
@@ -265,7 +308,9 @@ export class PulseService {
     });
 
     if (active) {
-      throw new ConflictException('Finish or resume your existing focus session first.');
+      throw new ConflictException(
+        'Finish or resume your existing focus session first.',
+      );
     }
 
     const now = new Date();
@@ -287,17 +332,26 @@ export class PulseService {
   }
 
   async pauseFocusSession(user: any, id: number) {
+    requireOrganization(user);
     const session = await this.prisma.pulseFocusSession.findUnique({
       where: { id },
-      include: { planItem: { include: { task: { include: { project: true } } } } },
+      include: {
+        planItem: { include: { task: { include: { project: true } } } },
+      },
     });
 
-    if (!session || session.userId !== user.id) {
+    if (
+      !session ||
+      session.userId !== user.id ||
+      session.organizationId !== user.organizationId
+    ) {
       throw new NotFoundException(`Session #${id} not found`);
     }
 
     if (session.status !== 'active') {
-      throw new ConflictException('Only an active focus session can be paused.');
+      throw new ConflictException(
+        'Only an active focus session can be paused.',
+      );
     }
 
     const elapsed = this.computeElapsed(session);
@@ -308,24 +362,35 @@ export class PulseService {
         elapsedSeconds: elapsed,
         lastResumedAt: null,
       },
-      include: { planItem: { include: { task: { include: { project: true } } } } },
+      include: {
+        planItem: { include: { task: { include: { project: true } } } },
+      },
     });
 
     return this.mapSession(updated);
   }
 
   async resumeFocusSession(user: any, id: number) {
+    requireOrganization(user);
     const session = await this.prisma.pulseFocusSession.findUnique({
       where: { id },
-      include: { planItem: { include: { task: { include: { project: true } } } } },
+      include: {
+        planItem: { include: { task: { include: { project: true } } } },
+      },
     });
 
-    if (!session || session.userId !== user.id) {
+    if (
+      !session ||
+      session.userId !== user.id ||
+      session.organizationId !== user.organizationId
+    ) {
       throw new NotFoundException(`Session #${id} not found`);
     }
 
     if (session.status !== 'paused') {
-      throw new ConflictException('Only a paused focus session can be resumed.');
+      throw new ConflictException(
+        'Only a paused focus session can be resumed.',
+      );
     }
 
     const updated = await this.prisma.pulseFocusSession.update({
@@ -334,19 +399,28 @@ export class PulseService {
         status: 'active',
         lastResumedAt: new Date(),
       },
-      include: { planItem: { include: { task: { include: { project: true } } } } },
+      include: {
+        planItem: { include: { task: { include: { project: true } } } },
+      },
     });
 
     return this.mapSession(updated);
   }
 
   async completeFocusSession(user: any, id: number) {
+    requireOrganization(user);
     const session = await this.prisma.pulseFocusSession.findUnique({
       where: { id },
-      include: { planItem: { include: { task: { include: { project: true } } } } },
+      include: {
+        planItem: { include: { task: { include: { project: true } } } },
+      },
     });
 
-    if (!session || session.userId !== user.id) {
+    if (
+      !session ||
+      session.userId !== user.id ||
+      session.organizationId !== user.organizationId
+    ) {
       throw new NotFoundException(`Session #${id} not found`);
     }
 
@@ -365,7 +439,9 @@ export class PulseService {
         lastResumedAt: null,
         endedAt: now,
       },
-      include: { planItem: { include: { task: { include: { project: true } } } } },
+      include: {
+        planItem: { include: { task: { include: { project: true } } } },
+      },
     });
 
     return this.mapSession(updated);
