@@ -106,7 +106,7 @@ jobs:
           npm run build
 
   frontend:
-    name: Frontend Next.js 16 (26 Tests & Build)
+    name: Frontend Next.js 16 (37 Tests & Build)
     runs-on: ubuntu-latest
 
     steps:

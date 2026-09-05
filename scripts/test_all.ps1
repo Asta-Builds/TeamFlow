@@ -47,7 +47,7 @@ Step "NestJS Code Quality Lint" {
 }
 
 # 4. Frontend Vitest Suites
-Step "Frontend Vitest Unit Tests (26 Tests)" {
+Step "Frontend Vitest Unit Tests (37 Tests)" {
     Push-Location frontend
     try {
         npm test

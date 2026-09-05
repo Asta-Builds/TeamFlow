@@ -1,14 +1,21 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
-import { apiFetch, getAgentClusterStatus, normalizeList } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import DashboardLoading from "./loading";
-import type { ActivityFeedItem, AgentClusterStatus, Deployment, Project, SEOAudit, Task } from "@/lib/types";
+import {
+  useProjects,
+  useTasks,
+  useDeployments,
+  useSeoAudits,
+  useActivityFeed,
+  useAgentClusterStatus,
+} from "@/lib/queries";
+import { StatCard } from "@/components/ui/stat-card";
+import { Badge } from "@/components/ui/badge";
 import {
   Avatar,
-  Badge,
   PRIORITY_STYLES,
   ROLE_COLORS,
   ROLE_LABELS,
@@ -31,70 +38,16 @@ import {
   Calendar,
 } from "lucide-react";
 
-const SuperStatCard = memo(function SuperStatCard({
-  label,
-  value,
-  subtitle,
-  icon: Icon,
-  trend,
-  color = "border-slate-800 bg-slate-900/90",
-}: {
-  label: string;
-  value: number | string;
-  subtitle?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  trend?: string;
-  color?: string;
-}) {
-  return (
-    <div className={`rounded-2xl border p-5.5 shadow-sm transition-all duration-200 hover:border-slate-700 hover:-translate-y-0.5 ${color}`}>
-      <div className="flex items-center justify-between">
-        <div className="p-2 rounded-xl bg-slate-800/80 text-indigo-400 border border-slate-700/50">
-          <Icon className="h-5 w-5" />
-        </div>
-        {trend && (
-          <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-full">
-            {trend}
-          </span>
-        )}
-      </div>
-      <div className="mt-3 text-3xl font-black tracking-tight text-white">{value}</div>
-      <div className="mt-1 text-xs font-bold text-slate-300">{label}</div>
-      {subtitle && <div className="text-[11px] text-slate-500 mt-0.5">{subtitle}</div>}
-    </div>
-  );
-});
-
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
-  const [seoAudits, setSeoAudits] = useState<SEOAudit[]>([]);
-  const [activityFeed, setActivityFeed] = useState<ActivityFeedItem[]>([]);
-  const [agentCluster, setAgentCluster] = useState<AgentClusterStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: projects = [], isLoading: pLoading } = useProjects();
+  const { data: tasks = [], isLoading: tLoading } = useTasks();
+  const { data: deployments = [], isLoading: dLoading } = useDeployments();
+  const { data: seoAudits = [] } = useSeoAudits();
+  const { data: activityFeed = [] } = useActivityFeed();
+  const { data: agentCluster = null } = useAgentClusterStatus();
 
-  useEffect(() => {
-    Promise.all([
-      apiFetch<unknown>("/projects/"),
-      apiFetch<unknown>("/tasks/"),
-      apiFetch<unknown>("/deployments/"),
-      apiFetch<unknown>("/seo/audits/").catch(() => []),
-      apiFetch<ActivityFeedItem[]>("/tasks/feed/").catch(() => []),
-      getAgentClusterStatus().catch(() => null),
-    ])
-      .then(([p, t, d, s, feed, cluster]) => {
-        setProjects(normalizeList<Project>(p));
-        setTasks(normalizeList<Task>(t));
-        setDeployments(normalizeList<Deployment>(d));
-        setSeoAudits(normalizeList<SEOAudit>(s));
-        if (Array.isArray(feed)) setActivityFeed(feed);
-        if (cluster) setAgentCluster(cluster);
-      })
-      .catch((err) => console.error("Error loading dashboard data", err))
-      .finally(() => setLoading(false));
-  }, []);
+  const loading = pLoading || tLoading || dLoading;
 
   const { openTickets, myTickets, inReviewTickets, qaTickets, latestDeploy, avgSeoScore } = useMemo(() => {
     return {
@@ -296,10 +249,10 @@ export default function DashboardPage() {
 
       {/* Main SuperStat KPI Grid */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <SuperStatCard label="Active Projects" value={projects.length} icon={FolderKanban} subtitle="All workspace initiatives" trend="+100%" />
-        <SuperStatCard label="Open Tickets" value={openTickets.length} icon={ListTodo} subtitle={`${tasks.filter(t => t.status === 'done').length} completed`} trend="Agile" />
-        <SuperStatCard label="Assigned to Me" value={myTickets.length} icon={User} subtitle="Your active backlog" color="border-indigo-800/60 bg-indigo-950/20" />
-        <SuperStatCard label="Deployments" value={deployments.length} icon={Rocket} subtitle={latestDeploy ? `Last: ${latestDeploy.environment}` : "Staging & Prod"} trend="Live" />
+        <StatCard label="Active Projects" value={projects.length} icon={FolderKanban} subtitle="All workspace initiatives" trend="+100%" />
+        <StatCard label="Open Tickets" value={openTickets.length} icon={ListTodo} subtitle={`${tasks.filter(t => t.status === 'done').length} completed`} trend="Agile" />
+        <StatCard label="Assigned to Me" value={myTickets.length} icon={User} subtitle="Your active backlog" color="border-indigo-800/60 bg-indigo-950/20" />
+        <StatCard label="Deployments" value={deployments.length} icon={Rocket} subtitle={latestDeploy ? `Last: ${latestDeploy.environment}` : "Staging & Prod"} trend="Live" />
       </div>
 
       {/* 2-Column Content Grid */}

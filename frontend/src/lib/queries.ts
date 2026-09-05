@@ -7,6 +7,7 @@ import {
   createSeoTask,
   rollbackDeployment,
   qaValidateTask,
+  getAgentClusterStatus,
 } from "./api";
 import type {
   Project,
@@ -17,6 +18,8 @@ import type {
   User,
   PulseDashboard,
   TaskStatus,
+  ActivityFeedItem,
+  AgentClusterStatus,
 } from "./types";
 import { toast } from "sonner";
 
@@ -118,6 +121,27 @@ export function usePulseDashboardQuery(date: string) {
       );
     },
     enabled: Boolean(date),
+  });
+}
+
+export function useActivityFeed() {
+  return useQuery({
+    queryKey: queryKeys.activityFeed,
+    queryFn: async () => {
+      const data = await apiFetch<ActivityFeedItem[]>("/tasks/feed/").catch(() => []);
+      return Array.isArray(data) ? data : [];
+    },
+    refetchInterval: 15000,
+  });
+}
+
+export function useAgentClusterStatus() {
+  return useQuery<AgentClusterStatus | null>({
+    queryKey: ["agent-cluster"] as const,
+    queryFn: async () => {
+      return getAgentClusterStatus().catch(() => null);
+    },
+    refetchInterval: 30000,
   });
 }
 
