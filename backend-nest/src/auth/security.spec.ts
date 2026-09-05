@@ -93,7 +93,7 @@ describe('authentication boundaries', () => {
     expect(prisma.$transaction).toHaveBeenCalledOnce();
     expect(tx.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ role: 'member', organizationId: 42 }),
+        data: expect.objectContaining({ role: 'ceo', organizationId: 42 }),
       }),
     );
   });

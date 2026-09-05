@@ -12,12 +12,15 @@ import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshDto } from './dto/refresh.dto.js';
 import { ChangePasswordDto } from './dto/change-password.dto.js';
+import { KeycloakDto } from './dto/keycloak.dto.js';
+import { KeycloakService } from './keycloak.service.js';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private keycloakService?: KeycloakService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -188,5 +191,109 @@ export class AuthService {
     );
 
     return { access, refresh };
+  }
+
+  async keycloakLogin(dto: KeycloakDto) {
+    if (!this.keycloakService) {
+      throw new UnauthorizedException('Keycloak service is not configured');
+    }
+
+    let token = dto.token || dto.access_token || dto.id_token;
+
+    if (dto.code && !token) {
+      token = await this.keycloakService.exchangeCodeForToken(
+        dto.code,
+        dto.redirect_uri || 'http://localhost:3000/auth/callback',
+      );
+    }
+
+    if (!token) {
+      throw new UnauthorizedException(
+        'A verified Keycloak token or authorization code is required',
+      );
+    }
+
+    const claims = await this.keycloakService.verifyKeycloakToken(token);
+    const email = (claims.email || claims.preferred_username!).toLowerCase();
+    const name = claims.name || claims.given_name || email.split('@')[0];
+    const role = this.keycloakService.extractRole(claims) || 'member';
+
+    // Resolve or create tenant organization
+    const orgNameClaim =
+      claims.organization || claims.org || claims.tenant || claims.workspace;
+    let orgName = orgNameClaim;
+    if (!orgName) {
+      if (email.includes('@')) {
+        const domain = email.split('@')[1];
+        const company = domain.split('.')[0];
+        const isGeneric = [
+          'gmail',
+          'yahoo',
+          'hotmail',
+          'outlook',
+          'example',
+        ].includes(company.toLowerCase());
+        orgName = isGeneric
+          ? 'TeamFlow Workspace'
+          : `${company.charAt(0).toUpperCase() + company.slice(1)} Workspace`;
+      } else {
+        orgName = 'TeamFlow Workspace';
+      }
+    }
+
+    // Provision or sync user in transaction
+    const user = await this.prisma.$transaction(async (tx) => {
+      let existingOrg = await tx.organization.findFirst({
+        where: { name: orgName },
+      });
+      if (!existingOrg) {
+        existingOrg = await tx.organization.create({
+          data: {
+            name: orgName,
+            subscriptionTier: 'growth',
+            subscriptionStatus: 'active',
+          },
+        });
+      }
+
+      let existingUser = await tx.user.findUnique({
+        where: { email },
+      });
+
+      if (!existingUser) {
+        const unusableHash = `!sso_keycloak_${randomUUID()}`;
+        existingUser = await tx.user.create({
+          data: {
+            email,
+            password: unusableHash,
+            name,
+            role,
+            organizationId: existingOrg.id,
+            avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`,
+          },
+        });
+      } else {
+        const updateData: any = {};
+        if (role && existingUser.role !== role) updateData.role = role;
+        if (!existingUser.organizationId)
+          updateData.organizationId = existingOrg.id;
+        if (Object.keys(updateData).length > 0) {
+          existingUser = await tx.user.update({
+            where: { id: existingUser.id },
+            data: updateData,
+          });
+        }
+      }
+
+      return existingUser;
+    });
+
+    const tokens = this.generateTokens(user.id, user.email, user.role);
+    const serializedUser = await this.serializeUser(user.id);
+
+    return {
+      ...tokens,
+      user: serializedUser,
+    };
   }
 }

@@ -13,6 +13,7 @@ import { RegisterDto } from './dto/register.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshDto } from './dto/refresh.dto.js';
 import { ChangePasswordDto } from './dto/change-password.dto.js';
+import { KeycloakDto } from './dto/keycloak.dto.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
@@ -35,6 +36,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Log in and obtain JWT access/refresh token pair' })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Public()
+  @Post('keycloak')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'SSO login and token exchange via Keycloak' })
+  async keycloakLogin(@Body() dto: KeycloakDto) {
+    return this.authService.keycloakLogin(dto);
   }
 
   @Public()

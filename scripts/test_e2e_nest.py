@@ -31,7 +31,7 @@ def run_suite():
     print("==================================================")
     
     # 1. Health Check
-    print("\n[1/13] Testing Health Check...")
+    print("\n[1/14] Testing Health Check...")
     status, health = request(f"{BASE_URL}/health")
     assert status == 200, f"Health check failed with status {status}"
     assert health.get("status") == "ok", f"Health status not ok: {health}"
@@ -41,7 +41,7 @@ def run_suite():
     timestamp = int(time.time())
     email = f"founder_{timestamp}@teamflow.dev"
     password = f"P@ssword_{timestamp}!"
-    print(f"\n[2/13] Registering Founder: {email}...")
+    print(f"\n[2/14] Registering Founder: {email}...")
     reg_payload = {
         "email": email,
         "password": password,
@@ -54,7 +54,7 @@ def run_suite():
     print(f"  PASS: Founder registered. Org: {reg_data['user'].get('organization_name')} (ID: {reg_data['user'].get('organization')})")
 
     # 3. User Login
-    print(f"\n[3/13] Logging in with {email}...")
+    print(f"\n[3/14] Logging in with {email}...")
     status, login_data = request(f"{BASE_URL}/auth/login", method="POST", data={"email": email, "password": password})
     assert status == 200, f"Login failed ({status}): {login_data}"
     access_token = login_data["access"]
@@ -62,7 +62,7 @@ def run_suite():
     print(f"  PASS: Received access and refresh JWTs.")
 
     # 4. Authenticated Profile /me
-    print("\n[4/13] Checking /auth/me...")
+    print("\n[4/14] Checking /auth/me...")
     status, me_data = request(f"{BASE_URL}/auth/me", token=access_token)
     assert status == 200, f"/auth/me failed ({status}): {me_data}"
     assert me_data["email"] == email.lower(), f"Email mismatch: {me_data}"
@@ -71,7 +71,7 @@ def run_suite():
     print(f"  PASS: Authenticated as User ID {user_id}, Org ID {org_id}, Role: {me_data['role']}")
 
     # 5. Token Refresh
-    print("\n[5/13] Testing Token Refresh...")
+    print("\n[5/14] Testing Token Refresh...")
     status, refresh_data = request(f"{BASE_URL}/auth/refresh", method="POST", data={"refresh": refresh_token})
     assert status == 200, f"Refresh failed ({status}): {refresh_data}"
     assert "access" in refresh_data, "No new access token returned"
@@ -79,7 +79,7 @@ def run_suite():
     print(f"  PASS: Successfully rotated access token.")
 
     # 6. Create Project
-    print("\n[6/13] Creating Project...")
+    print("\n[6/14] Creating Project...")
     proj_payload = {
         "name": f"E2E Swarm Project {timestamp}",
         "description": "Validating multi-agent integration and 5-stage Kanban flow",
@@ -91,7 +91,7 @@ def run_suite():
     print(f"  PASS: Created Project #{proj_id}: '{proj_data['name']}'")
 
     # 7. List Projects
-    print("\n[7/13] Listing Projects...")
+    print("\n[7/14] Listing Projects...")
     status, proj_list = request(f"{BASE_URL}/projects", token=access_token)
     assert status == 200, f"Project listing failed ({status}): {proj_list}"
     matching = [p for p in proj_list if p["id"] == proj_id]
@@ -99,7 +99,7 @@ def run_suite():
     print(f"  PASS: Retrieved {len(proj_list)} project(s). Project #{proj_id} verified.")
 
     # 8. Create Task
-    print(f"\n[8/13] Creating Task under Project #{proj_id}...")
+    print(f"\n[8/14] Creating Task under Project #{proj_id}...")
     task_payload = {
         "project": proj_id,
         "title": "Architect Swarm Agent Communication Protocol",
@@ -115,7 +115,7 @@ def run_suite():
     print(f"  PASS: Created Task #{task_id}: '{task_data['title']}' (status: {task_data['status']})")
 
     # 9. Kanban Workflow: todo -> in_progress -> in_review -> qa
-    print(f"\n[9/13] Moving Task #{task_id} through 5-Stage Kanban...")
+    print(f"\n[9/14] Moving Task #{task_id} through 5-Stage Kanban...")
     stages = ["in_progress", "in_review", "qa"]
     for st in stages:
         status, updated = request(f"{BASE_URL}/tasks/{task_id}", method="PATCH", data={"status": st}, token=access_token)
@@ -125,21 +125,21 @@ def run_suite():
     print(f"  PASS: Kanban stage advancement verified.")
 
     # 10. QA Validation Gate
-    print(f"\n[10/13] Validating QA Gate on Task #{task_id}...")
+    print(f"\n[10/14] Validating QA Gate on Task #{task_id}...")
     status, qa_res = request(f"{BASE_URL}/tasks/{task_id}/qa_validate", method="POST", token=access_token)
     assert status in (200, 201), f"QA validation failed ({status}): {qa_res}"
     assert qa_res["status"] == "done", f"Task should be done after QA validation, got {qa_res['status']}"
     print(f"  PASS: QA gate validated task to '{qa_res['status']}'.")
 
     # 11. Add Comment
-    print(f"\n[11/13] Adding Comment to Task #{task_id}...")
+    print(f"\n[11/14] Adding Comment to Task #{task_id}...")
     comment_payload = {"body": "Automated E2E validation test comment."}
     status, comment_data = request(f"{BASE_URL}/tasks/{task_id}/comments", method="POST", data=comment_payload, token=access_token)
     assert status in (200, 201), f"Adding comment failed ({status}): {comment_data}"
     print(f"  PASS: Comment recorded (ID: {comment_data['id']})")
 
     # 12. Pulse Daily Cockpit
-    print("\n[12/13] Testing Pulse Cockpit (Dashboard & Private Scratchpad)...")
+    print("\n[12/14] Testing Pulse Cockpit (Dashboard & Private Scratchpad)...")
     status, pulse_dash = request(f"{BASE_URL}/pulse/dashboard", token=access_token)
     assert status == 200, f"Pulse dashboard failed ({status}): {pulse_dash}"
     
@@ -149,12 +149,38 @@ def run_suite():
     print(f"  PASS: Pulse dashboard and scratchpad verified.")
 
     # 13. Multi-Agent Swarm Dispatch Bridge (NestJS -> Django -> Celery)
-    print("\n[13/13] Testing Agent Swarm Dispatch Bridge (NestJS :8001 -> Django :8000)...")
+    print("\n[13/14] Testing Agent Swarm Dispatch Bridge (NestJS :8001 -> Django :8000)...")
     # Reset task to in_progress so it can be dispatched
     request(f"{BASE_URL}/tasks/{task_id}", method="PATCH", data={"status": "in_progress"}, token=access_token)
     status, dispatch_res = request(f"{BASE_URL}/agents/dispatch/{task_id}", method="POST", token=access_token)
     assert status == 202, f"Expected 202 Accepted for CEO dispatch, got {status}: {dispatch_res}"
     print(f"  PASS: Agent Swarm dispatch succeeded (HTTP 202): {dispatch_res.get('message')}")
+
+    # 14. Keycloak SSO Authentication & Role Synchronization
+    print("\n[14/14] Testing Keycloak SSO Authentication & Role Synchronization...")
+    kc_token_payload = urllib.parse.urlencode({
+        "grant_type": "password",
+        "client_id": "teamflow-app",
+        "username": "sso_tester@teamflow.dev",
+        "password": "KeycloakPassword123!"
+    }).encode("utf-8")
+    kc_token_req = urllib.request.Request(
+        "http://localhost:8080/realms/teamflow/protocol/openid-connect/token",
+        data=kc_token_payload,
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    with urllib.request.urlopen(kc_token_req) as kc_resp:
+        kc_tokens = json.loads(kc_resp.read().decode("utf-8"))
+        kc_jwt = kc_tokens["access_token"]
+    
+    status, kc_auth_data = request(f"{BASE_URL}/auth/keycloak", method="POST", data={"token": kc_jwt})
+    assert status == 200, f"Keycloak SSO failed ({status}): {kc_auth_data}"
+    assert "access" in kc_auth_data, "No TeamFlow access token returned from Keycloak exchange"
+    kc_tf_token = kc_auth_data["access"]
+    status, sso_me = request(f"{BASE_URL}/auth/me", token=kc_tf_token)
+    assert status == 200, f"/auth/me failed for SSO user ({status}): {sso_me}"
+    assert sso_me["email"] == "sso_tester@teamflow.dev"
+    print(f"  PASS: Keycloak SSO verified (User: {sso_me['email']}, Org: {sso_me['organization_name']})")
 
     # Check Frontend is serving
     print("\n[*] Checking Frontend UI on Port 3000...")
@@ -166,7 +192,7 @@ def run_suite():
     print(f"  PASS: Frontend UI is live and accessible on port 3000.")
 
     print("\n==================================================")
-    print(" ALL 13 END-TO-END TEST STAGES PASSED SUCCESSFULLY!")
+    print(" ALL 14 END-TO-END TEST STAGES PASSED SUCCESSFULLY!")
     print("==================================================")
 
 if __name__ == "__main__":
