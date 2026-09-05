@@ -4,7 +4,7 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Stage 2: Build the application
 FROM node:22-alpine AS builder
@@ -13,8 +13,17 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Set environment variables for build
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api
+ARG NEXT_PUBLIC_API_URL=http://localhost:8001/api
+ARG NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8080
+ARG NEXT_PUBLIC_KEYCLOAK_REALM=teamflow
+ARG NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=teamflow-app
+ARG NEXT_PUBLIC_LANGFUSE_URL=http://localhost:3001
+
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_KEYCLOAK_URL=$NEXT_PUBLIC_KEYCLOAK_URL
+ENV NEXT_PUBLIC_KEYCLOAK_REALM=$NEXT_PUBLIC_KEYCLOAK_REALM
+ENV NEXT_PUBLIC_KEYCLOAK_CLIENT_ID=$NEXT_PUBLIC_KEYCLOAK_CLIENT_ID
+ENV NEXT_PUBLIC_LANGFUSE_URL=$NEXT_PUBLIC_LANGFUSE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build

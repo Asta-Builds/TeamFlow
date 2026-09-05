@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
 import {
@@ -136,6 +136,24 @@ export default function LandingPage() {
   const { user } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
   const [activeRole, setActiveRole] = useState<keyof typeof ROLE_PREVIEWS>("tech_lead");
+
+  useEffect(() => {
+    // Purge legacy Clerk artifacts from URL and cookies
+    if (typeof window !== "undefined") {
+      if (window.location.search.includes("__clerk")) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("__clerk_handshake");
+        url.searchParams.delete("__clerk_help");
+        const cleanUrl = url.pathname + (url.search ? url.search : "");
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+      const legacyCookies = ["__session", "__client_uat", "__clerk_db_jwt"];
+      legacyCookies.forEach((name) => {
+        document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
+        document.cookie = `${name}=; Path=/; Domain=${window.location.hostname}; Expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
+      });
+    }
+  }, []);
 
   function loginWithKeycloak() {
     const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
