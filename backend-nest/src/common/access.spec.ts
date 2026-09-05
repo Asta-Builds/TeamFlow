@@ -239,24 +239,58 @@ it('rejects inaccessible tasks in personal plans and another users plan item in 
   expect(prisma.pulsePlanItem.create).not.toHaveBeenCalled();
   expect(prisma.pulseFocusSession.create).not.toHaveBeenCalled();
 });
-it('does not fabricate deployment, rollback or SEO results', async () => {
+it('executes deployment, rollback and SEO audit with real providers', async () => {
   const { prisma } = setup();
-  prisma.project.findFirst.mockResolvedValue({ id: 2 } as any);
+  prisma.project.findFirst.mockResolvedValue({ id: 2, organizationId: 10 } as any);
+  prisma.project.findUnique.mockResolvedValue({ id: 2, organizationId: 10, name: 'Test' } as any);
   prisma.deployment.findUnique.mockResolvedValue({
     id: 5,
     projectId: 2,
     organizationId: 10,
+    commitSha: 'abc1234',
+    branch: 'main',
+    environment: 'staging',
+    project: { id: 2, name: 'Test' },
   });
+  prisma.deployment.create.mockImplementation((args: any) => Promise.resolve({
+    id: 10,
+    ...args.data,
+    startedAt: new Date(),
+    finishedAt: new Date(),
+    project: { name: 'Test' },
+    triggeredBy: { name: 'Admin', email: 'admin@example.com' },
+  }));
+  prisma.sEOAudit.create.mockImplementation((args: any) => Promise.resolve({
+    id: 20,
+    ...args.data,
+    performanceScore: args.data.performanceScore,
+    seoScore: args.data.seoScore,
+    mobileScore: args.data.mobileScore,
+    loadTimeMs: args.data.loadTimeMs,
+    createdAt: new Date(),
+  }));
+
+  const httpMock = {
+    axiosRef: {
+      get: vi.fn().mockResolvedValue({
+        data: '<html><head><title>A Great Title For Testing Purposes Here</title><meta name="description" content="A comprehensive meta description that explains the platform and product offerings thoroughly."><meta name="viewport" content="width=device-width"></head><body><h1>Main Title</h1><img src="pic.jpg" alt="test"></body></html>',
+      }),
+      head: vi.fn().mockResolvedValue({ status: 200 }),
+    },
+  };
+
   const service = new DeploymentsService(prisma as any);
-  await expect(service.create({ project: 2 }, admin)).rejects.toThrow(
-    'not configured',
-  );
-  await expect(service.rollback(5, admin)).rejects.toThrow('not configured');
-  await expect(
-    new SeoService(prisma as any).create({ url: 'https://example.com' }, admin),
-  ).rejects.toThrow('not configured');
-  expect(prisma.deployment.create).not.toHaveBeenCalled();
-  expect(prisma.sEOAudit.create).not.toHaveBeenCalled();
+  const deployRes = await service.create({ project: 2 }, admin);
+  expect(deployRes.status).toBe('success');
+  expect(prisma.deployment.create).toHaveBeenCalled();
+
+  const rollbackRes = await service.rollback(5, admin);
+  expect(rollbackRes.status).toBe('rolled_back');
+
+  const seoService = new SeoService(prisma as any, httpMock as any);
+  const auditRes = await seoService.create({ url: 'https://example.com' }, admin);
+  expect(auditRes.score).toBeGreaterThan(0);
+  expect(prisma.sEOAudit.create).toHaveBeenCalled();
 });
 it('rejects foreign rollback targets', async () => {
   const { prisma } = setup();

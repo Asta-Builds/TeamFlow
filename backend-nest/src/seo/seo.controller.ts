@@ -10,6 +10,7 @@ import {
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { SeoService } from './seo.service.js';
 import { CreateSeoAuditDto } from './dto/create-seo-audit.dto.js';
+import { CreateSeoTaskDto } from './dto/create-seo-task.dto.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 
@@ -36,5 +37,25 @@ export class SeoController {
   @ApiOperation({ summary: 'Trigger a new SEO audit' })
   async create(@Body() dto: CreateSeoAuditDto, @CurrentUser() user: any) {
     return this.seoService.create(dto, user);
+  }
+
+  @Post(':id/create-task')
+  @ApiOperation({ summary: 'Convert an SEO audit issue into a task ticket' })
+  async createTask(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateSeoTaskDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.seoService.createTask(id, dto, user);
+  }
+
+  @Post(':id/create_task')
+  @ApiOperation({ summary: 'DRF compatibility: Convert SEO issue into task' })
+  async createTaskCompat(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CreateSeoTaskDto,
+    @CurrentUser() user: any,
+  ) {
+    return this.seoService.createTask(id, dto, user);
   }
 }

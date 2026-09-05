@@ -1,6 +1,7 @@
 import time
 import json
 import urllib.request
+import urllib.parse
 import urllib.error
 import sys
 
@@ -31,7 +32,7 @@ def run_suite():
     print("==================================================")
     
     # 1. Health Check
-    print("\n[1/14] Testing Health Check...")
+    print("\n[1/19] Testing Health Check...")
     status, health = request(f"{BASE_URL}/health")
     assert status == 200, f"Health check failed with status {status}"
     assert health.get("status") == "ok", f"Health status not ok: {health}"
@@ -41,7 +42,7 @@ def run_suite():
     timestamp = int(time.time())
     email = f"founder_{timestamp}@teamflow.dev"
     password = f"P@ssword_{timestamp}!"
-    print(f"\n[2/14] Registering Founder: {email}...")
+    print(f"\n[2/19] Registering Founder: {email}...")
     reg_payload = {
         "email": email,
         "password": password,
@@ -54,7 +55,7 @@ def run_suite():
     print(f"  PASS: Founder registered. Org: {reg_data['user'].get('organization_name')} (ID: {reg_data['user'].get('organization')})")
 
     # 3. User Login
-    print(f"\n[3/14] Logging in with {email}...")
+    print(f"\n[3/19] Logging in with {email}...")
     status, login_data = request(f"{BASE_URL}/auth/login", method="POST", data={"email": email, "password": password})
     assert status == 200, f"Login failed ({status}): {login_data}"
     access_token = login_data["access"]
@@ -62,7 +63,7 @@ def run_suite():
     print(f"  PASS: Received access and refresh JWTs.")
 
     # 4. Authenticated Profile /me
-    print("\n[4/14] Checking /auth/me...")
+    print("\n[4/19] Checking /auth/me...")
     status, me_data = request(f"{BASE_URL}/auth/me", token=access_token)
     assert status == 200, f"/auth/me failed ({status}): {me_data}"
     assert me_data["email"] == email.lower(), f"Email mismatch: {me_data}"
@@ -71,7 +72,7 @@ def run_suite():
     print(f"  PASS: Authenticated as User ID {user_id}, Org ID {org_id}, Role: {me_data['role']}")
 
     # 5. Token Refresh
-    print("\n[5/14] Testing Token Refresh...")
+    print("\n[5/19] Testing Token Refresh...")
     status, refresh_data = request(f"{BASE_URL}/auth/refresh", method="POST", data={"refresh": refresh_token})
     assert status == 200, f"Refresh failed ({status}): {refresh_data}"
     assert "access" in refresh_data, "No new access token returned"
@@ -79,7 +80,7 @@ def run_suite():
     print(f"  PASS: Successfully rotated access token.")
 
     # 6. Create Project
-    print("\n[6/14] Creating Project...")
+    print("\n[6/19] Creating Project...")
     proj_payload = {
         "name": f"E2E Swarm Project {timestamp}",
         "description": "Validating multi-agent integration and 5-stage Kanban flow",
@@ -91,7 +92,7 @@ def run_suite():
     print(f"  PASS: Created Project #{proj_id}: '{proj_data['name']}'")
 
     # 7. List Projects
-    print("\n[7/14] Listing Projects...")
+    print("\n[7/19] Listing Projects...")
     status, proj_list = request(f"{BASE_URL}/projects", token=access_token)
     assert status == 200, f"Project listing failed ({status}): {proj_list}"
     matching = [p for p in proj_list if p["id"] == proj_id]
@@ -99,7 +100,7 @@ def run_suite():
     print(f"  PASS: Retrieved {len(proj_list)} project(s). Project #{proj_id} verified.")
 
     # 8. Create Task
-    print(f"\n[8/14] Creating Task under Project #{proj_id}...")
+    print(f"\n[8/19] Creating Task under Project #{proj_id}...")
     task_payload = {
         "project": proj_id,
         "title": "Architect Swarm Agent Communication Protocol",
@@ -115,7 +116,7 @@ def run_suite():
     print(f"  PASS: Created Task #{task_id}: '{task_data['title']}' (status: {task_data['status']})")
 
     # 9. Kanban Workflow: todo -> in_progress -> in_review -> qa
-    print(f"\n[9/14] Moving Task #{task_id} through 5-Stage Kanban...")
+    print(f"\n[9/19] Moving Task #{task_id} through 5-Stage Kanban...")
     stages = ["in_progress", "in_review", "qa"]
     for st in stages:
         status, updated = request(f"{BASE_URL}/tasks/{task_id}", method="PATCH", data={"status": st}, token=access_token)
@@ -125,21 +126,21 @@ def run_suite():
     print(f"  PASS: Kanban stage advancement verified.")
 
     # 10. QA Validation Gate
-    print(f"\n[10/14] Validating QA Gate on Task #{task_id}...")
+    print(f"\n[10/19] Validating QA Gate on Task #{task_id}...")
     status, qa_res = request(f"{BASE_URL}/tasks/{task_id}/qa_validate", method="POST", token=access_token)
     assert status in (200, 201), f"QA validation failed ({status}): {qa_res}"
     assert qa_res["status"] == "done", f"Task should be done after QA validation, got {qa_res['status']}"
     print(f"  PASS: QA gate validated task to '{qa_res['status']}'.")
 
     # 11. Add Comment
-    print(f"\n[11/14] Adding Comment to Task #{task_id}...")
+    print(f"\n[11/19] Adding Comment to Task #{task_id}...")
     comment_payload = {"body": "Automated E2E validation test comment."}
     status, comment_data = request(f"{BASE_URL}/tasks/{task_id}/comments", method="POST", data=comment_payload, token=access_token)
     assert status in (200, 201), f"Adding comment failed ({status}): {comment_data}"
     print(f"  PASS: Comment recorded (ID: {comment_data['id']})")
 
     # 12. Pulse Daily Cockpit
-    print("\n[12/14] Testing Pulse Cockpit (Dashboard & Private Scratchpad)...")
+    print("\n[12/19] Testing Pulse Cockpit (Dashboard & Private Scratchpad)...")
     status, pulse_dash = request(f"{BASE_URL}/pulse/dashboard", token=access_token)
     assert status == 200, f"Pulse dashboard failed ({status}): {pulse_dash}"
     
@@ -149,7 +150,7 @@ def run_suite():
     print(f"  PASS: Pulse dashboard and scratchpad verified.")
 
     # 13. Multi-Agent Swarm Dispatch Bridge (NestJS -> Django -> Celery)
-    print("\n[13/14] Testing Agent Swarm Dispatch Bridge (NestJS :8001 -> Django :8000)...")
+    print("\n[13/19] Testing Agent Swarm Dispatch Bridge (NestJS :8001 -> Django :8000)...")
     # Reset task to in_progress so it can be dispatched
     request(f"{BASE_URL}/tasks/{task_id}", method="PATCH", data={"status": "in_progress"}, token=access_token)
     status, dispatch_res = request(f"{BASE_URL}/agents/dispatch/{task_id}", method="POST", token=access_token)
@@ -157,7 +158,7 @@ def run_suite():
     print(f"  PASS: Agent Swarm dispatch succeeded (HTTP 202): {dispatch_res.get('message')}")
 
     # 14. Keycloak SSO Authentication & Role Synchronization
-    print("\n[14/14] Testing Keycloak SSO Authentication & Role Synchronization...")
+    print("\n[14/19] Testing Keycloak SSO Authentication & Role Synchronization...")
     kc_token_payload = urllib.parse.urlencode({
         "grant_type": "password",
         "client_id": "teamflow-app",
@@ -182,6 +183,51 @@ def run_suite():
     assert sso_me["email"] == "sso_tester@teamflow.dev"
     print(f"  PASS: Keycloak SSO verified (User: {sso_me['email']}, Org: {sso_me['organization_name']})")
 
+    # 15. Real Technical SEO Audit (Live HTTP Probing & HTML Heuristics)
+    print("\n[15/19] Testing Real SEO Audit against http://localhost:3000...")
+    status, seo_audit = request(f"{BASE_URL}/seo/audits", method="POST", data={"url": "http://localhost:3000"}, token=access_token)
+    assert status in (200, 201), f"SEO audit failed ({status}): {seo_audit}"
+    assert seo_audit["score"] > 0, f"Expected positive SEO score, got {seo_audit['score']}"
+    audit_id = seo_audit["id"]
+    print(f"  PASS: SEO Audit #{audit_id} generated. Score: {seo_audit['score']}/100, Load Time: {seo_audit['load_time_ms']}ms, Issues: {len(seo_audit['issues'])}")
+
+    # 16. 1-Click SEO Issue to Kanban Task Ticket Creation
+    print(f"\n[16/19] Converting SEO Issue #0 into Kanban Task Ticket...")
+    task_from_seo_payload = {"project_id": proj_id, "issue_index": 0}
+    status, seo_task_res = request(f"{BASE_URL}/seo/audits/{audit_id}/create-task", method="POST", data=task_from_seo_payload, token=access_token)
+    assert status in (200, 201), f"Creating task from SEO audit failed ({status}): {seo_task_res}"
+    seo_task_id = seo_task_res["task_id"]
+    status, verified_seo_task = request(f"{BASE_URL}/tasks/{seo_task_id}", token=access_token)
+    assert status == 200, f"Verifying SEO task ticket failed ({status}): {verified_seo_task}"
+    print(f"  PASS: SEO Task #{seo_task_id} created: '{verified_seo_task['title']}'")
+
+    # 17. DevOps Deployment Execution (Build & Health Pipeline)
+    print(f"\n[17/19] Triggering DevOps Deployment on Project #{proj_id}...")
+    deploy_payload = {
+        "project": proj_id,
+        "environment": "staging",
+        "branch": "main",
+        "commit_sha": f"c{timestamp}"[:8]
+    }
+    status, deploy_data = request(f"{BASE_URL}/deployments", method="POST", data=deploy_payload, token=access_token)
+    assert status in (200, 201), f"Deployment trigger failed ({status}): {deploy_data}"
+    assert deploy_data["status"] == "success", f"Expected success status, got {deploy_data['status']}"
+    deploy_id = deploy_data["id"]
+    print(f"  PASS: Deployment #{deploy_id} succeeded (Env: {deploy_data['environment']}, Duration: {deploy_data['duration_seconds']}s)")
+
+    # 18. 1-Click Rollback Execution
+    print(f"\n[18/19] Executing 1-Click Rollback for Deployment #{deploy_id}...")
+    status, rb_data = request(f"{BASE_URL}/deployments/{deploy_id}/rollback", method="POST", data={}, token=access_token)
+    assert status in (200, 201), f"Rollback failed ({status}): {rb_data}"
+    assert rb_data["status"] == "rolled_back", f"Expected rolled_back status, got {rb_data['status']}"
+    print(f"  PASS: Rollback #{rb_data['id']} recorded (Status: {rb_data['status']})")
+
+    # 19. Team Notifications Delivery Verification
+    print("\n[19/19] Verifying Workspace Team Notifications...")
+    status, notif_list = request(f"{BASE_URL}/notifications", token=access_token)
+    assert status == 200, f"Fetching notifications failed ({status}): {notif_list}"
+    print(f"  PASS: Notifications retrieved ({len(notif_list)} in inbox).")
+
     # Check Frontend is serving
     print("\n[*] Checking Frontend UI on Port 3000...")
     req = urllib.request.Request(FRONTEND_URL)
@@ -192,7 +238,7 @@ def run_suite():
     print(f"  PASS: Frontend UI is live and accessible on port 3000.")
 
     print("\n==================================================")
-    print(" ALL 14 END-TO-END TEST STAGES PASSED SUCCESSFULLY!")
+    print(" ALL 19 END-TO-END TEST STAGES PASSED SUCCESSFULLY!")
     print("==================================================")
 
 if __name__ == "__main__":
