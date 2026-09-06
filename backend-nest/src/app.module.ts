@@ -11,6 +11,7 @@ import { NotificationsModule } from './notifications/notifications.module.js';
 import { SeoModule } from './seo/seo.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { AgentsModule } from './agents/agents.module.js';
+import { OrganizationsModule } from './organizations/organizations.module.js';
 import { AppController } from './app.controller.js';
 
 @Module({
@@ -30,6 +31,7 @@ import { AppController } from './app.controller.js';
     SeoModule,
     BillingModule,
     AgentsModule,
+    OrganizationsModule,
   ],
   controllers: [AppController],
 })

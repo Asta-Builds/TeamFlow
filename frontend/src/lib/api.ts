@@ -1,6 +1,6 @@
 // Thin fetch wrapper around the TeamFlow Django API with JWT handling.
 
-import type { User } from "./types";
+import type { User, Organization } from "./types";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
@@ -170,6 +170,66 @@ export async function mockConfirmSubscription(tier: string) {
       body: { tier }
     }
   );
+}
+
+// --- Multi-Tenant Organization Helpers ---
+
+export async function getCurrentOrganization() {
+  return apiFetch<Organization>("/organizations/current/");
+}
+
+export async function getOrganizations() {
+  return apiFetch<Organization[]>("/organizations/");
+}
+
+export async function updateOrganization(data: { name: string }) {
+  return apiFetch<Organization>("/organizations/current/", {
+    method: "PATCH",
+    body: data,
+  });
+}
+
+export async function createOrganization(data: { name: string; tier?: string }) {
+  const res = await apiFetch<{
+    organization: Organization;
+    access: string;
+    refresh: string;
+    user: User;
+  }>("/organizations/", {
+    method: "POST",
+    body: data,
+  });
+  if (res.access) {
+    setTokens(res.access, res.refresh);
+  }
+  return res;
+}
+
+export async function switchOrganization(orgId: number) {
+  const res = await apiFetch<{
+    message: string;
+    organization: Organization;
+    access: string;
+    refresh: string;
+    user: User;
+  }>(`/organizations/switch/${orgId}/`, {
+    method: "POST",
+  });
+  if (res.access) {
+    setTokens(res.access, res.refresh);
+  }
+  return res;
+}
+
+export async function inviteOrganizationMember(data: {
+  email: string;
+  name?: string;
+  role?: string;
+}) {
+  return apiFetch<User>("/organizations/invite/", {
+    method: "POST",
+    body: data,
+  });
 }
 
 // --- Multi-Agent Orchestration & RAG ---

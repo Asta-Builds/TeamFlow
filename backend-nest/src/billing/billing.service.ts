@@ -5,6 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { randomUUID } from 'node:crypto';
 
 @Injectable()
 export class BillingService {
@@ -24,8 +25,9 @@ export class BillingService {
         'A privileged workspace account is required',
       );
     }
+    const env = process.env.NODE_ENV || '';
     if (
-      !['development', 'test'].includes(process.env.NODE_ENV || '') ||
+      !['development', 'test'].includes(env) ||
       process.env.ALLOW_MOCK_BILLING !== 'true'
     ) {
       throw new ServiceUnavailableException(
@@ -35,7 +37,7 @@ export class BillingService {
   }
 
   private validateTier(tier: string) {
-    if (!['starter', 'growth', 'enterprise'].includes(tier))
+    if (!['starter', 'growth', 'scale', 'enterprise'].includes(tier))
       throw new BadRequestException('Invalid subscription tier');
   }
 
@@ -48,22 +50,36 @@ export class BillingService {
     this.validateTier(tier);
     this.requireMockBilling(user);
 
-    // Explicit development-only simulation.
+    const defaultSuccess =
+      successUrl || 'http://localhost:3000/billing?success=true';
+    const defaultCancel =
+      cancelUrl || 'http://localhost:3000/billing?canceled=true';
+    const mockSessionId = `cs_mock_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const sep = defaultSuccess.includes('?') ? '&' : '?';
+    const checkoutUrl = `${defaultSuccess}${sep}session_id=${mockSessionId}&tier=${tier}`;
+
     return {
+      id: mockSessionId,
+      url: checkoutUrl,
+      checkout_url: checkoutUrl,
       mock: true,
-      checkout_url: `http://localhost:3000/settings/billing?mock_checkout=true&tier=${tier}`,
       tier,
-      success_url: successUrl || 'http://localhost:3000/settings/billing',
-      cancel_url: cancelUrl || 'http://localhost:3000/settings/billing',
+      success_url: defaultSuccess,
+      cancel_url: defaultCancel,
     };
   }
 
   async createPortalSession(user: any, returnUrl?: string) {
     this.requireMockBilling(user);
 
+    const defaultReturn = returnUrl || 'http://localhost:3000/billing';
+    const mockPortalId = `portal_mock_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
     return {
+      id: mockPortalId,
+      url: defaultReturn,
+      portal_url: defaultReturn,
       mock: true,
-      portal_url: returnUrl || 'http://localhost:3000/settings/billing',
     };
   }
 

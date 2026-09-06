@@ -149,6 +149,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: 8001
+      NODE_ENV: "development"
       DATABASE_URL: "postgresql://teamflow:teamflow_password@db:5432/teamflow"
       JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET to a random secret}"
       JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET to a separate random secret}"
@@ -160,6 +161,7 @@ services:
       KEYCLOAK_CLIENT_ID: "teamflow-app"
       CLERK_SECRET_KEY: "${CLERK_SECRET_KEY:-}"
       CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
+      ALLOW_MOCK_BILLING: "true"
     ports:
       - "8001:8001"
     depends_on:

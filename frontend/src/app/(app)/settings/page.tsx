@@ -1,11 +1,42 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Avatar, ROLE_COLORS, ROLE_LABELS } from "@/lib/ui";
 import { toast } from "sonner";
-import { User, Shield, Building2, Download, Key, CheckCircle2, Send, MessageSquare } from "lucide-react";
+import {
+  User,
+  Shield,
+  Building2,
+  Download,
+  Key,
+  CheckCircle2,
+  Send,
+  MessageSquare,
+  Plus,
+  ArrowRightLeft,
+  Users,
+  FolderGit2,
+  CheckSquare,
+  Rocket,
+  SearchCheck,
+  Sparkles,
+  UserPlus,
+  CreditCard,
+  Layers,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
+import {
+  useCurrentOrganization,
+  useOrganizations,
+  useUpdateOrganizationMutation,
+  useCreateOrganizationMutation,
+  useSwitchOrganizationMutation,
+  useInviteMemberMutation,
+} from "@/lib/queries";
 
 interface SlackIntegrationResponse {
   webhook_configured?: boolean;
@@ -60,6 +91,74 @@ export default function SettingsPage() {
     user?.role === "ceo" ||
     user?.role === "tech_lead" ||
     user?.role === "admin";
+
+  // Multi-Tenant Organization Queries & State
+  const { data: currentOrg } = useCurrentOrganization();
+  const { data: orgsList = [], isLoading: orgsLoading } = useOrganizations();
+  const updateOrgMutation = useUpdateOrganizationMutation();
+  const createOrgMutation = useCreateOrganizationMutation();
+  const switchOrgMutation = useSwitchOrganizationMutation();
+  const inviteMemberMutation = useInviteMemberMutation();
+
+  const [workspaceName, setWorkspaceName] = useState("");
+  const [showCreateOrg, setShowCreateOrg] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
+  const [newOrgTier, setNewOrgTier] = useState("growth");
+
+  const [showInviteForm, setShowInviteForm] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
+  const [inviteRole, setInviteRole] = useState("lead");
+
+  useEffect(() => {
+    if (currentOrg?.name) {
+      setWorkspaceName(currentOrg.name);
+    } else if (user?.organization_name) {
+      setWorkspaceName(user.organization_name);
+    }
+  }, [currentOrg?.name, user?.organization_name]);
+
+  const handleUpdateWorkspaceName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!workspaceName.trim()) return;
+    try {
+      await updateOrgMutation.mutateAsync({ name: workspaceName.trim() });
+      await refreshUser();
+    } catch {}
+  };
+
+  const handleCreateOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newOrgName.trim()) return;
+    try {
+      await createOrgMutation.mutateAsync({ name: newOrgName.trim(), tier: newOrgTier });
+      setNewOrgName("");
+      setShowCreateOrg(false);
+      await refreshUser();
+    } catch {}
+  };
+
+  const handleSwitchOrg = async (orgId: number) => {
+    try {
+      await switchOrgMutation.mutateAsync(orgId);
+      await refreshUser();
+    } catch {}
+  };
+
+  const handleInviteMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+    try {
+      await inviteMemberMutation.mutateAsync({
+        email: inviteEmail.trim(),
+        name: inviteName.trim() || undefined,
+        role: inviteRole,
+      });
+      setInviteEmail("");
+      setInviteName("");
+      setShowInviteForm(false);
+    } catch {}
+  };
 
   useEffect(() => {
     apiFetch<SlackIntegrationResponse>("/integrations/slack/")
@@ -354,32 +453,439 @@ export default function SettingsPage() {
 
       {/* Workspace Tab */}
       {activeTab === "workspace" && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4 max-w-md">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-indigo-400" />
-            <span>Workspace Details</span>
-          </h3>
-          <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1">Company / Workspace Name</label>
-            <input
-              disabled={!canManageWorkspace}
-              defaultValue={user?.organization_name || "TeamFlow Workspace"}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none disabled:opacity-60"
-            />
+        <div className="space-y-6">
+          {/* Workspace Info & Rename Card */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400">
+                  <Building2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white">
+                      {currentOrg?.name || user?.organization_name || "TeamFlow Workspace"}
+                    </h3>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-950 text-emerald-400 border border-emerald-800/50">
+                      Active Workspace
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Tenant ID #{currentOrg?.id || user?.organization_id || "1"} • Created on{" "}
+                    {currentOrg?.created_at ? new Date(currentOrg.created_at).toLocaleDateString() : "Active"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/billing"
+                  className="rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition flex items-center gap-1.5"
+                >
+                  <CreditCard className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>Manage Subscription</span>
+                </Link>
+              </div>
+            </div>
+
+            <form onSubmit={handleUpdateWorkspaceName} className="mt-5 space-y-4 max-w-md">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Company / Workspace Name</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    disabled={!canManageWorkspace || updateOrgMutation.isPending}
+                    value={workspaceName}
+                    onChange={(e) => setWorkspaceName(e.target.value)}
+                    placeholder="Enter workspace name"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+                  />
+                  {canManageWorkspace && (
+                    <button
+                      type="submit"
+                      disabled={updateOrgMutation.isPending || !workspaceName.trim() || workspaceName === (currentOrg?.name || user?.organization_name)}
+                      className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      {updateOrgMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <span>Rename</span>
+                      )}
+                    </button>
+                  )}
+                </div>
+                {!canManageWorkspace && (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Only CEO, Tech Lead, or Admin can rename this workspace.
+                  </p>
+                )}
+              </div>
+            </form>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1">Subscription Plan</label>
-            <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl text-xs flex items-center justify-between">
+          {/* Live Quotas & Resource Usage Grid */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div>
-                <span className="font-bold text-white uppercase">{user?.organization_tier || "Growth"} Tier</span>
-                <p className="text-slate-400 text-[11px]">Active SaaS subscription</p>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-indigo-400" />
+                  <span>Tenant Resources & Quotas</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Live resource consumption for <span className="text-white font-medium">{currentOrg?.name || user?.organization_name}</span>.
+                </p>
               </div>
-              <span className="font-bold text-emerald-400 bg-emerald-950 border border-emerald-800/50 px-2 py-0.5 rounded-md text-[10px]">
-                Active
+              <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-md bg-indigo-950/80 text-indigo-300 border border-indigo-700/50">
+                {currentOrg?.subscription_tier || user?.organization_tier || "growth"} Plan
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Seats Metric */}
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <Users className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>Team Seats</span>
+                  </span>
+                  <span className="font-mono text-slate-300">
+                    {currentOrg?.metrics?.members_count ?? 1} / {currentOrg?.limits?.max_seats ?? 10}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-indigo-500 h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          ((currentOrg?.metrics?.members_count ?? 1) /
+                            (currentOrg?.limits?.max_seats || 10)) *
+                            100
+                        )
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Projects Metric */}
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <FolderGit2 className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Projects</span>
+                  </span>
+                  <span className="font-mono text-slate-300">
+                    {currentOrg?.metrics?.projects_count ?? 0} / {currentOrg?.limits?.max_projects ?? 20}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(
+                        100,
+                        Math.round(
+                          ((currentOrg?.metrics?.projects_count ?? 0) /
+                            (currentOrg?.limits?.max_projects || 20)) *
+                            100
+                        )
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Tasks Metric */}
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <CheckSquare className="h-3.5 w-3.5 text-amber-400" />
+                    <span>Tasks in Flight</span>
+                  </span>
+                  <span className="font-mono text-slate-300">
+                    {currentOrg?.metrics?.open_tasks_count ?? 0} open
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {currentOrg?.metrics?.tasks_count ?? 0} total tickets tracked
+                </p>
+              </div>
+
+              {/* Deployments & SEO */}
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-400">
+                  <span className="flex items-center gap-1.5 font-bold">
+                    <Rocket className="h-3.5 w-3.5 text-cyan-400" />
+                    <span>Deployments</span>
+                  </span>
+                  <span className="font-mono text-slate-300">
+                    {currentOrg?.metrics?.deployments_count ?? 0}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {currentOrg?.metrics?.seo_audits_count ?? 0} automated SEO audits
+                </p>
+              </div>
+            </div>
+
+            {/* Plan Feature Badges */}
+            <div className="pt-2 border-t border-slate-800 flex flex-wrap gap-2 text-xs">
+              <span className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+                currentOrg?.limits?.ai_agent_swarm
+                  ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-300"
+                  : "bg-slate-950 border-slate-800 text-slate-500"
+              }`}>
+                <Sparkles className="h-3 w-3" />
+                <span>AI Agent Swarm: {currentOrg?.limits?.ai_agent_swarm ? "Enabled" : "Upgrade Required"}</span>
+              </span>
+
+              <span className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+                currentOrg?.limits?.dedicated_clerk_sso
+                  ? "bg-purple-950/40 border-purple-800/60 text-purple-300"
+                  : "bg-slate-950 border-slate-800 text-slate-500"
+              }`}>
+                <Shield className="h-3 w-3" />
+                <span>SSO Identity Sync: {currentOrg?.limits?.dedicated_clerk_sso ? "Active" : "Disabled"}</span>
+              </span>
+
+              <span className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
+                currentOrg?.limits?.unlimited_traces
+                  ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
+                  : "bg-slate-950 border-slate-800 text-slate-500"
+              }`}>
+                <CheckCircle2 className="h-3 w-3" />
+                <span>Langfuse Tracing: {currentOrg?.limits?.unlimited_traces ? "Unlimited" : "Standard"}</span>
               </span>
             </div>
           </div>
+
+          {/* Multi-Tenant Switcher (All Workspaces) */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <ArrowRightLeft className="h-4 w-4 text-indigo-400" />
+                  <span>Workspaces & Tenant Switching</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Switch context between different client or team workspaces without logging out.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowCreateOrg(!showCreateOrg)}
+                className="rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 transition cursor-pointer flex items-center gap-1.5 shadow-xs"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>New Workspace</span>
+              </button>
+            </div>
+
+            {/* Create Workspace Form (Toggleable) */}
+            {showCreateOrg && (
+              <form onSubmit={handleCreateOrg} className="p-4 rounded-xl border border-indigo-800/50 bg-indigo-950/20 space-y-4 animate-in fade-in duration-200">
+                <h4 className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Create a New Multi-Tenant Workspace</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Workspace Name</label>
+                    <input
+                      required
+                      value={newOrgName}
+                      onChange={(e) => setNewOrgName(e.target.value)}
+                      placeholder="e.g. Acme Studio, Beta Launch, etc."
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Subscription Tier</label>
+                    <select
+                      value={newOrgTier}
+                      onChange={(e) => setNewOrgTier(e.target.value)}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
+                    >
+                      <option value="growth">Growth Tier</option>
+                      <option value="starter">Starter Tier</option>
+                      <option value="enterprise">Enterprise Tier</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateOrg(false)}
+                    className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400 hover:text-white transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createOrgMutation.isPending || !newOrgName.trim()}
+                    className="rounded-xl bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                  >
+                    {createOrgMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    <span>Create & Switch</span>
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Organizations List */}
+            <div className="divide-y divide-slate-800/80 rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
+              {orgsLoading ? (
+                <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                  <span>Loading available workspaces…</span>
+                </div>
+              ) : orgsList.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-500">
+                  No other workspaces found.
+                </div>
+              ) : (
+                orgsList.map((org) => {
+                  const isCurrent = org.id === (currentOrg?.id || user?.organization_id) || Boolean(org.is_current);
+                  return (
+                    <div
+                      key={org.id}
+                      className="p-3.5 flex items-center justify-between hover:bg-slate-900/50 transition gap-4"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-black shrink-0 ${
+                          isCurrent
+                            ? "bg-indigo-600/20 border-indigo-500/40 text-indigo-400"
+                            : "bg-slate-900 border-slate-800 text-slate-400"
+                        }`}>
+                          {org.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold text-white truncate">{org.name}</span>
+                            <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60">
+                              {org.subscription_tier}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-500">Tenant #{org.id}</span>
+                        </div>
+                      </div>
+
+                      <div>
+                        {isCurrent ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-3 py-1 rounded-xl">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Current</span>
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSwitchOrg(org.id)}
+                            disabled={switchOrgMutation.isPending}
+                            className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                          >
+                            <ArrowRightLeft className="h-3.5 w-3.5 text-indigo-400" />
+                            <span>Switch</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Invite Team Member Form */}
+          {canManageWorkspace && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <UserPlus className="h-4 w-4 text-indigo-400" />
+                    <span>Invite Team Member</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Add human or AI teammates to <span className="text-white font-medium">{currentOrg?.name || user?.organization_name}</span>.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowInviteForm(!showInviteForm)}
+                  className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition cursor-pointer flex items-center gap-1.5"
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  <span>{showInviteForm ? "Close Form" : "Invite"}</span>
+                </button>
+              </div>
+
+              {showInviteForm && (
+                <form onSubmit={handleInviteMember} className="space-y-4 pt-1 animate-in fade-in duration-200 max-w-xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Email Address</label>
+                      <input
+                        required
+                        type="email"
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        placeholder="colleague@teamflow.dev"
+                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 mb-1">Full Name</label>
+                      <input
+                        value={inviteName}
+                        onChange={(e) => setInviteName(e.target.value)}
+                        placeholder="e.g. Alex Morgan"
+                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 mb-1">Role / Seat Assignment</label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value)}
+                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
+                    >
+                      <option value="lead">Tech Lead</option>
+                      <option value="backend">Senior Backend Engineer</option>
+                      <option value="frontend">Senior Frontend Engineer</option>
+                      <option value="qa">QA Engineer</option>
+                      <option value="devops">DevOps Engineer</option>
+                      <option value="design">UI/UX Designer</option>
+                      <option value="seo">Technical SEO</option>
+                      <option value="admin">Administrator</option>
+                      <option value="member">General Member</option>
+                    </select>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={inviteMemberMutation.isPending || !inviteEmail.trim()}
+                      className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                    >
+                      {inviteMemberMutation.isPending ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5" />
+                      )}
+                      <span>Send Invitation</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
         </div>
       )}
 

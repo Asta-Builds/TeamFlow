@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { createCheckoutSession, createPortalSession, mockConfirmSubscription } from "@/lib/api";
 import { toast } from "sonner";
@@ -12,6 +12,18 @@ export default function BillingPage() {
 
   const currentTier = user?.organization_tier || "growth";
   const currentStatus = user?.organization_status || "active";
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("success") === "true") {
+        void refreshUser();
+        toast.success("Subscription updated! Your workspace limits have been upgraded.");
+      } else if (params.get("canceled") === "true") {
+        toast.info("Checkout process cancelled.");
+      }
+    }
+  }, [refreshUser]);
 
   const handleSubscribe = async (tier: string) => {
     setLoadingTier(tier);

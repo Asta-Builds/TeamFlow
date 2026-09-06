@@ -136,13 +136,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Active Workspace Selector Card */}
-          <div className="px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/70 text-xs text-slate-300 flex items-center justify-between shadow-xs">
+          <Link
+            href="/settings"
+            className="px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/70 text-xs text-slate-300 flex items-center justify-between shadow-xs hover:border-slate-700 hover:bg-slate-900 transition group cursor-pointer"
+            title="Manage Workspace & Switch Tenants"
+          >
             <div className="flex items-center gap-2 truncate">
-              <Building2 className="h-4 w-4 text-indigo-400 shrink-0" aria-hidden="true" />
+              <Building2 className="h-4 w-4 text-indigo-400 shrink-0 group-hover:text-indigo-300 transition" aria-hidden="true" />
               <span className="font-semibold text-white truncate">{user.organization_name || "Workspace"}</span>
             </div>
             <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" title="System Online" aria-label="System Online"></span>
-          </div>
+          </Link>
 
           {/* Navigation Links */}
           <nav aria-label="Primary Navigation" className="space-y-1">
@@ -249,13 +253,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               </div>
 
               {/* Active Workspace Selector Card */}
-              <div className="px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/70 text-xs text-slate-300 flex items-center justify-between shadow-xs">
+              <Link
+                href="/settings"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/70 text-xs text-slate-300 flex items-center justify-between shadow-xs hover:border-slate-700 hover:bg-slate-900 transition group cursor-pointer"
+                title="Manage Workspace & Switch Tenants"
+              >
                 <div className="flex items-center gap-2 truncate">
-                  <Building2 className="h-4 w-4 text-indigo-400 shrink-0" aria-hidden="true" />
+                  <Building2 className="h-4 w-4 text-indigo-400 shrink-0 group-hover:text-indigo-300 transition" aria-hidden="true" />
                   <span className="font-semibold text-white truncate">{user.organization_name || "Workspace"}</span>
                 </div>
                 <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" title="System Online"></span>
-              </div>
+              </Link>
 
               {/* Navigation Links */}
               <nav aria-label="Mobile Navigation Links" className="space-y-1">

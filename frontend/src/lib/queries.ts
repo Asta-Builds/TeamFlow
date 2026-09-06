@@ -23,6 +23,7 @@ import type {
   TaskType,
   ActivityFeedItem,
   AgentClusterStatus,
+  Organization,
 } from "./types";
 import { toast } from "sonner";
 
@@ -39,6 +40,8 @@ export const queryKeys = {
   team: ["team"] as const,
   pulseDashboard: (date: string) => ["pulse", "dashboard", date] as const,
   activityFeed: ["activity-feed"] as const,
+  currentOrganization: ["organization", "current"] as const,
+  organizations: ["organizations", "list"] as const,
 };
 
 // --- Read Queries ---
@@ -353,6 +356,138 @@ export function useCreateTaskMutation(projectId?: number) {
     },
     onError: (err) => {
       toast.error(`Échec de création de la tâche : ${err instanceof Error ? err.message : "Erreur inconnue"}`);
+    },
+  });
+}
+
+// --- Multi-Tenant Organization Hooks ---
+
+export function useCurrentOrganization() {
+  return useQuery({
+    queryKey: queryKeys.currentOrganization,
+    queryFn: async () => {
+      return apiFetch<Organization>("/organizations/current/");
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useOrganizations() {
+  return useQuery({
+    queryKey: queryKeys.organizations,
+    queryFn: async () => {
+      const data = await apiFetch<unknown>("/organizations/");
+      return normalizeList<Organization>(data);
+    },
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useUpdateOrganizationMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { name: string }) => {
+      return apiFetch<Organization>("/organizations/current/", {
+        method: "PATCH",
+        body: data,
+      });
+    },
+    onSuccess: (data) => {
+      toast.success(`Workspace renamed to "${data.name}"`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentOrganization });
+      queryClient.invalidateQueries({ queryKey: queryKeys.organizations });
+    },
+    onError: (err) => {
+      toast.error(`Failed to update workspace: ${err instanceof Error ? err.message : "Unknown error"}`);
+    },
+  });
+}
+
+export function useCreateOrganizationMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { name: string; tier?: string }) => {
+      const res = await apiFetch<{
+        organization: Organization;
+        access: string;
+        refresh: string;
+        user: User;
+      }>("/organizations/", {
+        method: "POST",
+        body: data,
+      });
+      if (res.access) {
+        localStorage.setItem("teamflow_access", res.access);
+        if (res.refresh) localStorage.setItem("teamflow_refresh", res.refresh);
+      }
+      return res;
+    },
+    onSuccess: (data) => {
+      toast.success(`Workspace "${data.organization.name}" created successfully`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentOrganization });
+      queryClient.invalidateQueries({ queryKey: queryKeys.organizations });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks() });
+    },
+    onError: (err) => {
+      toast.error(`Failed to create workspace: ${err instanceof Error ? err.message : "Unknown error"}`);
+    },
+  });
+}
+
+export function useSwitchOrganizationMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (orgId: number) => {
+      const res = await apiFetch<{
+        message: string;
+        organization: Organization;
+        access: string;
+        refresh: string;
+        user: User;
+      }>(`/organizations/switch/${orgId}/`, {
+        method: "POST",
+      });
+      if (res.access) {
+        localStorage.setItem("teamflow_access", res.access);
+        if (res.refresh) localStorage.setItem("teamflow_refresh", res.refresh);
+      }
+      return res;
+    },
+    onSuccess: (data) => {
+      toast.success(`Switched to workspace "${data.organization.name}"`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentOrganization });
+      queryClient.invalidateQueries({ queryKey: queryKeys.organizations });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.team });
+    },
+    onError: (err) => {
+      toast.error(`Failed to switch workspace: ${err instanceof Error ? err.message : "Access denied"}`);
+    },
+  });
+}
+
+export function useInviteMemberMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { email: string; name?: string; role?: string }) => {
+      return apiFetch<User>("/organizations/invite/", {
+        method: "POST",
+        body: data,
+      });
+    },
+    onSuccess: (data) => {
+      toast.success(`Invitation sent to ${data.email}`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.team });
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentOrganization });
+    },
+    onError: (err) => {
+      toast.error(`Failed to invite member: ${err instanceof Error ? err.message : "Unknown error"}`);
     },
   });
 }

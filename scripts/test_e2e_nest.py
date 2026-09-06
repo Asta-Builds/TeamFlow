@@ -251,6 +251,85 @@ def run_suite():
     assert me_data["email"] == clerk_email
     print(f"  PASS: Clerk SSO user authenticated. Org: '{me_data['organization_name']}', Role: '{me_data['role']}'")
 
+    # 21. Billing Checkout Session & Mock Confirmation
+    print("\n[21/22] Testing Billing Checkout Session & Mock Payment...")
+    checkout_payload = {
+        "tier": "scale",
+        "billing_period": "monthly"
+    }
+    status, checkout_data = request(f"{BASE_URL}/billing/create-checkout-session", method="POST", data=checkout_payload, token=access_token)
+    assert status in (200, 201), f"Checkout session creation failed ({status}): {checkout_data}"
+    assert "id" in checkout_data, "No session ID returned in checkout session"
+    assert "url" in checkout_data, "No url returned in checkout session"
+    assert checkout_data.get("mock") is True, f"Expected mock=True, got {checkout_data.get('mock')}"
+    print(f"  PASS: Checkout session generated: {checkout_data['id']} (URL: {checkout_data['url']})")
+
+    # Confirm Mock Payment
+    status, confirm_data = request(f"{BASE_URL}/billing/mock-confirm", method="POST", data={"session_id": checkout_data["id"]}, token=access_token)
+    assert status in (200, 201), f"Mock payment confirmation failed ({status}): {confirm_data}"
+    assert confirm_data.get("status") == "success" or "confirmed" in confirm_data.get("message", "").lower() or confirm_data.get("success") is True, f"Unexpected confirm response: {confirm_data}"
+    print(f"  PASS: Mock checkout payment confirmed (Status: {confirm_data.get('status')}, Tier: {confirm_data.get('tier')})")
+
+    # 22. Multi-Tenant Architecture & Workspace Management
+    print("\n[22/22] Testing Multi-Tenant Architecture & Workspace Management...")
+    # A. Get current org
+    status, cur_org = request(f"{BASE_URL}/organizations/current", token=access_token)
+    assert status == 200, f"Failed fetching current organization ({status}): {cur_org}"
+    assert cur_org["id"] == org_id, f"Org ID mismatch: expected {org_id}, got {cur_org.get('id')}"
+    assert "metrics" in cur_org, f"Expected metrics in org: {cur_org}"
+    assert "limits" in cur_org, f"Expected limits in org: {cur_org}"
+    print(f"  PASS: Current Org '{cur_org['name']}' verified. Metrics: {cur_org['metrics']}")
+
+    # B. List all organizations
+    status, org_list = request(f"{BASE_URL}/organizations", token=access_token)
+    assert status == 200, f"Failed listing organizations ({status}): {org_list}"
+    assert any(o["id"] == org_id for o in org_list), f"Current org #{org_id} missing from org list"
+    print(f"  PASS: Retrieved {len(org_list)} organization(s) for user.")
+
+    # C. Update current org name
+    renamed_name = f"Renamed Enterprise Org {timestamp}"
+    status, updated_org = request(f"{BASE_URL}/organizations/current", method="PATCH", data={"name": renamed_name}, token=access_token)
+    assert status == 200, f"Failed renaming organization ({status}): {updated_org}"
+    assert updated_org["name"] == renamed_name, f"Org name was not updated: {updated_org}"
+    print(f"  PASS: Workspace renamed to '{updated_org['name']}'")
+
+    # D. Create secondary organization (multi-tenant provisioning)
+    secondary_payload = {
+        "name": f"Secondary Client Org {timestamp}",
+        "tier": "growth"
+    }
+    status, new_org_data = request(f"{BASE_URL}/organizations", method="POST", data=secondary_payload, token=access_token)
+    assert status in (200, 201), f"Failed creating secondary organization ({status}): {new_org_data}"
+    sec_org_id = new_org_data["organization"]["id"]
+    sec_access_token = new_org_data["access"]
+    print(f"  PASS: Secondary Org #{sec_org_id} created with new rotated JWT.")
+
+    # Verify context switched to secondary org
+    status, sec_cur_org = request(f"{BASE_URL}/organizations/current", token=sec_access_token)
+    assert status == 200, f"Failed checking secondary org current ({status}): {sec_cur_org}"
+    assert sec_cur_org["id"] == sec_org_id, f"Expected active org #{sec_org_id}, got {sec_cur_org.get('id')}"
+    print(f"  PASS: Active tenant context automatically switched to '{sec_cur_org['name']}'")
+
+    # E. Switch tenant back to original organization
+    status, switch_data = request(f"{BASE_URL}/organizations/switch/{org_id}", method="POST", token=sec_access_token)
+    assert status in (200, 201), f"Failed switching back to primary org ({status}): {switch_data}"
+    switched_token = switch_data["access"]
+    status, restored_cur_org = request(f"{BASE_URL}/organizations/current", token=switched_token)
+    assert status == 200 and restored_cur_org["id"] == org_id, f"Failed restoring tenant: {restored_cur_org}"
+    print(f"  PASS: Seamless tenant switch back to Org #{org_id} verified.")
+
+    # F. Invite team member to current organization
+    invitee_email = f"invited_{timestamp}@teamflow.dev"
+    invite_payload = {
+        "email": invitee_email,
+        "name": "Invited Multi-Tenant Teammate",
+        "role": "lead"
+    }
+    status, invited_user = request(f"{BASE_URL}/organizations/invite", method="POST", data=invite_payload, token=switched_token)
+    assert status in (200, 201), f"Failed inviting team member ({status}): {invited_user}"
+    assert invited_user["email"] == invitee_email.lower(), f"Invited user email mismatch: {invited_user}"
+    print(f"  PASS: Team member {invitee_email} successfully invited and provisioned under Org #{org_id}.")
+
     # Check Frontend is serving
     print("\n[*] Checking Frontend UI on Port 3000...")
     req = urllib.request.Request(FRONTEND_URL)
@@ -261,7 +340,7 @@ def run_suite():
     print(f"  PASS: Frontend UI is live and accessible on port 3000.")
 
     print("\n==================================================")
-    print(" ALL 20 END-TO-END TEST STAGES PASSED SUCCESSFULLY!")
+    print(" ALL 22 END-TO-END TEST STAGES PASSED SUCCESSFULLY!")
     print("==================================================")
 
 if __name__ == "__main__":

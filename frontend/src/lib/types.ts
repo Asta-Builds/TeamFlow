@@ -24,13 +24,43 @@ export interface User {
   avatar_url: string;
   bio?: string;
   is_active: boolean;
-  date_joined: string;
+  date_joined?: string;
   organization?: number;
+  organization_id?: number;
   organization_name?: string;
   organization_tier?: string;
   organization_status?: string;
   open_tasks_count?: number;
   closed_tasks_count?: number;
+}
+
+export interface OrganizationMetrics {
+  members_count: number;
+  projects_count: number;
+  tasks_count: number;
+  open_tasks_count: number;
+  deployments_count: number;
+  seo_audits_count: number;
+}
+
+export interface OrganizationLimits {
+  max_projects: number;
+  max_seats: number;
+  ai_agent_swarm: boolean;
+  unlimited_traces: boolean;
+  dedicated_clerk_sso: boolean;
+  sla_support: boolean;
+}
+
+export interface Organization {
+  id: number;
+  name: string;
+  subscription_tier: string;
+  subscription_status: string;
+  created_at: string;
+  metrics?: OrganizationMetrics;
+  limits?: OrganizationLimits;
+  is_current?: boolean;
 }
 
 export type ProjectStatus = "active" | "on_hold" | "completed" | "archived";
