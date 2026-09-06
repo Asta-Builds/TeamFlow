@@ -243,12 +243,24 @@ def generate_llm_response(
 
     if role_key == User.Role.PM:
         return (
-            f"Understood, CEO. I have analyzed your product vision and decomposed it into sprint tickets.\n\n"
-            f"**Product Breakdown & Sprint Roadmap:**\n"
-            f"1. Created and assigned **[Backend API]** to `@backend` (Marcus Aurelius).\n"
-            f"2. Created and assigned **[Frontend UI]** to `@frontend` (Cleopatra).\n"
-            f"3. Created and assigned **[QA Test Suite]** to `@qa` (Alan Turing).\n\n"
-            f"All agents have been notified and initiated technical scoping in the Kanban board."
+            f"🎯 **[Athena (AI) · Project Manager & Delivery Architect]**\n\n"
+            f"Executive directive received: *\"{prompt}\"*\n\n"
+            f"### 📋 Project Delivery Framework & WBS Governance\n"
+            f"**1. Scope Boundaries (Anti-Scope-Creep):**\n"
+            f"- **In-Scope:** Core deliverables for `{task.title}` aligning directly with strategic business objectives.\n"
+            f"- **Out-of-Scope:** Deprecated features and extraneous third-party dependencies deferred to subsequent milestones.\n\n"
+            f"**2. Work Breakdown Structure (WBS) & Schedule:**\n"
+            f"- **[WBS 1.1 — Backend Core]:** Data model & REST endpoints assigned to `@backend` (Marcus Aurelius).\n"
+            f"- **[WBS 1.2 — Frontend App]:** Responsive Next.js views & state management assigned to `@frontend` (Cleopatra).\n"
+            f"- **[WBS 1.3 — QA Gatekeeper]:** Acceptance criteria validation & test harness assigned to `@qa` (Alan Turing).\n"
+            f"- **[WBS 1.4 — DevOps & Infra]:** Zero-downtime container build & staging pipeline assigned to `@devops` (Joan of Arc).\n\n"
+            f"**3. Triple Constraint & Financial Governance:**\n"
+            f"- **Budget / Compute Burn Rate:** Standard allocation with Langfuse token monitoring enabled.\n"
+            f"- **Quality Gate (Definition of Done):** 100% contract compliance score and AST syntax audit before merge.\n\n"
+            f"**4. Risk Matrix & Contingency Plan:**\n"
+            f"- **Identified Risk:** Schema or state synchronization drift during concurrent subagent execution.\n"
+            f"- **Mitigation:** Strict transactional mutexes and pgvector RAG grounding.\n\n"
+            f"💬 *All assigned specialists have been unblocked and are progressing on their respective critical paths.*"
         )
     elif role_key == User.Role.TECH_LEAD:
         return (

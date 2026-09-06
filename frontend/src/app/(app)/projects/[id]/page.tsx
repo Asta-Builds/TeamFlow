@@ -629,10 +629,10 @@ export default function ProjectBoardPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-                    <span>Athena (AI) · Autonomous Product Manager</span>
+                    <span>Athena (AI) · Autonomous Project Manager</span>
                   </h3>
                   <p className="text-xs text-violet-300/80">
-                    Give a plan or user story — PM Athena will break it into tickets & assign specialist agents.
+                    Give a plan or feature vision — PM Athena will break it into a structured WBS, set scope boundaries, and assign specialist agents.
                   </p>
                 </div>
               </div>

@@ -9,6 +9,10 @@ This repository is governed by the **Google Antigravity SDK** and **LangGraph Mu
    - Sets project scope, budget control, and issues prompts to agents using `@agent` tags.
 
 2. **🤖 Autonomous AI Agent Specialists**:
+   - **Project Manager (`pm@teamflow.dev`) — Athena (AI)**:
+     - Leads projects from concept through completion within scope, time, budget, and quality constraints.
+     - Owns the 5 project phases: **Initiation** (charter, business value), **Planning** (WBS decomposition, milestones, risk matrix), **Execution** (task allocation, unblocking specialists), **Monitoring & Controlling** (burn rate, scope creep prevention, KPIs), and **Closing** (post-mortem, docs archival).
+     - Focuses on the *How* and the *When* (execution timeline, resource efficiency, task delivery).
    - **Tech Lead (`lead@teamflow.dev`)**: Orchestrates swarm subtasks, queries pgvector RAG, and reviews PRs. Only Tech Lead can merge to `main`.
    - **Senior Backend (`backend1@teamflow.dev`)**: Django REST framework, database schemas, and GitHub PR generation.
    - **Senior Frontend (`frontend1@teamflow.dev`)**: Next.js 16 App Router, SuperDesign dark styling, Lucide icons, Sonner toasts.

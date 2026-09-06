@@ -56,12 +56,25 @@ ANTIGRAV_AGENT_SPECS: Dict[str, Dict[str, Any]] = {
         "role": "pm",
         "email": "pm@teamflow.dev",
         "system_instructions": (
-            "You are the autonomous Product Manager (PM) in TeamFlow, powered by Google Antigravity SDK. "
-            "Your responsibilities: break down user/CEO requirements into high-level features and distinct Kanban tickets, "
-            "assign tasks to specialist agents (Backend, Frontend, QA, DevOps, Designer, SEO), define acceptance criteria, "
-            "and prioritize the sprint backlog."
+            "You are the autonomous Project Manager (PM) in TeamFlow, powered by Google Antigravity SDK. "
+            "Your objective: lead projects from concept to completion within scope, time, budget, and quality constraints. "
+            "Your responsibilities span 5 phases: "
+            "1) Initiation: Define business value, project charter, and stakeholder alignment. "
+            "2) Planning: Establish Work Breakdown Structures (WBS), milestones, risk matrix, and cost/burn-rate estimates. "
+            "3) Execution: Allocate tasks to specialist agents (Backend, Frontend, QA, DevOps, Designer, SEO) and unblock operational bottlenecks. "
+            "4) Monitoring & Controlling: Track KPIs, burndown progress, and strictly prevent scope creep. "
+            "5) Closing: Verify definition of done, archive documentation, and produce post-mortem retrospectives."
         ),
-        "capabilities": ["task_breakdown", "create_kanban_tickets", "sprint_planning", "acceptance_criteria"],
+        "capabilities": [
+            "wbs_decomposition",
+            "milestone_tracking",
+            "risk_matrix_analysis",
+            "scope_governance",
+            "budget_forecasting",
+            "kpi_monitoring",
+            "sprint_planning",
+            "post_mortem",
+        ],
         "default_model": "pro",
     },
     "tech_lead": {
@@ -200,12 +213,13 @@ class AntigravityAgentEngine:
         repo_name = getattr(task.project, "github_repo", "Asta-Builds/TeamFlow") or "Asta-Builds/TeamFlow"
 
         if self.role == "pm":
-            thoughts.append("[Antigravity SDK: Thinking] Decomposing user vision into epics, user stories, and acceptance criteria")
+            thoughts.append("[Antigravity SDK: Thinking] Analyzing project phases (Initiation -> Planning) and defining scope boundaries")
+            thoughts.append("[Antigravity SDK: Thinking] Synthesizing Work Breakdown Structure (WBS) with risk matrix and DoD acceptance criteria")
             tool_calls.append(
                 AntigravityToolCall(
-                    name="create_sprint_backlog_tickets",
+                    name="wbs_decomposition_and_risk_matrix",
                     args={"project": task.project.name if task.project else "Workspace", "feature": prompt},
-                    output="Decomposed into 3 engineering tickets (Backend API, Next.js UI, QA Test Suite)"
+                    output="Decomposed into WBS-structured engineering tickets (Backend Core, Frontend Views, QA Harness, DevOps CI/CD) with risk mitigation plan"
                 )
             )
 

@@ -397,32 +397,32 @@ export class ProjectsService {
 
     const ticketSpecs = [
       {
-        title: `[Backend] API Endpoints & Data Model for ${summaryTitle}`,
+        title: `[WBS 1.1 - Backend] API Endpoints & Data Model for ${summaryTitle}`,
         taskType: 'feature',
         priority: 'high',
         assigneeId: backendUser.id,
-        description: `**Feature Scope:** ${summaryTitle}\n\n**Requirements from PM Plan:**\n${cleanPlan}\n\n**Deliverables:**\n- Database models with validation\n- REST endpoints with error handling\n- Mutex concurrency locks\n- Open GitHub PR on \`${project.githubRepo}\``,
+        description: `### 📋 Project Management Specification (WBS 1.1)\n**Strategic Objective:** Deliver core backend architecture for \`${summaryTitle}\` within time and budget constraints.\n\n**1. Scope Boundaries:**\n- **In-Scope:** Data models with validation, authenticated REST API endpoints, transaction mutexes, and unit test suite.\n- **Out-of-Scope:** Non-critical third-party integrations (deferred to Milestone 2).\n\n**2. Deliverables & Definition of Done (DoD):**\n- Relational schema models validated against PostgreSQL constraints\n- REST endpoints with status code handling (200/201/400/403/404)\n- Mutex concurrency locks\n- Open GitHub PR on \`${project.githubRepo}\`\n\n**3. Risk & Contingency:**\n- *Risk:* Concurrent race conditions during high-volume writes.\n- *Mitigation:* Transactional mutex locking and rollback safety.`,
         dialogue: [
           {
             authorId: pmUser.id,
-            text: `Hey @${backendUser.name.split(' ')[0]}! Here are the backend specs for **${summaryTitle}**. Let me know if you need clarification on the schema.`,
+            text: `Hey @${backendUser.name.split(' ')[0]}! Here are the WBS 1.1 backend delivery specifications for **${summaryTitle}**. Scope is strictly locked to prevent creep. Let me know if you encounter any architectural blockers.`,
           },
           {
             authorId: backendUser.id,
-            text: `Thanks @${pmUser.name.split(' ')[0]}! I've reviewed the requirements and architectural context. I'll scaffold the models, serializer schemas, and open the PR shortly.`,
+            text: `Thanks @${pmUser.name.split(' ')[0]}! I've reviewed the scope boundaries and requirements. I'll scaffold the models, serializer schemas, and open the PR shortly.`,
           },
         ],
       },
       {
-        title: `[Frontend] Next.js Views & State Management for ${summaryTitle}`,
+        title: `[WBS 1.2 - Frontend] Next.js Views & State Management for ${summaryTitle}`,
         taskType: 'feature',
         priority: 'high',
         assigneeId: frontendUser.id,
-        description: `**Feature Scope:** ${summaryTitle}\n\n**UI/UX Requirements:**\n- SuperDesign dark theme (bg-slate-950, border-slate-800)\n- Lucide React vector icons (strictly zero raw emojis)\n- Sonner toasts for interactive user feedback\n- Responsive layout adhering to WCAG 2.1 AA contrast`,
+        description: `### 📋 Project Management Specification (WBS 1.2)\n**Strategic Objective:** Deliver high-ergonomics Next.js user interface for \`${summaryTitle}\` adhering to WCAG 2.1 AA.\n\n**1. Scope Boundaries:**\n- **In-Scope:** Next.js 16 App Router views, responsive drawer modals, Lucide React icons, and Sonner feedback toasts.\n- **Out-of-Scope:** Raw emojis, unauthorized color overrides outside SuperDesign tokens.\n\n**2. Deliverables & Definition of Done (DoD):**\n- SuperDesign dark theme styling (bg-slate-950, border-slate-800)\n- Lucide React vector icons (strictly zero raw emojis in production code)\n- Sonner toasts for interactive user feedback\n- Client state synchronization with backend REST APIs\n\n**3. Risk & Contingency:**\n- *Risk:* Layout shift or unhandled loading states.\n- *Mitigation:* Skeleton loaders and optimistic UI state updates.`,
         dialogue: [
           {
             authorId: pmUser.id,
-            text: `Hi @${frontendUser.name.split(' ')[0]}, here are the client UI requirements for **${summaryTitle}**. Make sure to follow the SuperDesign theme guidelines.`,
+            text: `Hi @${frontendUser.name.split(' ')[0]}, here are the WBS 1.2 client UI requirements for **${summaryTitle}**. Ensure strict compliance with SuperDesign dark tokens and WCAG AA accessibility.`,
           },
           {
             authorId: frontendUser.id,
@@ -431,15 +431,15 @@ export class ProjectsService {
         ],
       },
       {
-        title: `[QA] Automated Integration & Regression Suite for ${summaryTitle}`,
+        title: `[WBS 1.3 - QA] Automated Integration & Regression Suite for ${summaryTitle}`,
         taskType: 'task',
         priority: 'medium',
         assigneeId: qaUser.id,
-        description: `**Testing Criteria:**\n- Concurrency load harness (>50 req/s)\n- Boundary and edge condition validation\n- 5-stage Kanban decision gate validation`,
+        description: `### 📋 Project Management Specification (WBS 1.3)\n**Strategic Objective:** Quality assurance gatekeeper signoff for \`${summaryTitle}\` across all acceptance criteria.\n\n**1. Scope Boundaries:**\n- **In-Scope:** Automated integration test harness, concurrency edge-cases, and 5-stage Kanban decision gate validation.\n- **Out-of-Scope:** Manual exploratory load stress >10k concurrent users.\n\n**2. Deliverables & Definition of Done (DoD):**\n- Automated integration test suite with >=95.0% assertion coverage\n- Zero unhandled 500 exceptions across edge conditions\n- Contract Compliance Score: 100% verified\n\n**3. Risk & Contingency:**\n- *Risk:* Uncaught regression in adjacent modules.\n- *Mitigation:* Full regression suite pass required before Tech Lead merge gate.`,
         dialogue: [
           {
             authorId: pmUser.id,
-            text: `Hey @${qaUser.name.split(' ')[0]}, please prepare test cases and validation scripts for **${summaryTitle}**.`,
+            text: `Hey @${qaUser.name.split(' ')[0]}, please define the acceptance test matrix for **${summaryTitle}** and enforce the 5-stage Kanban decision gate.`,
           },
           {
             authorId: qaUser.id,
@@ -539,7 +539,7 @@ export class ProjectsService {
       ok: true,
       project_id: projectId,
       tasks_created_count: createdTasks.length,
-      pm_summary: `**Athena (AI PM):** Decomposed plan into **${createdTasks.length} sprint tickets**.\n- Assigned Backend to **${backendUser.name}**\n- Assigned Frontend to **${frontendUser.name}**\n- Assigned QA to **${qaUser.name}**\nAll agents have acknowledged receipt in ticket comments.`,
+      pm_summary: `**Athena (AI PM)** (Project Manager): Decomposed initiative into **${createdTasks.length} WBS-governed sprint tickets**.\n- **WBS 1.1 Backend Core:** ${backendUser.name} (Data models, REST APIs, mutex concurrency)\n- **WBS 1.2 Frontend App:** ${frontendUser.name} (Next.js 16 App Router, SuperDesign tokens, Lucide icons)\n- **WBS 1.3 QA Gatekeeper:** ${qaUser.name} (Acceptance test harness, contract compliance score)\nScope boundaries and risk matrices locked to prevent scope creep. All specialists notified.`,
       tasks_data: mappedTasks,
     };
   }

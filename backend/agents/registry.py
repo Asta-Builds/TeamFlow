@@ -16,9 +16,18 @@ AGENT_SEATS: dict[str, dict[str, Any]] = {
         "role": "pm",
         "name": "Athena (AI)",
         "email": "pm@teamflow.dev",
-        "title": "Product Manager & Roadmap Architect",
-        "specialty": "Requirement decomposition, backlog prioritization, and acceptance criteria.",
-        "capabilities": ["task_breakdown", "create_kanban_tickets", "sprint_planning", "acceptance_criteria"],
+        "title": "Project Manager & Delivery Architect",
+        "specialty": "End-to-end delivery leadership, Work Breakdown Structures (WBS), risk matrix analysis, scope/budget governance, and cross-functional team enablement.",
+        "capabilities": [
+            "wbs_decomposition",
+            "milestone_tracking",
+            "risk_matrix_analysis",
+            "scope_governance",
+            "budget_forecasting",
+            "kpi_monitoring",
+            "sprint_planning",
+            "post_mortem",
+        ],
         "default_model": "pro",
         "avatar": "AT",
         "blueprint_seat": False,
@@ -147,6 +156,9 @@ AGENT_ALIASES = {
     "frontend-2": "frontend_design_system",
     "design": "designer",
     "ui": "designer",
+    "project_manager": "pm",
+    "projectmanager": "pm",
+    "scrum_master": "pm",
 }
 
 

@@ -41,69 +41,90 @@ def decompose_plan_and_create_tasks(
 
     tickets_spec = [
         {
-            "title": f"[Backend] API Endpoints & Data Model for {summary_title}",
+            "title": f"[WBS 1.1 - Backend] API Endpoints & Data Model for {summary_title}",
             "type": Task.Type.FEATURE,
             "priority": Task.Priority.HIGH,
             "assignee": backend_user,
             "description": (
-                f"**Feature Scope:** {summary_title}\n\n"
-                f"**Requirements from PM Plan:**\n{clean_plan}\n\n"
-                f"**Deliverables:**\n"
-                f"- Database models with pgvector indexing where applicable\n"
-                f"- Django REST framework endpoints with validation & error handling\n"
+                f"### 📋 Project Management Specification (WBS 1.1)\n"
+                f"**Strategic Objective:** Deliver core backend architecture for `{summary_title}` within time and budget constraints.\n\n"
+                f"**1. Scope Boundaries:**\n"
+                f"- **In-Scope:** Data models with pgvector indexing, authenticated REST API endpoints, transaction mutexes, and unit test suite.\n"
+                f"- **Out-of-Scope:** Non-critical third-party integrations (deferred to Milestone 2).\n\n"
+                f"**2. Deliverables & Definition of Done (DoD):**\n"
+                f"- Relational schema models validated against PostgreSQL constraints\n"
+                f"- Django REST framework endpoints with status code handling (200/201/400/403/404)\n"
                 f"- Concurrency safety with transactional mutexes\n"
-                f"- Open GitHub PR on `{getattr(project, 'github_repo', 'Asta-Builds/TeamFlow')}`"
+                f"- Open GitHub PR on `{getattr(project, 'github_repo', 'Asta-Builds/TeamFlow')}`\n\n"
+                f"**3. Risk & Contingency:**\n"
+                f"- *Risk:* Concurrent race conditions during high-volume writes.\n"
+                f"- *Mitigation:* `select_for_update()` mutex locking and database transaction rollbacks."
             ),
             "dialogue": [
                 {
                     "author": pm_user,
-                    "text": f"Hey @{backend_user.name.split()[0]}! Here are the backend specs for **{summary_title}**. Let me know if you need clarification on the schema."
+                    "text": f"Hey @{backend_user.name.split()[0]}! Here are the WBS 1.1 backend delivery specifications for **{summary_title}**. Scope is strictly locked to prevent creep. Let me know if you encounter any architectural blockers."
                 },
                 {
                     "author": backend_user,
-                    "text": f"Thanks @{pm_user.name.split()[0]}! I've reviewed the requirements and retrieved {len(rag_chunks)} RAG architectural context chunks. I'll scaffold the Django models, serializer schemas, and open the PR shortly."
+                    "text": f"Thanks @{pm_user.name.split()[0]}! I've reviewed the scope boundaries and retrieved {len(rag_chunks)} RAG architectural context chunks. Starting on the data models and serializers now."
                 }
             ]
         },
         {
-            "title": f"[Frontend] Next.js Views & State Management for {summary_title}",
+            "title": f"[WBS 1.2 - Frontend] Next.js Views & State Management for {summary_title}",
             "type": Task.Type.FEATURE,
             "priority": Task.Priority.HIGH,
             "assignee": frontend_user,
             "description": (
-                f"**Feature Scope:** {summary_title}\n\n"
-                f"**UI/UX Requirements:**\n"
-                f"- SuperDesign dark theme (`bg-slate-950`, `border-slate-800`)\n"
-                f"- Lucide React vector icons (strictly zero raw emojis)\n"
+                f"### 📋 Project Management Specification (WBS 1.2)\n"
+                f"**Strategic Objective:** Deliver high-ergonomics Next.js user interface for `{summary_title}` adhering to WCAG 2.1 AA.\n\n"
+                f"**1. Scope Boundaries:**\n"
+                f"- **In-Scope:** Next.js 16 App Router views, responsive drawer modals, Lucide React icons, and Sonner feedback toasts.\n"
+                f"- **Out-of-Scope:** Raw emojis, unauthorized color overrides outside SuperDesign tokens.\n\n"
+                f"**2. Deliverables & Definition of Done (DoD):**\n"
+                f"- SuperDesign dark theme styling (`bg-slate-950`, `border-slate-800`)\n"
+                f"- Lucide React vector icons (strictly zero raw emojis in production code)\n"
                 f"- Sonner toasts for interactive user feedback\n"
-                f"- Responsive layout adhering to WCAG 2.1 AA contrast"
+                f"- Client state synchronization with backend REST APIs\n\n"
+                f"**3. Risk & Contingency:**\n"
+                f"- *Risk:* Layout shift or unhandled loading states.\n"
+                f"- *Mitigation:* Skeleton loaders and optimistic UI state updates."
             ),
             "dialogue": [
                 {
                     "author": pm_user,
-                    "text": f"Hi @{frontend_user.name.split()[0]}, here are the client UI requirements for **{summary_title}**. Make sure to follow the SuperDesign theme guidelines."
+                    "text": f"Hi @{frontend_user.name.split()[0]}, here are the WBS 1.2 client UI requirements for **{summary_title}**. Ensure strict compliance with SuperDesign dark tokens and WCAG AA accessibility."
                 },
                 {
                     "author": frontend_user,
-                    "text": f"On it @{pm_user.name.split()[0]}! I'll build the Next.js 16 App Router components using Lucide icons, responsive drawer modals, and optimistic toast feedback."
+                    "text": f"On it @{pm_user.name.split()[0]}! I will implement the Next.js 16 App Router views with Lucide icons, responsive drawer modals, and optimistic toast feedback."
                 }
             ]
         },
         {
-            "title": f"[QA] Automated Integration & Regression Suite for {summary_title}",
+            "title": f"[WBS 1.3 - QA] Automated Integration & Regression Suite for {summary_title}",
             "type": Task.Type.TASK,
             "priority": Task.Priority.MEDIUM,
             "assignee": qa_user,
             "description": (
-                f"**Testing Criteria:**\n"
-                f"- Concurrency load harness (>50 req/s)\n"
-                f"- Boundary and edge condition validation\n"
-                f"- 5-stage Kanban decision gate verification before merging"
+                f"### 📋 Project Management Specification (WBS 1.3)\n"
+                f"**Strategic Objective:** Quality assurance gatekeeper signoff for `{summary_title}` across all acceptance criteria.\n\n"
+                f"**1. Scope Boundaries:**\n"
+                f"- **In-Scope:** Automated integration test harness, concurrency edge-cases, and 5-stage Kanban decision gate validation.\n"
+                f"- **Out-of-Scope:** Manual exploratory load stress >10k concurrent users.\n\n"
+                f"**2. Deliverables & Definition of Done (DoD):**\n"
+                f"- Automated integration test suite with >=95.0% assertion coverage\n"
+                f"- Zero unhandled 500 exceptions across edge conditions\n"
+                f"- Contract Compliance Score: 100% verified\n\n"
+                f"**3. Risk & Contingency:**\n"
+                f"- *Risk:* Uncaught regression in adjacent modules.\n"
+                f"- *Mitigation:* Full regression suite pass required before Tech Lead merge gate."
             ),
             "dialogue": [
                 {
                     "author": pm_user,
-                    "text": f"@{qa_user.name.split()[0]}, please define the acceptance test criteria for this sprint once backend & frontend PRs are drafted."
+                    "text": f"@{qa_user.name.split()[0]}, please define the acceptance test matrix for **{summary_title}** and enforce the 5-stage Kanban decision gate."
                 },
                 {
                     "author": qa_user,
@@ -116,20 +137,28 @@ def decompose_plan_and_create_tasks(
     # Add DevOps CI ticket if plan mentions deploy/infra/ci/cd/docker
     if any(w in clean_plan.lower() for w in ["deploy", "docker", "ci", "cd", "pipeline", "release", "infra"]):
         tickets_spec.append({
-            "title": f"[DevOps] Staging Pipeline & Container Build for {summary_title}",
+            "title": f"[WBS 1.4 - DevOps] Staging Pipeline & Container Build for {summary_title}",
             "type": Task.Type.TASK,
             "priority": Task.Priority.MEDIUM,
             "assignee": devops_user,
             "description": (
-                f"**Release & Infra Scope:**\n"
-                f"- Verify Docker container health and zero downtime build\n"
-                f"- Generate staging rollback snapshot\n"
-                f"- Health check endpoint verification (HTTP 200)"
+                f"### 📋 Project Management Specification (WBS 1.4)\n"
+                f"**Strategic Objective:** Automated CI/CD build, deployment verification, and rollback readiness for `{summary_title}`.\n\n"
+                f"**1. Scope Boundaries:**\n"
+                f"- **In-Scope:** Multi-stage Docker container build, health check validation, and 1-click rollback snapshot generation.\n"
+                f"- **Out-of-Scope:** Multi-region Kubernetes orchestration.\n\n"
+                f"**2. Deliverables & Definition of Done (DoD):**\n"
+                f"- Docker container build verified healthy\n"
+                f"- Automated staging rollback snapshot created\n"
+                f"- Live deployment health check endpoint (HTTP 200)\n\n"
+                f"**3. Risk & Contingency:**\n"
+                f"- *Risk:* Deployment regression or failing container startup.\n"
+                f"- *Mitigation:* Instant 1-click rollback snapshot to previous stable image."
             ),
             "dialogue": [
                 {
                     "author": pm_user,
-                    "text": f"@{devops_user.name.split()[0]}, please prepare the Staging release pipeline for **{summary_title}**."
+                    "text": f"@{devops_user.name.split()[0]}, please prepare the WBS 1.4 Staging release pipeline for **{summary_title}**."
                 },
                 {
                     "author": devops_user,
@@ -190,10 +219,11 @@ def decompose_plan_and_create_tasks(
         "tasks_created_count": len(created_tasks),
         "tasks": created_tasks,
         "pm_summary": (
-            f"**Athena (AI PM):** Decomposed plan into **{len(created_tasks)} sprint tickets**.\n"
-            f"- Assigned Backend to **{backend_user.name}**\n"
-            f"- Assigned Frontend to **{frontend_user.name}**\n"
-            f"- Assigned QA to **{qa_user.name}**\n"
-            f"All agents have acknowledged receipt in ticket comments."
+            f"**Athena (AI PM)** (Project Manager): Decomposed initiative into **{len(created_tasks)} WBS-governed sprint tickets**.\n"
+            f"- **WBS 1.1 Backend Core:** {backend_user.name} (Data models, REST APIs, mutex concurrency)\n"
+            f"- **WBS 1.2 Frontend App:** {frontend_user.name} (Next.js 16 App Router, SuperDesign tokens, Lucide icons)\n"
+            f"- **WBS 1.3 QA Gatekeeper:** {qa_user.name} (Acceptance test harness, contract compliance score)\n"
+            + (f"- **WBS 1.4 DevOps CI/CD:** {devops_user.name} (Docker container, health checks, 1-click rollback)\n" if len(created_tasks) > 3 else "")
+            + "Scope boundaries and risk matrices locked to prevent scope creep. All specialists notified."
         ),
     }

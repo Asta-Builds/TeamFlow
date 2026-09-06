@@ -18,6 +18,15 @@ import { PrismaService } from '../prisma/prisma.service.js';
 
 export const AGENT_SEATS = [
   {
+    key: 'pm',
+    role: 'pm',
+    name: 'Athena (AI)',
+    email: 'pm@teamflow.dev',
+    title: 'Project Manager & Delivery Architect',
+    engine: 'Google Antigravity SDK',
+    status: 'ready',
+  },
+  {
     key: 'tech_lead',
     role: 'tech_lead',
     name: 'Sarah Jenkins (AI)',
