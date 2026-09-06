@@ -8,6 +8,7 @@ import { AuthService } from './auth.service.js';
 import { AuthController } from './auth.controller.js';
 import { JwtStrategy } from './jwt.strategy.js';
 import { KeycloakService } from './keycloak.service.js';
+import { ClerkService } from './clerk.service.js';
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ import { KeycloakService } from './keycloak.service.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, KeycloakService],
-  exports: [AuthService, JwtStrategy, KeycloakService, PassportModule, JwtModule],
+  providers: [AuthService, JwtStrategy, KeycloakService, ClerkService],
+  exports: [AuthService, JwtStrategy, KeycloakService, ClerkService, PassportModule, JwtModule],
 })
 export class AuthModule {}

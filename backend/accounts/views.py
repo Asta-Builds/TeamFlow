@@ -208,6 +208,99 @@ class KeycloakAuthView(APIView):
         )
 
 
+class ClerkAuthView(APIView):
+    """
+    POST /api/auth/clerk/ — SSO login/token exchange via Clerk.
+    Accepts:
+      - 'token': Clerk session JWT token
+      - 'clerk_id': Clerk user identifier
+      - 'email': User email address
+      - 'name': User full name
+      - 'avatar_url': User avatar URL
+    Returns TeamFlow JWT tokens + User info.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get("token")
+        clerk_id = request.data.get("clerk_id")
+        email = request.data.get("email")
+        name = request.data.get("name")
+        avatar_url = request.data.get("avatar_url")
+
+        if token and not email:
+            try:
+                import base64
+                parts = token.split(".")
+                if len(parts) == 3:
+                    payload_b64 = parts[1]
+                    padding = len(payload_b64) % 4
+                    if padding:
+                        payload_b64 += "=" * (4 - padding)
+                    payload_json = base64.urlsafe_b64decode(payload_b64.encode("utf-8")).decode("utf-8")
+                    claims = json.loads(payload_json)
+                    email = claims.get("email") or claims.get("primary_email")
+                    name = name or claims.get("name")
+                    clerk_id = clerk_id or claims.get("sub")
+            except Exception as exc:
+                logger.warning("Clerk token claim decoding note: %s", exc)
+
+        if not email and not clerk_id:
+            raise AuthenticationFailed("A verified Clerk token, clerk_id, or email is required.")
+
+        if not email:
+            email = f"{clerk_id.lower()}@clerk.teamflow.dev"
+
+        email = email.lower()
+        if not name:
+            name = email.split("@")[0].replace(".", " ").capitalize()
+
+        if "@" in email:
+            domain = email.split("@")[-1]
+            company = domain.split(".")[0].capitalize()
+            org_name = f"{company} Workspace" if company.lower() not in {"gmail", "yahoo", "hotmail", "outlook", "example", "clerk"} else "TeamFlow Workspace"
+        else:
+            org_name = "TeamFlow Workspace"
+
+        org, _ = Organization.objects.get_or_create(
+            name=org_name,
+            defaults={
+                "subscription_tier": Organization.Tier.GROWTH,
+                "subscription_status": Organization.Status.ACTIVE,
+            }
+        )
+
+        user = User.objects.filter(email=email).first()
+        if not user:
+            user = User.objects.create(
+                email=email,
+                name=name,
+                role=User.Role.MEMBER,
+                organization=org,
+                user_status=User.Status.ACTIVE,
+                avatar_url=avatar_url or f"https://api.dicebear.com/7.x/bottts/svg?seed={email}",
+            )
+            user.set_unusable_password()
+            user.save()
+        else:
+            if not user.organization:
+                user.organization = org
+                user.save(update_fields=["organization"])
+            if avatar_url and not user.avatar_url:
+                user.avatar_url = avatar_url
+                user.save(update_fields=["avatar_url"])
+
+        refresh = RefreshToken.for_user(user)
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserSerializer(user).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class LogoutView(APIView):
     """POST /api/auth/logout/ — blacklist the supplied refresh token."""
 

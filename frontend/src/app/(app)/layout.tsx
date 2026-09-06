@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useClerkSync } from "@/lib/providers/clerk-sync";
 import { apiFetch } from "@/lib/api";
 import type { Notification } from "@/lib/types";
 import { Avatar, AgentTypeBadge } from "@/lib/ui";
@@ -36,6 +37,7 @@ const NAV = [
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
+  const { isSyncing } = useClerkSync();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -44,8 +46,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
-  }, [user, loading, router]);
+    if (!loading && !isSyncing && !user) router.replace("/login");
+  }, [user, loading, isSyncing, router]);
 
   useEffect(() => {
     if (!user) return;
@@ -78,14 +80,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     } catch {}
   };
 
-  if (loading || !user) {
+  if (loading || isSyncing || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400 font-medium">
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white font-extrabold shadow-lg shadow-indigo-600/30 animate-pulse">
             TF
           </div>
-          <span className="text-xs font-semibold tracking-wider uppercase text-slate-500">Loading Workspace…</span>
+          <span className="text-xs font-semibold tracking-wider uppercase text-slate-500">
+            {isSyncing ? "Synchronizing Clerk Identity…" : "Loading Workspace…"}
+          </span>
         </div>
       </div>
     );

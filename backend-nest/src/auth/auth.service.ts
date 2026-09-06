@@ -14,6 +14,8 @@ import { RefreshDto } from './dto/refresh.dto.js';
 import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { KeycloakDto } from './dto/keycloak.dto.js';
 import { KeycloakService } from './keycloak.service.js';
+import { ClerkDto } from './dto/clerk.dto.js';
+import { ClerkService } from './clerk.service.js';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +23,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private keycloakService?: KeycloakService,
+    private clerkService?: ClerkService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -277,6 +280,94 @@ export class AuthService {
         if (role && existingUser.role !== role) updateData.role = role;
         if (!existingUser.organizationId)
           updateData.organizationId = existingOrg.id;
+        if (Object.keys(updateData).length > 0) {
+          existingUser = await tx.user.update({
+            where: { id: existingUser.id },
+            data: updateData,
+          });
+        }
+      }
+
+      return existingUser;
+    });
+
+    const tokens = this.generateTokens(user.id, user.email, user.role);
+    const serializedUser = await this.serializeUser(user.id);
+
+    return {
+      ...tokens,
+      user: serializedUser,
+    };
+  }
+
+  async clerkLogin(dto: ClerkDto) {
+    if (!this.clerkService) {
+      throw new UnauthorizedException('Clerk service is not configured');
+    }
+
+    const verifiedUser = await this.clerkService.verifyClerkSession(dto);
+    const email = verifiedUser.email.toLowerCase();
+    const name = verifiedUser.name || email.split('@')[0];
+    const role = verifiedUser.role || 'member';
+    const avatarUrl =
+      verifiedUser.avatar_url ||
+      `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`;
+
+    // Resolve or create tenant organization
+    let orgName = 'TeamFlow Workspace';
+    if (email.includes('@')) {
+      const domain = email.split('@')[1];
+      const company = domain.split('.')[0];
+      const isGeneric = [
+        'gmail',
+        'yahoo',
+        'hotmail',
+        'outlook',
+        'example',
+      ].includes(company.toLowerCase());
+      orgName = isGeneric
+        ? 'TeamFlow Workspace'
+        : `${company.charAt(0).toUpperCase() + company.slice(1)} Workspace`;
+    }
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      let existingOrg = await tx.organization.findFirst({
+        where: { name: orgName },
+      });
+      if (!existingOrg) {
+        existingOrg = await tx.organization.create({
+          data: {
+            name: orgName,
+            subscriptionTier: 'growth',
+            subscriptionStatus: 'active',
+          },
+        });
+      }
+
+      let existingUser = await tx.user.findUnique({
+        where: { email },
+      });
+
+      if (!existingUser) {
+        const unusableHash = `!sso_clerk_${randomUUID()}`;
+        existingUser = await tx.user.create({
+          data: {
+            email,
+            password: unusableHash,
+            name,
+            role,
+            organizationId: existingOrg.id,
+            avatarUrl,
+          },
+        });
+      } else {
+        const updateData: any = {};
+        if (!existingUser.organizationId) {
+          updateData.organizationId = existingOrg.id;
+        }
+        if (avatarUrl && !existingUser.avatarUrl) {
+          updateData.avatarUrl = avatarUrl;
+        }
         if (Object.keys(updateData).length > 0) {
           existingUser = await tx.user.update({
             where: { id: existingUser.id },

@@ -14,6 +14,7 @@ import { LoginDto } from './dto/login.dto.js';
 import { RefreshDto } from './dto/refresh.dto.js';
 import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { KeycloakDto } from './dto/keycloak.dto.js';
+import { ClerkDto } from './dto/clerk.dto.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
@@ -44,6 +45,14 @@ export class AuthController {
   @ApiOperation({ summary: 'SSO login and token exchange via Keycloak' })
   async keycloakLogin(@Body() dto: KeycloakDto) {
     return this.authService.keycloakLogin(dto);
+  }
+
+  @Public()
+  @Post('clerk')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'SSO login and token exchange via Clerk' })
+  async clerkLogin(@Body() dto: ClerkDto) {
+    return this.authService.clerkLogin(dto);
   }
 
   @Public()

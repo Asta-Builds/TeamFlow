@@ -10,6 +10,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.views import (
     ChangePasswordView,
+    ClerkAuthView,
     KeycloakAuthView,
     LogoutView,
     MeView,
@@ -67,6 +68,7 @@ auth_patterns = [
     path("me/", MeView.as_view(), name="me"),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
     path("keycloak/", KeycloakAuthView.as_view(), name="keycloak-auth"),
+    path("clerk/", ClerkAuthView.as_view(), name="clerk-auth"),
 ]
 
 urlpatterns = [

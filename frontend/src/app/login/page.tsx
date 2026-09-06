@@ -57,7 +57,7 @@ export default function LoginPage() {
   }
 
   function loginWithClerk() {
-    router.push("/sign-in");
+    router.push(mode === "register" ? "/sign-up" : "/sign-in");
   }
 
   return (
@@ -132,7 +132,7 @@ export default function LoginPage() {
               className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-950/80 to-purple-950/80 px-4 text-xs font-bold text-white shadow-xs hover:border-indigo-400 hover:from-indigo-900 hover:to-purple-900 transition cursor-pointer"
             >
               <ShieldCheck className="h-4 w-4 text-indigo-400" />
-              <span>Continue with Clerk</span>
+              <span>{mode === "register" ? "Sign up with Clerk" : "Continue with Clerk"}</span>
             </button>
 
             <div className="relative flex items-center justify-center">

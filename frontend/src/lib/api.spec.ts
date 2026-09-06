@@ -25,7 +25,7 @@ Object.defineProperty(global, "window", {
   writable: true,
 });
 
-import { normalizeList, ApiError, getToken, setTokens, clearTokens, apiFetch } from "./api";
+import { normalizeList, ApiError, getToken, setTokens, clearTokens, apiFetch, loginWithClerkSession } from "./api";
 
 describe("Frontend API Client & Utilities", () => {
   beforeEach(() => {
@@ -143,6 +143,42 @@ describe("Frontend API Client & Utilities", () => {
       global.fetch = fetchMock;
 
       await expect(apiFetch("/tasks/999/")).rejects.toThrow(ApiError);
+    });
+  });
+
+  describe("loginWithClerkSession()", () => {
+    it("exchanges Clerk credentials for TeamFlow JWT and persists tokens", async () => {
+      const mockAuthResponse = {
+        access: "teamflow_jwt_access_clerk",
+        refresh: "teamflow_jwt_refresh_clerk",
+        user: { id: 42, email: "clerk.dev@teamflow.dev", name: "Clerk Dev", role: "member" },
+      };
+
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => mockAuthResponse,
+      });
+      global.fetch = fetchMock;
+
+      const payload = {
+        token: "clerk_test_jwt",
+        clerk_id: "user_2test123",
+        email: "clerk.dev@teamflow.dev",
+        name: "Clerk Dev",
+        avatar_url: "https://img.clerk.com/test.png",
+      };
+
+      const result = await loginWithClerkSession(payload);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [calledUrl, calledOptions] = fetchMock.mock.calls[0];
+      expect(calledUrl).toContain("/auth/clerk/");
+      expect(calledOptions.method).toBe("POST");
+      expect(calledOptions.headers.Authorization).toBeUndefined();
+      expect(JSON.parse(calledOptions.body)).toEqual(payload);
+      expect(result).toEqual(mockAuthResponse);
+      expect(getToken()).toBe("teamflow_jwt_access_clerk");
     });
   });
 });

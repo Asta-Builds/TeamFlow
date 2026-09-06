@@ -62,6 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(() => {
     clearTokens();
     setUser(null);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("teamflow:logout"));
+    }
   }, []);
 
   return (

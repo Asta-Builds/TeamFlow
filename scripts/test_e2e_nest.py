@@ -223,10 +223,33 @@ def run_suite():
     print(f"  PASS: Rollback #{rb_data['id']} recorded (Status: {rb_data['status']})")
 
     # 19. Team Notifications Delivery Verification
-    print("\n[19/19] Verifying Workspace Team Notifications...")
+    print("\n[19/20] Verifying Workspace Team Notifications...")
     status, notif_list = request(f"{BASE_URL}/notifications", token=access_token)
     assert status == 200, f"Fetching notifications failed ({status}): {notif_list}"
     print(f"  PASS: Notifications retrieved ({len(notif_list)} in inbox).")
+
+    # 20. Clerk SSO Authentication & Session Provisioning
+    print("\n[20/20] Testing Clerk SSO Token Exchange & Session Provisioning...")
+    clerk_email = f"clerk_{timestamp}@acme-corp.com"
+    clerk_payload = {
+        "clerk_id": f"user_2clerk_{timestamp}",
+        "email": clerk_email,
+        "name": "Clerk Enterprise User",
+        "avatar_url": "https://img.clerk.com/test_avatar.png"
+    }
+    status, clerk_auth_data = request(f"{BASE_URL}/auth/clerk", method="POST", data=clerk_payload)
+    assert status == 200, f"Clerk authentication exchange failed ({status}): {clerk_auth_data}"
+    assert "access" in clerk_auth_data, "No access token in Clerk exchange response"
+    assert "refresh" in clerk_auth_data, "No refresh token in Clerk exchange response"
+    assert clerk_auth_data["user"]["email"] == clerk_email, f"User email mismatch: {clerk_auth_data['user']}"
+    assert "Acme-corp Workspace" in clerk_auth_data["user"]["organization_name"], f"Expected Acme-corp Workspace, got {clerk_auth_data['user']['organization_name']}"
+    
+    # Verify the Clerk-provisioned access token works on protected routes
+    clerk_access_token = clerk_auth_data["access"]
+    status, me_data = request(f"{BASE_URL}/auth/me", token=clerk_access_token)
+    assert status == 200, f"Failed accessing /auth/me with Clerk token ({status}): {me_data}"
+    assert me_data["email"] == clerk_email
+    print(f"  PASS: Clerk SSO user authenticated. Org: '{me_data['organization_name']}', Role: '{me_data['role']}'")
 
     # Check Frontend is serving
     print("\n[*] Checking Frontend UI on Port 3000...")
@@ -238,7 +261,7 @@ def run_suite():
     print(f"  PASS: Frontend UI is live and accessible on port 3000.")
 
     print("\n==================================================")
-    print(" ALL 19 END-TO-END TEST STAGES PASSED SUCCESSFULLY!")
+    print(" ALL 20 END-TO-END TEST STAGES PASSED SUCCESSFULLY!")
     print("==================================================")
 
 if __name__ == "__main__":

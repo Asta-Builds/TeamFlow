@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
 import { QueryProvider } from "@/lib/providers/query-provider";
 import { AppClerkProvider } from "@/lib/providers/clerk-provider";
+import { ClerkSyncProvider } from "@/lib/providers/clerk-sync";
 import { Toaster } from "sonner";
 
 const inter = Inter({
@@ -66,9 +67,11 @@ export default function RootLayout({
         </a>
         <AppClerkProvider>
           <AuthProvider>
-            <QueryProvider>
-              {children}
-            </QueryProvider>
+            <ClerkSyncProvider>
+              <QueryProvider>
+                {children}
+              </QueryProvider>
+            </ClerkSyncProvider>
             <Toaster
               position="top-right"
               richColors

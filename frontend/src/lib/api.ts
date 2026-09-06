@@ -1,5 +1,7 @@
 // Thin fetch wrapper around the TeamFlow Django API with JWT handling.
 
+import type { User } from "./types";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api";
 
@@ -105,6 +107,21 @@ export async function loginWithKeycloakToken(token: string) {
   const data = await apiFetch<{ access: string; refresh: string }>(
     "/auth/keycloak/",
     { method: "POST", body: { token }, auth: false }
+  );
+  setTokens(data.access, data.refresh);
+  return data;
+}
+
+export async function loginWithClerkSession(payload: {
+  token?: string;
+  clerk_id?: string;
+  email?: string;
+  name?: string;
+  avatar_url?: string;
+}) {
+  const data = await apiFetch<{ access: string; refresh: string; user?: User }>(
+    "/auth/clerk/",
+    { method: "POST", body: payload, auth: false }
   );
   setTokens(data.access, data.refresh);
   return data;
