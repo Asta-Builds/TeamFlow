@@ -16,6 +16,19 @@ from agents.graph import execute_ticket_swarm
 from agents.antigravity_sdk import AntigravityAgentEngine
 from agents.registry import blueprint_agent_keys, get_agent_spec, resolve_agent_key
 from agents.tools.app_tool import trigger_app_deployment
+from agents.git_service import (
+    sanitize_sensitive_data,
+    create_remote_repo,
+    clone_or_pull,
+    commit_and_push,
+)
+from agents.tools.github_tool import (
+    tool_create_remote_repo,
+    tool_clone_or_pull,
+    tool_commit_and_push,
+    AGENT_GITHUB_TOOLS,
+    TECH_LEAD_GITHUB_TOOLS,
+)
 
 User = get_user_model()
 
@@ -301,3 +314,107 @@ class MultiAgentTestCase(TestCase):
 
         self.client.force_authenticate(user=self.user)
         self.assertEqual(self.client.get(f"/api/agents/traces/{other_task.id}/").data, [])
+
+
+class AgentGitToolsTestCase(TestCase):
+    def test_sanitize_sensitive_data_redacts_tokens(self):
+        with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_secretToken12345"}):
+            raw_url = "https://x-access-token:ghp_secretToken12345@github.com/org/repo.git"
+            sanitized = sanitize_sensitive_data(raw_url)
+            self.assertNotIn("ghp_secretToken12345", sanitized)
+            self.assertIn("***", sanitized)
+
+    def test_create_remote_repo_simulated_without_token(self):
+        with patch.dict("os.environ", {"GITHUB_TOKEN": "", "GH_TOKEN": ""}, clear=True):
+            res = create_remote_repo("my-new-microservice", description="Test repo")
+            self.assertTrue(res["success"])
+            self.assertTrue(res.get("simulated", False))
+            self.assertEqual(res["repo_name"], "my-new-microservice")
+            self.assertIn("github.com", res["clone_url"])
+
+    @patch("requests.post")
+    def test_create_remote_repo_via_api(self, mock_post):
+        mock_post.return_value = SimpleNamespace(
+            status_code=201,
+            json=lambda: {
+                "name": "payment-service",
+                "full_name": "TeamFlow-Dev/payment-service",
+                "html_url": "https://github.com/TeamFlow-Dev/payment-service",
+                "clone_url": "https://github.com/TeamFlow-Dev/payment-service.git",
+                "default_branch": "main",
+            },
+        )
+        with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_mocktoken"}):
+            res = create_remote_repo("payment-service", description="Payments API")
+            self.assertTrue(res["success"])
+            self.assertFalse(res.get("simulated", True))
+            self.assertEqual(res["repo_name"], "payment-service")
+            self.assertEqual(res["html_url"], "https://github.com/TeamFlow-Dev/payment-service")
+            mock_post.assert_called_once()
+
+    @patch("requests.get")
+    @patch("requests.post")
+    def test_create_remote_repo_already_exists(self, mock_post, mock_get):
+        mock_post.return_value = SimpleNamespace(
+            status_code=422,
+            json=lambda: {"message": "name already exists on this account"},
+        )
+        mock_get.return_value = SimpleNamespace(
+            status_code=200,
+            json=lambda: {
+                "name": "payment-service",
+                "full_name": "TeamFlow-Dev/payment-service",
+                "html_url": "https://github.com/TeamFlow-Dev/payment-service",
+                "clone_url": "https://github.com/TeamFlow-Dev/payment-service.git",
+                "default_branch": "main",
+            },
+        )
+        with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_mocktoken"}):
+            res = create_remote_repo("payment-service")
+            self.assertTrue(res["success"])
+            self.assertTrue(res.get("exists", False))
+            self.assertEqual(res["repo_name"], "payment-service")
+
+    @patch("agents.git_service._run_git_command")
+    def test_clone_or_pull_clones_when_no_git_dir(self, mock_run):
+        mock_run.return_value = {"success": True, "stdout": "Cloning into...", "stderr": "", "returncode": 0}
+        with patch("os.path.exists") as mock_exists:
+            # .git does not exist
+            mock_exists.return_value = False
+            res = clone_or_pull("https://github.com/TeamFlow-Dev/new-repo.git", "/tmp/sandbox/new-repo")
+            self.assertTrue(res["success"])
+            self.assertEqual(res["action"], "cloned")
+
+    @patch("agents.git_service._run_git_command")
+    def test_clone_or_pull_pulls_when_git_dir_exists(self, mock_run):
+        mock_run.return_value = {"success": True, "stdout": "Already up to date.", "stderr": "", "returncode": 0}
+        with patch("os.path.exists") as mock_exists:
+            # .git exists
+            mock_exists.return_value = True
+            res = clone_or_pull("https://github.com/TeamFlow-Dev/existing-repo.git", "/tmp/sandbox/existing-repo")
+            self.assertTrue(res["success"])
+            self.assertEqual(res["action"], "pulled")
+
+    @patch("agents.git_service.git_push")
+    @patch("agents.git_service.git_commit")
+    @patch("agents.git_service.git_checkout_branch")
+    @patch("os.path.exists")
+    def test_commit_and_push(self, mock_exists, mock_checkout, mock_commit, mock_push):
+        mock_exists.return_value = True
+        mock_checkout.return_value = {"success": True}
+        mock_commit.return_value = {"success": True, "committed": True, "sha": "abc1234", "output": "commit ok"}
+        mock_push.return_value = {"success": True, "output": "push ok"}
+
+        res = commit_and_push("/tmp/sandbox/repo", "feat(auth): add keycloak auth", branch="feat/auth")
+        self.assertTrue(res["success"])
+        self.assertEqual(res["sha"], "abc1234")
+        self.assertTrue(res["pushed"])
+        mock_commit.assert_called_once()
+        mock_push.assert_called_once()
+
+    def test_langchain_tools_structure(self):
+        self.assertTrue(hasattr(tool_create_remote_repo, "name"))
+        self.assertTrue(hasattr(tool_clone_or_pull, "name"))
+        self.assertTrue(hasattr(tool_commit_and_push, "name"))
+        self.assertGreaterEqual(len(AGENT_GITHUB_TOOLS), 5)
+        self.assertGreaterEqual(len(TECH_LEAD_GITHUB_TOOLS), len(AGENT_GITHUB_TOOLS) + 1)

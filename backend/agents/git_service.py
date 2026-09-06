@@ -21,7 +21,25 @@ from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger(__name__)
 
-WORKSPACE_ROOT = os.environ.get("WORKSPACE_ROOT", "/workspace")
+try:
+    from django.conf import settings
+    _default_ws = "/workspace" if os.path.exists("/workspace") else (str(settings.BASE_DIR) if settings.is_configured() else os.getcwd())
+except Exception:
+    _default_ws = "/workspace" if os.path.exists("/workspace") else os.getcwd()
+
+WORKSPACE_ROOT = os.environ.get("WORKSPACE_ROOT", _default_ws)
+
+
+def sanitize_sensitive_data(text: Any) -> str:
+    """Removes sensitive GitHub tokens from strings before logging or LLM consumption."""
+    if text is None:
+        return ""
+    result = str(text)
+    token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", ""))
+    if token:
+        result = result.replace(token, "***TOKEN***")
+    result = re.sub(r"https://[^@\s]+@github\.com", "https://***@github.com", result)
+    return result
 
 
 def get_project_workspace(task_or_project: Any = None) -> str:
@@ -133,13 +151,14 @@ def _run_git_command(args: List[str], cwd: Optional[str] = None) -> Dict[str, An
         )
         return {
             "success": result.returncode == 0,
-            "stdout": result.stdout.strip(),
-            "stderr": result.stderr.strip(),
+            "stdout": sanitize_sensitive_data(result.stdout.strip()),
+            "stderr": sanitize_sensitive_data(result.stderr.strip()),
             "returncode": result.returncode,
         }
     except Exception as e:
-        logger.error(f"Git command failed: git {' '.join(args)} -> {e}")
-        return {"success": False, "stdout": "", "stderr": str(e), "returncode": -1}
+        err_msg = sanitize_sensitive_data(str(e))
+        logger.error(f"Git command failed: git {' '.join(args)} -> {err_msg}")
+        return {"success": False, "stdout": "", "stderr": err_msg, "returncode": -1}
 
 
 def get_current_branch(cwd: Optional[str] = None) -> str:
@@ -364,4 +383,212 @@ def git_merge_pull_request(
         "target_branch": target_branch,
         "push_success": push_res["success"],
         "output": merge_res["stdout"] or merge_res["stderr"]
+    }
+
+
+def create_remote_repo(
+    repo_name: str,
+    private: bool = False,
+    description: str = "",
+    auto_init: bool = True,
+    org: Optional[str] = None
+) -> Dict[str, Any]:
+    """
+    Creates a new remote GitHub repository via the GitHub REST API.
+    If org is specified, creates under that organization; otherwise under the authenticated user.
+    If GITHUB_TOKEN is not configured, provides an offline simulated response for testing and local workflows.
+    """
+    token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", ""))
+    clean_name = repo_name.strip("/").split("/")[-1] if "/" in repo_name else repo_name.strip()
+    clean_org = org or (repo_name.split("/")[0] if "/" in repo_name else None)
+
+    if not token:
+        logger.info(f"GITHUB_TOKEN not present; simulating repository creation for '{clean_name}'")
+        full_name = f"{clean_org or 'TeamFlow-Dev'}/{clean_name}"
+        return {
+            "success": True,
+            "simulated": True,
+            "repo_name": clean_name,
+            "full_name": full_name,
+            "html_url": f"https://github.com/{full_name}",
+            "clone_url": f"https://github.com/{full_name}.git",
+            "default_branch": "main",
+            "message": f"Simulated repository '{full_name}' created (GITHUB_TOKEN not configured)."
+        }
+
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "TeamFlow-Agent-Swarm"
+    }
+    payload = {
+        "name": clean_name,
+        "description": description or "Autonomous repository managed by TeamFlow AI Specialists",
+        "private": private,
+        "auto_init": auto_init,
+    }
+
+    url = f"https://api.github.com/orgs/{clean_org}/repos" if clean_org else "https://api.github.com/user/repos"
+
+    try:
+        resp = requests.post(url, json=payload, headers=headers, timeout=15)
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            return {
+                "success": True,
+                "simulated": False,
+                "repo_name": data.get("name", clean_name),
+                "full_name": data.get("full_name", f"{clean_org or 'user'}/{clean_name}"),
+                "html_url": data.get("html_url", f"https://github.com/{clean_org or 'user'}/{clean_name}"),
+                "clone_url": data.get("clone_url", f"https://github.com/{clean_org or 'user'}/{clean_name}.git"),
+                "default_branch": data.get("default_branch", "main"),
+                "message": f"Successfully created repository {data.get('full_name')} on GitHub."
+            }
+        elif resp.status_code == 422:
+            # Already exists or validation issue; query repository info
+            target_repo_path = f"{clean_org}/{clean_name}" if clean_org else clean_name
+            get_resp = requests.get(f"https://api.github.com/repos/{target_repo_path}", headers=headers, timeout=10)
+            if get_resp.status_code == 200:
+                data = get_resp.json()
+                return {
+                    "success": True,
+                    "simulated": False,
+                    "exists": True,
+                    "repo_name": data.get("name", clean_name),
+                    "full_name": data.get("full_name"),
+                    "html_url": data.get("html_url"),
+                    "clone_url": data.get("clone_url"),
+                    "default_branch": data.get("default_branch", "main"),
+                    "message": f"Repository {data.get('full_name')} already exists."
+                }
+            err_data = resp.json()
+            return {
+                "success": False,
+                "error": err_data.get("message", "Validation error or repository already exists."),
+                "status_code": resp.status_code
+            }
+        else:
+            return {
+                "success": False,
+                "error": sanitize_sensitive_data(resp.text),
+                "status_code": resp.status_code
+            }
+    except Exception as exc:
+        err_str = sanitize_sensitive_data(str(exc))
+        logger.error(f"GitHub API create_remote_repo failed: {err_str}")
+        return {"success": False, "error": err_str}
+
+
+def clone_or_pull(
+    repo_url: str,
+    local_dir: str,
+    branch: str = "main"
+) -> Dict[str, Any]:
+    """
+    Clones a remote repository into local_dir if not present,
+    or pulls latest changes if repository already exists locally.
+    Safely injects GitHub PAT credentials and sanitizes output.
+    """
+    token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", ""))
+    
+    # Construct authenticated URL if token is available
+    auth_url = repo_url
+    if token and "github.com" in repo_url:
+        clean_url = repo_url.replace("https://", "").replace("http://", "")
+        if "@" in clean_url:
+            clean_url = clean_url.split("@")[-1]
+        auth_url = f"https://x-access-token:{token}@{clean_url}"
+
+    git_dir = os.path.join(local_dir, ".git")
+
+    if not os.path.exists(git_dir):
+        # Fresh clone
+        parent_dir = os.path.dirname(os.path.abspath(local_dir))
+        dir_name = os.path.basename(os.path.abspath(local_dir))
+        os.makedirs(parent_dir, exist_ok=True)
+        
+        clone_res = _run_git_command(["clone", auth_url, dir_name], cwd=parent_dir)
+        if not clone_res["success"]:
+            # Fallback bootstrap for local/mock/offline testing
+            logger.warning(f"Git clone failed, bootstrapping local repo at {local_dir}: {clone_res['stderr']}")
+            bootstrap_res = bootstrap_new_project_repo(local_dir, project_name=dir_name, github_repo=repo_url)
+            return {
+                "success": bootstrap_res["success"],
+                "action": "bootstrapped_fallback",
+                "local_dir": local_dir,
+                "branch": branch,
+                "output": clone_res["stderr"] or "Initialized local fallback repository."
+            }
+
+        # Configure agent identity inside cloned repo
+        _run_git_command(["config", "user.name", "TeamFlow AI Swarm"], cwd=local_dir)
+        _run_git_command(["config", "user.email", "swarm@teamflow.dev"], cwd=local_dir)
+
+        return {
+            "success": True,
+            "action": "cloned",
+            "local_dir": local_dir,
+            "branch": branch,
+            "output": clone_res["stdout"] or f"Cloned {sanitize_sensitive_data(repo_url)} into {local_dir}"
+        }
+    else:
+        # Existing repository: checkout and pull
+        _run_git_command(["config", "user.name", "TeamFlow AI Swarm"], cwd=local_dir)
+        _run_git_command(["config", "user.email", "swarm@teamflow.dev"], cwd=local_dir)
+
+        if token and "github.com" in auth_url:
+            _run_git_command(["remote", "set-url", "origin", auth_url], cwd=local_dir)
+
+        _run_git_command(["fetch", "origin"], cwd=local_dir)
+        checkout_res = git_checkout_branch(branch, create_if_missing=True, cwd=local_dir)
+        pull_res = _run_git_command(["pull", "origin", branch], cwd=local_dir)
+
+        return {
+            "success": pull_res["success"] or checkout_res["success"],
+            "action": "pulled",
+            "local_dir": local_dir,
+            "branch": branch,
+            "output": pull_res["stdout"] or pull_res["stderr"] or checkout_res.get("output", "")
+        }
+
+
+def commit_and_push(
+    local_dir: str,
+    commit_message: str,
+    branch: str = "main",
+    author_name: str = "TeamFlow AI Swarm",
+    author_email: str = "swarm@teamflow.dev",
+    files: Optional[List[str]] = None,
+    force: bool = False
+) -> Dict[str, Any]:
+    """
+    Stages modified files, creates a commit with agent author identity, and pushes to remote.
+    """
+    if not os.path.exists(local_dir):
+        return {"success": False, "error": f"Directory does not exist: {local_dir}"}
+
+    # Ensure on correct branch
+    git_checkout_branch(branch, create_if_missing=True, cwd=local_dir)
+
+    # Commit changes
+    commit_res = git_commit(
+        message=commit_message,
+        author_name=author_name,
+        author_email=author_email,
+        files=files,
+        cwd=local_dir
+    )
+
+    # Push changes
+    push_res = git_push(branch_name=branch, cwd=local_dir, force=force)
+
+    return {
+        "success": commit_res["success"] and push_res["success"],
+        "committed": commit_res.get("committed", False),
+        "sha": commit_res.get("sha", ""),
+        "branch": branch,
+        "pushed": push_res["success"],
+        "commit_message": commit_message,
+        "author": f"{author_name} <{author_email}>",
+        "output": f"Commit: {commit_res.get('output', '')} | Push: {push_res.get('output', '')}".strip()
     }
