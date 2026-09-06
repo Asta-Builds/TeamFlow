@@ -59,10 +59,10 @@ jobs:
           DEBUG: "True"
         run: |
           cd backend
-          python manage.py test
+          python manage.py test --noinput
 
   backend-nest:
-    name: Backend NestJS (74 Tests & Build)
+    name: Backend NestJS (94 Tests & Build)
     runs-on: ubuntu-latest
 
     steps:
@@ -106,7 +106,7 @@ jobs:
           npm run build
 
   frontend:
-    name: Frontend Next.js 16 (37 Tests & Build)
+    name: Frontend Next.js 16 (42 Tests & Build)
     runs-on: ubuntu-latest
 
     steps:

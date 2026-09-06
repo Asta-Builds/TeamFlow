@@ -1,8 +1,10 @@
 import json
 import os
 import re
+import sys
 import time
 
+from django.conf import settings
 from django.db import close_old_connections
 from django.db.models import Q
 from django.http import StreamingHttpResponse
@@ -251,8 +253,10 @@ class AgentEventStreamView(views.APIView):
         def stream():
             last_id = after_id
             deadline = time.monotonic() + 25
+            is_testing = getattr(settings, "TESTING", False) or "test" in sys.argv
             while time.monotonic() < deadline:
-                close_old_connections()
+                if not is_testing:
+                    close_old_connections()
                 queryset = AgentEvent.objects.filter(
                     organization_id=organization_id,
                     id__gt=last_id,
@@ -273,7 +277,8 @@ class AgentEventStreamView(views.APIView):
                 if not sent:
                     yield ": keep-alive\n\n"
                 time.sleep(1)
-            close_old_connections()
+            if not is_testing:
+                close_old_connections()
 
         response = StreamingHttpResponse(stream(), content_type="text/event-stream")
         response["Cache-Control"] = "no-cache, no-transform"

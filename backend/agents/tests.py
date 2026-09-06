@@ -260,7 +260,6 @@ class MultiAgentTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/event-stream")
         first_chunk = next(iter(response.streaming_content)).decode("utf-8")
-        response.close()
         self.assertIn(f"id: {event.id}", first_chunk)
         self.assertIn("Implementing the scoped API update", first_chunk)
         self.assertIn("Writing tenant checks", first_chunk)

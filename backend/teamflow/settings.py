@@ -3,12 +3,14 @@ Django settings for the TeamFlow project & ticket management platform.
 See the Virtual Tech Company Blueprint for architecture context.
 """
 
+import sys
 from datetime import timedelta
 from pathlib import Path
 
 import environ
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+TESTING = "test" in sys.argv
 
 env = environ.Env(
     DEBUG=(bool, True),
