@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { apiFetch, ApiError, normalizeList } from "@/lib/api";
+import { useState } from "react";
+import { apiFetch, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useTeamMembers, queryKeys } from "@/lib/queries";
+import { useQueryClient } from "@tanstack/react-query";
 import TeamLoading from "./loading";
 import type { Role, User, UserStatus } from "@/lib/types";
 import {
@@ -17,8 +19,8 @@ import { UserPlus, Target, Edit2, X, Bot } from "lucide-react";
 
 export default function TeamPage() {
   const { user } = useAuth();
-  const [members, setMembers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: members = [], isLoading: loading } = useTeamMembers();
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [editingMember, setEditingMember] = useState<User | null>(null);
 
@@ -33,19 +35,10 @@ export default function TeamPage() {
     user?.role === "tech_lead" ||
     user?.role === "admin";
 
-  function load() {
-    apiFetch<unknown>("/users/")
-      .then((d) => setMembers(normalizeList<User>(d)))
-      .catch((err) => console.error("Error loading team directory", err))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(load, []);
-
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
     try {
-      const created = await apiFetch<User>("/users/", {
+      await apiFetch<User>("/users/", {
         method: "POST",
         body: {
           email: newEmail,
@@ -54,7 +47,7 @@ export default function TeamPage() {
           bio: newBio,
         },
       });
-      setMembers((prev) => [...prev, created]);
+      queryClient.invalidateQueries({ queryKey: queryKeys.team });
       setShowInviteModal(false);
       setNewEmail("");
       setNewName("");
@@ -71,11 +64,11 @@ export default function TeamPage() {
 
   async function handleUpdateRole(memberId: number, role: Role, user_status: UserStatus) {
     try {
-      const updated = await apiFetch<User>(`/users/${memberId}/`, {
+      await apiFetch<User>(`/users/${memberId}/`, {
         method: "PATCH",
         body: { role, user_status },
       });
-      setMembers((prev) => prev.map((m) => (m.id === memberId ? updated : m)));
+      queryClient.invalidateQueries({ queryKey: queryKeys.team });
       setEditingMember(null);
       toast.success("Member role and status updated!");
     } catch {

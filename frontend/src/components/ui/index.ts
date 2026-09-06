@@ -5,3 +5,6 @@ export * from "./input";
 export * from "./modal";
 export * from "./avatar";
 export * from "./stat-card";
+export * from "./tabs";
+export * from "./select";
+export * from "./tooltip";

@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { buttonVariants } from "./button";
 import { badgeVariants } from "./badge";
+import { tabsTriggerVariants } from "./tabs";
+import { selectVariants } from "./select";
 import { getInitials } from "./avatar";
 import { cn } from "@/lib/utils";
 
@@ -72,4 +74,19 @@ describe("Component Library Primitives (Phase 6 Design Tokens)", () => {
       expect(getInitials("", "")).toBe("?");
     });
   });
+
+  describe("tabsTriggerVariants (CVA)", () => {
+    it("generates active and inactive tabs trigger styling", () => {
+      expect(tabsTriggerVariants({ active: true })).toContain("bg-slate-800");
+      expect(tabsTriggerVariants({ active: false })).toContain("text-slate-400");
+    });
+  });
+
+  describe("selectVariants (CVA)", () => {
+    it("generates default select styling", () => {
+      expect(selectVariants()).toContain("bg-slate-900/90");
+      expect(selectVariants({ variant: "danger" })).toContain("border-rose-500/70");
+    });
+  });
 });
+

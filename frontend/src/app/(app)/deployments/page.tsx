@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { apiFetch, ApiError, normalizeList } from "@/lib/api";
+import { useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth";
+import {
+  useDeployments,
+  useProjects,
+  useTriggerDeploymentMutation,
+  useRollbackDeploymentMutation,
+} from "@/lib/queries";
 import DeploymentsLoading from "./loading";
-import type { Deployment, Project } from "@/lib/types";
+import type { Deployment } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
-import { toast } from "sonner";
 import { Rocket, Terminal, RotateCcw, AlertTriangle, GitBranch, X } from "lucide-react";
 
 const DEPLOY_STYLES: Record<string, string> = {
@@ -36,16 +40,18 @@ function fmt(dt: string | null) {
 
 export default function DeploymentsPage() {
   const { user } = useAuth();
-  const [deployments, setDeployments] = useState<Deployment[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: deployments = [], isLoading: dLoading } = useDeployments();
+  const { data: projects = [], isLoading: pLoading } = useProjects();
+  const triggerMutation = useTriggerDeploymentMutation();
+  const rollbackMutation = useRollbackDeploymentMutation();
+
+  const loading = dLoading || pLoading;
 
   // Trigger modal
   const [showTriggerModal, setShowTriggerModal] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<number | "">("");
   const [selectedEnv, setSelectedEnv] = useState<"staging" | "production">("staging");
   const [selectedBranch, setSelectedBranch] = useState("main");
-  const [triggering, setTriggering] = useState(false);
 
   // View logs modal
   const [activeLogDeployment, setActiveLogDeployment] = useState<Deployment | null>(null);
@@ -56,65 +62,34 @@ export default function DeploymentsPage() {
     user?.role === "ceo" ||
     user?.role === "admin";
 
-  function load() {
-    Promise.all([
-      apiFetch<unknown>("/deployments/"),
-      apiFetch<unknown>("/projects/").catch(() => []),
-    ])
-      .then(([d, p]) => {
-        setDeployments(normalizeList<Deployment>(d));
-        const projs = normalizeList<Project>(p);
-        setProjects(projs);
-        if (projs.length > 0) {
-          setSelectedProjectId((prev) => (prev ? prev : projs[0].id));
-        }
-      })
-      .catch((err) => console.error("Error loading deployments logs", err))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(() => {
-    load();
-  }, []);
+  const effectiveProjectId = useMemo(() => {
+    if (selectedProjectId) return selectedProjectId;
+    return projects.length > 0 ? projects[0].id : "";
+  }, [selectedProjectId, projects]);
 
   async function handleTrigger(e: React.FormEvent) {
     e.preventDefault();
-    if (!selectedProjectId) return;
-    setTriggering(true);
+    const pid = selectedProjectId || effectiveProjectId;
+    if (!pid) return;
+    const commit = Math.random().toString(16).substring(2, 9);
     try {
-      const commit = Math.random().toString(16).substring(2, 9);
-      const created = await apiFetch<Deployment>("/deployments/", {
-        method: "POST",
-        body: {
-          project: selectedProjectId,
-          environment: selectedEnv,
-          branch: selectedBranch,
-          commit_sha: commit,
-        },
+      await triggerMutation.mutateAsync({
+        project: Number(pid),
+        environment: selectedEnv,
+        branch: selectedBranch,
+        commit_sha: commit,
       });
-      setDeployments((prev) => [created, ...prev]);
       setShowTriggerModal(false);
-      toast.success(`Release triggered on ${selectedEnv.toUpperCase()} (${commit})`);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 403) {
-        toast.error("Permission denied: Only DevOps, Tech Lead or CEO can trigger releases.");
-      } else {
-        toast.error("Failed to trigger deployment.");
-      }
-    } finally {
-      setTriggering(false);
+    } catch {
+      // Error handled in mutation toast
     }
   }
 
   async function handleRollback(deploymentId: number) {
     try {
-      const rolledBack = await apiFetch<Deployment>(`/deployments/${deploymentId}/rollback/`, {
-        method: "POST",
-      });
-      setDeployments((prev) => [rolledBack, ...prev]);
-      toast.success("Successfully rolled back to target release!");
+      await rollbackMutation.mutateAsync(deploymentId);
     } catch {
-      toast.error("Rollback failed.");
+      // Handled in mutation toast
     }
   }
 
@@ -297,11 +272,11 @@ export default function DeploymentsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={triggering}
+                  disabled={triggerMutation.isPending}
                   className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-60 cursor-pointer flex items-center gap-1.5"
                 >
                   <Rocket className="h-3.5 w-3.5" />
-                  <span>{triggering ? "Deploying..." : "Start Pipeline"}</span>
+                  <span>{triggerMutation.isPending ? "Deploying..." : "Start Pipeline"}</span>
                 </button>
               </div>
             </form>

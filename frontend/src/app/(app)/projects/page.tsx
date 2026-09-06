@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { apiFetch, ApiError, normalizeList } from "@/lib/api";
+import { useProjects, useCreateProjectMutation } from "@/lib/queries";
+import { useDebounce } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
 import ProjectsLoading from "./loading";
 import type { Project, ProjectStatus } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
-import { toast } from "sonner";
-import { LayoutGrid, Table, Plus, FolderKanban, X } from "lucide-react";
+import { LayoutGrid, Table, Plus, FolderKanban, X, Search } from "lucide-react";
 
 const STATUS_STYLES: Record<ProjectStatus, string> = {
   active: "bg-emerald-950/70 text-emerald-300 border-emerald-800/50",
@@ -19,10 +19,14 @@ const STATUS_STYLES: Record<ProjectStatus, string> = {
 
 export default function ProjectsPage() {
   const { user } = useAuth();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: projects = [], isLoading } = useProjects();
+  const createMutation = useCreateProjectMutation();
+
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 200);
+
   const [creating, setCreating] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -33,43 +37,34 @@ export default function ProjectsPage() {
     user?.role === "tech_lead" ||
     user?.role === "admin";
 
-  function load() {
-    apiFetch<unknown>("/projects/")
-      .then((d) => setProjects(normalizeList<Project>(d)))
-      .catch((err) => console.error("Error loading projects", err))
-      .finally(() => setLoading(false));
-  }
-
-  useEffect(load, []);
-
   async function createProject(e: React.FormEvent) {
     e.preventDefault();
+    if (!name.trim()) return;
     try {
-      const created = await apiFetch<Project>("/projects/", {
-        method: "POST",
-        body: { name, description, status },
-      });
-      setProjects((prev) => [created, ...prev]);
+      await createMutation.mutateAsync({ name, description, status });
       setName("");
       setDescription("");
       setCreating(false);
-      toast.success(`Project "${name}" created successfully`);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 403) {
-        toast.error("Permission denied: Only CEO, Tech Lead or Admin can create projects.");
-      } else {
-        toast.error("Could not create project.");
-      }
+    } catch {
+      // Error handled in mutation toast
     }
   }
 
-  const filteredProjects = statusFilter !== "all"
-    ? projects.filter((p) => p.status === statusFilter)
-    : projects;
+  const filteredProjects = useMemo(() => {
+    return projects.filter((p) => {
+      const matchStatus = statusFilter === "all" || p.status === statusFilter;
+      const matchSearch =
+        !debouncedSearch ||
+        p.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        p.description?.toLowerCase().includes(debouncedSearch.toLowerCase());
+      return matchStatus && matchSearch;
+    });
+  }, [projects, statusFilter, debouncedSearch]);
 
-  if (loading) {
+  if (isLoading) {
     return <ProjectsLoading />;
   }
+
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -120,22 +115,37 @@ export default function ProjectsPage() {
       </div>
 
       {/* Filter bar */}
-      <div className="flex items-center gap-3">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 shadow-xs"
-        >
-          <option value="all">All Project Statuses</option>
-          <option value="active">Active</option>
-          <option value="on_hold">On Hold</option>
-          <option value="completed">Completed</option>
-          <option value="archived">Archived</option>
-        </select>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="rounded-xl border border-slate-800 bg-slate-900 pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 shadow-xs"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 shadow-xs"
+          >
+            <option value="all">All Project Statuses</option>
+            <option value="active">Active</option>
+            <option value="on_hold">On Hold</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+
         <span className="text-xs text-slate-500 font-medium">
           Showing {filteredProjects.length} of {projects.length} projects
         </span>
       </div>
+
 
       {/* Create Project Form Modal */}
       {creating && (
@@ -200,7 +210,7 @@ export default function ProjectsPage() {
         </form>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="flex h-48 items-center justify-center text-slate-500 font-semibold text-xs tracking-wider uppercase">
           Loading projects…
         </div>

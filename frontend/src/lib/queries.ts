@@ -18,6 +18,9 @@ import type {
   User,
   PulseDashboard,
   TaskStatus,
+  ProjectStatus,
+  Priority,
+  TaskType,
   ActivityFeedItem,
   AgentClusterStatus,
 } from "./types";
@@ -300,3 +303,57 @@ export function useCreateSeoTaskMutation() {
     },
   });
 }
+
+export function useCreateProjectMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      name: string;
+      description?: string;
+      status?: ProjectStatus;
+    }) => {
+      return apiFetch<Project>("/projects/", {
+        method: "POST",
+        body: payload,
+      });
+    },
+    onSuccess: (data) => {
+      toast.success(`Projet "${data.name}" créé avec succès`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+    onError: (err) => {
+      toast.error(`Échec de création du projet : ${err instanceof Error ? err.message : "Erreur inconnue"}`);
+    },
+  });
+}
+
+export function useCreateTaskMutation(projectId?: number) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      project: number;
+      title: string;
+      description?: string;
+      status?: TaskStatus;
+      priority?: Priority;
+      task_type?: TaskType;
+      assignee?: number | null;
+    }) => {
+      return apiFetch<Task>("/tasks/", {
+        method: "POST",
+        body: payload,
+      });
+    },
+    onSuccess: (data) => {
+      toast.success(`Tâche #${data.id} créée avec succès`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks(projectId) });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+    onError: (err) => {
+      toast.error(`Échec de création de la tâche : ${err instanceof Error ? err.message : "Erreur inconnue"}`);
+    },
+  });
+}
+

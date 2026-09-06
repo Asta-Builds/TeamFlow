@@ -25,4 +25,11 @@ describe("TanStack Query Keys Configuration", () => {
     const today = "2026-09-05";
     expect(queryKeys.pulseDashboard(today)).toEqual(["pulse", "dashboard", today]);
   });
+
+  it("exports newly created mutation hooks", async () => {
+    const { useCreateProjectMutation, useCreateTaskMutation } = await import("./queries");
+    expect(typeof useCreateProjectMutation).toBe("function");
+    expect(typeof useCreateTaskMutation).toBe("function");
+  });
 });
+
