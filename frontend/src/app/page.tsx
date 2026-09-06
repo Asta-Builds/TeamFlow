@@ -19,11 +19,10 @@ import {
   ArrowRight,
   Zap,
   Lock,
+  Sparkles,
 } from "lucide-react";
 
-const KEYCLOAK_URL = process.env.NEXT_PUBLIC_KEYCLOAK_URL || "http://localhost:8080";
-const KEYCLOAK_REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || "teamflow";
-const KEYCLOAK_CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "teamflow-app";
+const CLERK_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 const DEMO_STEPS = [
   {
@@ -137,28 +136,8 @@ export default function LandingPage() {
   const [activeStep, setActiveStep] = useState(0);
   const [activeRole, setActiveRole] = useState<keyof typeof ROLE_PREVIEWS>("tech_lead");
 
-  useEffect(() => {
-    // Purge legacy Clerk artifacts from URL and cookies
-    if (typeof window !== "undefined") {
-      if (window.location.search.includes("__clerk")) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete("__clerk_handshake");
-        url.searchParams.delete("__clerk_help");
-        const cleanUrl = url.pathname + (url.search ? url.search : "");
-        window.history.replaceState({}, document.title, cleanUrl);
-      }
-      const legacyCookies = ["__session", "__client_uat", "__clerk_db_jwt"];
-      legacyCookies.forEach((name) => {
-        document.cookie = `${name}=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
-        document.cookie = `${name}=; Path=/; Domain=${window.location.hostname}; Expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
-      });
-    }
-  }, []);
-
-  function loginWithKeycloak() {
-    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-    const authUrl = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth?client_id=${KEYCLOAK_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&scope=openid%20profile%20email`;
-    window.location.href = authUrl;
+  function loginWithClerk() {
+    window.location.href = "/sign-in";
   }
 
   const ActiveRoleIcon = ROLE_PREVIEWS[activeRole].icon;
@@ -200,12 +179,12 @@ export default function LandingPage() {
             ) : (
               <>
                 <button
-                  onClick={loginWithKeycloak}
-                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition cursor-pointer"
-                  title="Sign in with Keycloak OpenID Connect SSO"
+                  onClick={loginWithClerk}
+                  className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-slate-900 px-3.5 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-slate-800 transition cursor-pointer"
+                  title="Sign in with Clerk Authentication"
                 >
-                  <Lock className="h-3.5 w-3.5 text-indigo-400" />
-                  <span>Keycloak SSO</span>
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>Clerk Auth</span>
                 </button>
 
                 <Link
@@ -255,11 +234,11 @@ export default function LandingPage() {
             </Link>
 
             <button
-              onClick={loginWithKeycloak}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/90 px-5 py-3 text-xs sm:text-sm font-bold text-slate-200 hover:bg-slate-800 transition cursor-pointer"
+              onClick={loginWithClerk}
+              className="inline-flex items-center gap-2 rounded-xl border border-indigo-500/40 bg-slate-900/90 px-5 py-3 text-xs sm:text-sm font-bold text-slate-200 hover:bg-slate-800 transition cursor-pointer"
             >
-              <Lock className="h-4 w-4 text-indigo-400" />
-              <span>Sign in with Keycloak (SSO)</span>
+              <ShieldCheck className="h-4 w-4 text-indigo-400" />
+              <span>Sign in with Clerk</span>
             </button>
           </div>
 
@@ -459,12 +438,12 @@ export default function LandingPage() {
 
           {/* Card 6 */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3 hover:border-slate-700 transition">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-950 text-cyan-400 border border-cyan-800/40">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-950 text-indigo-400 border border-indigo-800/40">
               <ShieldCheck className="h-5 w-5" />
             </div>
-            <h4 className="text-base font-bold text-white">Keycloak 26.1 Enterprise SSO</h4>
+            <h4 className="text-base font-bold text-white">Clerk Identity & Access Management</h4>
             <p className="text-xs text-slate-400 leading-relaxed">
-              OpenID Connect authorization code flow, RBAC synchronization, custom Indigo/Inter theme, and user auto-provisioning.
+              Zero-trust user identity, passwordless auth, social OAuth logins, multi-factor protection, and multi-tenant organization support.
             </p>
           </div>
         </div>
@@ -624,7 +603,7 @@ export default function LandingPage() {
             <div className="space-y-4">
               <div>
                 <h4 className="text-base font-bold text-white">Enterprise</h4>
-                <p className="text-xs text-slate-400 mt-1">Dedicated security, Keycloak SSO, and custom agents.</p>
+                <p className="text-xs text-slate-400 mt-1">Dedicated security, Clerk Auth, and custom agents.</p>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-4xl font-black text-white">$199</span>
@@ -632,7 +611,7 @@ export default function LandingPage() {
               </div>
               <ul className="space-y-2.5 text-xs text-slate-300 pt-2">
                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Everything in Growth</li>
-                <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Keycloak OpenID Connect Realm</li>
+                <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Clerk Organization & SSO Integration</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Unlimited Langfuse Trace Retention</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Custom LLM Model Adapters</li>
                 <li className="flex items-center gap-2"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> 99.9% Uptime SLA & Priority Support</li>
@@ -661,7 +640,7 @@ export default function LandingPage() {
 
           <div className="flex flex-wrap items-center gap-6">
             <Link href="/login" className="hover:text-slate-300 transition">Login</Link>
-            <button onClick={loginWithKeycloak} className="hover:text-slate-300 transition cursor-pointer">Keycloak SSO</button>
+            <button onClick={loginWithClerk} className="hover:text-slate-300 transition cursor-pointer">Clerk Auth</button>
             <a href="http://localhost:8000/api/docs/" target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">Swagger API</a>
             <a href="https://github.com/Asta-Builds/TeamFlow" target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">GitHub</a>
             <span>v2.0 Standalone</span>

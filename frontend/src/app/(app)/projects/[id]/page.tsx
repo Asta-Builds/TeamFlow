@@ -666,7 +666,7 @@ export default function ProjectBoardPage() {
                 </span>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    "User Auth & Keycloak SSO with session refresh",
+                    "User Auth & Clerk SSO with session refresh",
                     "Stripe Subscription Billing & Webhook Dispatcher",
                     "Real-Time Slack Notifications & Incident Alerting",
                     "Automated CI/CD Deployment with Docker Staging & Rollbacks",

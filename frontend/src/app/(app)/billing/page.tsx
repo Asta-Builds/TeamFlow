@@ -77,7 +77,7 @@ export default function BillingPage() {
             <p className="text-slate-400 text-xs mt-2 max-w-xl leading-relaxed">
               {currentTier === "starter" && "Your workspace is on the starter tier with basic quotas. Upgrade to unlock all 9 specialist agent seats, pgvector RAG, and production pipelines."}
               {currentTier === "growth" && "Your workspace has unlocked all 9 specialist agent seats, pgvector RAG store, and production rollbacks."}
-              {currentTier === "enterprise" && "Your workspace has dedicated Keycloak SSO, unlimited Langfuse traces, and custom SLA support."}
+              {currentTier === "enterprise" && "Your workspace has dedicated Clerk SSO, unlimited Langfuse traces, and custom SLA support."}
             </p>
           </div>
           {currentTier !== "starter" && (
@@ -189,7 +189,7 @@ export default function BillingPage() {
           )}
           <div>
             <h3 className="font-bold text-base text-white">Enterprise</h3>
-            <p className="text-slate-400 text-xs mt-1">Dedicated Keycloak SSO and SLA support.</p>
+            <p className="text-slate-400 text-xs mt-1">Dedicated Clerk SSO and SLA support.</p>
             <div className="my-5">
               <span className="text-4xl font-black text-white">$199</span>
               <span className="text-slate-500 text-xs"> / month</span>
@@ -201,7 +201,7 @@ export default function BillingPage() {
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                <span>Dedicated Keycloak Realm</span>
+                <span>Dedicated Clerk Organization Auth</span>
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />

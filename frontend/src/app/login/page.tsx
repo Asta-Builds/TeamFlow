@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ApiError, register } from "@/lib/api";
 import { toast } from "sonner";
-import { Lock } from "lucide-react";
+import { Lock, Sparkles, ShieldCheck } from "lucide-react";
 
-const KEYCLOAK_URL = process.env.NEXT_PUBLIC_KEYCLOAK_URL || "http://localhost:8080";
-const KEYCLOAK_REALM = process.env.NEXT_PUBLIC_KEYCLOAK_REALM || "teamflow";
-const KEYCLOAK_CLIENT_ID = process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "teamflow-app";
+const CLERK_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 export default function LoginPage() {
   const { user, loading, login } = useAuth();
@@ -58,10 +56,8 @@ export default function LoginPage() {
     }
   }
 
-  function loginWithKeycloak() {
-    const redirectUri = encodeURIComponent(`${window.location.origin}/auth/callback`);
-    const authUrl = `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/auth?client_id=${KEYCLOAK_CLIENT_ID}&response_type=code&redirect_uri=${redirectUri}&scope=openid%20profile%20email`;
-    window.location.href = authUrl;
+  function loginWithClerk() {
+    router.push("/sign-in");
   }
 
   return (
@@ -97,8 +93,8 @@ export default function LoginPage() {
             </div>
             <span>•</span>
             <div className="flex items-center gap-1.5 text-indigo-400">
-              <Lock className="h-3.5 w-3.5" />
-              <span>Keycloak SSO Active</span>
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Clerk Authentication Active</span>
             </div>
           </div>
         </div>
@@ -123,26 +119,26 @@ export default function LoginPage() {
             </h1>
             <p className="text-xs text-slate-400">
               {mode === "login"
-                ? "Enter your email or use Single Sign-On to continue"
+                ? "Enter your email or use Clerk to continue"
                 : "Enter your workspace details to get started"}
             </p>
           </div>
 
-          {/* Keycloak SSO Button */}
+          {/* Clerk SSO Button */}
           <div className="space-y-3">
             <button
               type="button"
-              onClick={loginWithKeycloak}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 text-xs font-bold text-slate-200 shadow-xs hover:bg-slate-700 hover:text-white transition cursor-pointer"
+              onClick={loginWithClerk}
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-950/80 to-purple-950/80 px-4 text-xs font-bold text-white shadow-xs hover:border-indigo-400 hover:from-indigo-900 hover:to-purple-900 transition cursor-pointer"
             >
-              <Lock className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Continue with Keycloak (SSO)</span>
+              <ShieldCheck className="h-4 w-4 text-indigo-400" />
+              <span>Continue with Clerk</span>
             </button>
 
             <div className="relative flex items-center justify-center">
               <div className="w-full border-t border-slate-800"></div>
               <span className="bg-slate-900 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Or continue with
+                Or continue with email
               </span>
             </div>
           </div>
