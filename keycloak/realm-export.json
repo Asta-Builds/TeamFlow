@@ -63,5 +63,22 @@
       ]
     }
   ],
-  "users": []
+  "users": [
+    {
+      "username": "sso_tester@teamflow.dev",
+      "email": "sso_tester@teamflow.dev",
+      "firstName": "SSO",
+      "lastName": "Tester",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "KeycloakPassword123!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["ceo"]
+    }
+  ]
 }
