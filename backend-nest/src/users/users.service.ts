@@ -61,6 +61,16 @@ export class UsersService {
       where.id = currentUser.id;
     }
 
+    // Multi-tenant isolation: strictly only humans in this tenant and Athena (PM)
+    where.AND = [
+      {
+        OR: [
+          { agentKey: '' },
+          { agentKey: 'pm' },
+        ],
+      },
+    ];
+
     if (query?.role) {
       where.role = query.role;
     }
@@ -68,10 +78,12 @@ export class UsersService {
       where.userStatus = query.user_status;
     }
     if (query?.search) {
-      where.OR = [
-        { email: { contains: query.search, mode: 'insensitive' } },
-        { name: { contains: query.search, mode: 'insensitive' } },
-      ];
+      where.AND.push({
+        OR: [
+          { email: { contains: query.search, mode: 'insensitive' } },
+          { name: { contains: query.search, mode: 'insensitive' } },
+        ],
+      });
     }
 
     const users = await this.prisma.user.findMany({

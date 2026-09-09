@@ -204,10 +204,12 @@ export class AuthService {
     let token = dto.token || dto.access_token || dto.id_token;
 
     if (dto.code && !token) {
-      token = await this.keycloakService.exchangeCodeForToken(
-        dto.code,
-        dto.redirect_uri || 'http://localhost:3000/auth/callback',
-      );
+      if (!dto.redirect_uri) {
+        throw new BadRequestException(
+          'redirect_uri is required when exchanging a Keycloak authorization code',
+        );
+      }
+      token = await this.keycloakService.exchangeCodeForToken(dto.code, dto.redirect_uri);
     }
 
     if (!token) {
@@ -221,7 +223,6 @@ export class AuthService {
     const name = claims.name || claims.given_name || email.split('@')[0];
     const role = this.keycloakService.extractRole(claims) || 'member';
 
-    // Resolve or create tenant organization
     const orgNameClaim =
       claims.organization || claims.org || claims.tenant || claims.workspace;
     let orgName = orgNameClaim;
@@ -237,10 +238,10 @@ export class AuthService {
           'example',
         ].includes(company.toLowerCase());
         orgName = isGeneric
-          ? 'TeamFlow Workspace'
+          ? 'Personal Workspace'
           : `${company.charAt(0).toUpperCase() + company.slice(1)} Workspace`;
       } else {
-        orgName = 'TeamFlow Workspace';
+        orgName = 'Personal Workspace';
       }
     }
 
@@ -259,9 +260,7 @@ export class AuthService {
         });
       }
 
-      let existingUser = await tx.user.findUnique({
-        where: { email },
-      });
+      let existingUser = await tx.user.findUnique({ where: { email } });
 
       if (!existingUser) {
         const unusableHash = `!sso_keycloak_${randomUUID()}`;
@@ -278,8 +277,7 @@ export class AuthService {
       } else {
         const updateData: any = {};
         if (role && existingUser.role !== role) updateData.role = role;
-        if (!existingUser.organizationId)
-          updateData.organizationId = existingOrg.id;
+        if (!existingUser.organizationId) updateData.organizationId = existingOrg.id;
         if (Object.keys(updateData).length > 0) {
           existingUser = await tx.user.update({
             where: { id: existingUser.id },
@@ -314,7 +312,7 @@ export class AuthService {
       `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`;
 
     // Resolve or create tenant organization
-    let orgName = 'TeamFlow Workspace';
+    let orgName = 'Personal Workspace';
     if (email.includes('@')) {
       const domain = email.split('@')[1];
       const company = domain.split('.')[0];
@@ -326,7 +324,7 @@ export class AuthService {
         'example',
       ].includes(company.toLowerCase());
       orgName = isGeneric
-        ? 'TeamFlow Workspace'
+        ? 'Personal Workspace'
         : `${company.charAt(0).toUpperCase() + company.slice(1)} Workspace`;
     }
 
@@ -344,9 +342,7 @@ export class AuthService {
         });
       }
 
-      let existingUser = await tx.user.findUnique({
-        where: { email },
-      });
+      let existingUser = await tx.user.findUnique({ where: { email } });
 
       if (!existingUser) {
         const unusableHash = `!sso_clerk_${randomUUID()}`;

@@ -96,7 +96,9 @@ def parse_and_apply_code_changes(
 
     # Agent and Repo Metadata
     agent_name = agent_info.get("name", "TeamFlow Agent") if agent_info else "TeamFlow Agent"
-    agent_email = agent_info.get("email", "agent@teamflow.dev") if agent_info else "agent@teamflow.dev"
+    agent_email = (
+        agent_info.get("email", "") if agent_info else ""
+    ) or getattr(getattr(task, "assignee", None), "email", "")
     agent_role = agent_info.get("role", "developer") if agent_info else "developer"
     
     target_repo = repo_name

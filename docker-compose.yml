@@ -4,15 +4,15 @@ services:
     container_name: teamflow-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: teamflow
-      POSTGRES_USER: teamflow
-      POSTGRES_PASSWORD: teamflow_password
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U teamflow -d teamflow"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?Set POSTGRES_USER in .env} -d ${POSTGRES_DB:?Set POSTGRES_DB in .env}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -38,24 +38,34 @@ services:
     container_name: teamflow-backend
     restart: unless-stopped
     environment:
-      DEBUG: "True"
-      SEED_DEMO_DATA: "false"
+      DEBUG: ${DEBUG:?Set DEBUG in .env}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
       SECRET_KEY: "${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY to a random secret}"
-      ALLOWED_HOSTS: "localhost,127.0.0.1,backend,frontend,0.0.0.0"
-      CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://127.0.0.1:3000"
-      DATABASE_URL: "postgres://teamflow:teamflow_password@db:5432/teamflow"
-      REDIS_URL: "redis://redis:6379/0"
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CLERK_SECRET_KEY: "${CLERK_SECRET_KEY:-}"
-      CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
-      SLACK_SIGNING_SECRET: ""
-      STRIPE_SECRET_KEY: ""
-      STRIPE_WEBHOOK_SECRET: ""
-      STRIPE_PRICE_GROWTH: ""
-      STRIPE_PRICE_ENTERPRISE: ""
-      LANGFUSE_PUBLIC_KEY: "pk-lf-teamflow-demo"
-      LANGFUSE_SECRET_KEY: "sk-lf-teamflow-demo"
-      LANGFUSE_HOST: "http://langfuse:3000"
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Set ALLOWED_HOSTS in .env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Set CORS_ALLOWED_ORIGINS in .env}
+      CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?Set CSRF_TRUSTED_ORIGINS in .env}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:?Set CELERY_BROKER_URL in .env}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-}
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:-}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+      SLACK_SIGNING_SECRET: ${SLACK_SIGNING_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_GROWTH: ${STRIPE_PRICE_GROWTH:-}
+      STRIPE_PRICE_ENTERPRISE: ${STRIPE_PRICE_ENTERPRISE:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+      LANGFUSE_UI_HOST: ${LANGFUSE_UI_HOST:-}
+      LANGFUSE_PROJECT_ID: ${LANGFUSE_PROJECT_ID:-}
+      AGENT_EMAIL_DOMAIN: ${AGENT_EMAIL_DOMAIN:-}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -78,16 +88,21 @@ services:
     entrypoint: []
     command: celery -A teamflow worker --loglevel=info
     environment:
-      DEBUG: "True"
+      DEBUG: ${DEBUG:?Set DEBUG in .env}
       SECRET_KEY: "${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY to a random secret}"
-      DATABASE_URL: "postgres://teamflow:teamflow_password@db:5432/teamflow"
-      REDIS_URL: "redis://redis:6379/0"
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CLERK_SECRET_KEY: "${CLERK_SECRET_KEY:-}"
-      CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
-      LANGFUSE_PUBLIC_KEY: "pk-lf-teamflow-demo"
-      LANGFUSE_SECRET_KEY: "sk-lf-teamflow-demo"
-      LANGFUSE_HOST: "http://langfuse:3000"
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:?Set CELERY_BROKER_URL in .env}
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-}
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_HOST: ${LANGFUSE_HOST:-}
+      LANGFUSE_UI_HOST: ${LANGFUSE_UI_HOST:-}
+      LANGFUSE_PROJECT_ID: ${LANGFUSE_PROJECT_ID:-}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -108,11 +123,11 @@ services:
     ports:
       - "3001:3000"
     environment:
-      DATABASE_URL: "postgresql://teamflow:teamflow_password@db:5432/langfuse"
-      NEXTAUTH_URL: "http://localhost:3001"
-      NEXTAUTH_SECRET: "teamflow-langfuse-secret-key-32chars"
-      SALT: "teamflow-langfuse-salt-key-32chars"
-      ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      DATABASE_URL: ${LANGFUSE_DATABASE_URL:?Set LANGFUSE_DATABASE_URL in .env}
+      NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:?Set LANGFUSE_NEXTAUTH_URL in .env}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?Set LANGFUSE_NEXTAUTH_SECRET in .env}
+      SALT: ${LANGFUSE_SALT:?Set LANGFUSE_SALT in .env}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:?Set LANGFUSE_ENCRYPTION_KEY in .env}
       TELEMETRY_ENABLED: "false"
 
   backend_nest:
@@ -122,17 +137,21 @@ services:
     container_name: teamflow-backend-nest
     restart: unless-stopped
     environment:
-      PORT: 8001
-      NODE_ENV: "development"
-      DATABASE_URL: "postgresql://teamflow:teamflow_password@db:5432/teamflow"
+      PORT: ${NEST_PORT:?Set NEST_PORT in .env}
+      NODE_ENV: ${NODE_ENV:?Set NODE_ENV in .env}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET to a random secret}"
       JWT_REFRESH_SECRET: "${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET to a separate random secret}"
-      FRONTEND_URL: "http://localhost:3000"
-      PYTHON_AI_SERVICE_URL: "http://backend:8000"
+      FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Set CORS_ALLOWED_ORIGINS in .env}
+      PYTHON_AI_SERVICE_URL: ${PYTHON_AI_SERVICE_URL:-}
       PYTHON_AI_JWT_SECRET: "${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY to a random secret}"
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-}
+      KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
       CLERK_SECRET_KEY: "${CLERK_SECRET_KEY:-}"
       CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
-      ALLOW_MOCK_BILLING: "true"
+      ALLOW_MOCK_BILLING: ${ALLOW_MOCK_BILLING:-false}
     ports:
       - "8001:8001"
     depends_on:
@@ -146,16 +165,16 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: "http://localhost:8001/api"
-        NEXT_PUBLIC_LANGFUSE_URL: "http://localhost:3001"
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL in .env}
+        NEXT_PUBLIC_LANGFUSE_URL: ${NEXT_PUBLIC_LANGFUSE_URL:-}
         NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
         CLERK_SECRET_KEY: "${CLERK_SECRET_KEY:-}"
     container_name: teamflow-frontend
     restart: unless-stopped
     environment:
-      PORT: 3000
-      NEXT_PUBLIC_API_URL: "http://localhost:8001/api"
-      NEXT_PUBLIC_LANGFUSE_URL: "http://localhost:3001"
+      PORT: ${FRONTEND_PORT:?Set FRONTEND_PORT in .env}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL in .env}
+      NEXT_PUBLIC_LANGFUSE_URL: ${NEXT_PUBLIC_LANGFUSE_URL:-}
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}"
       CLERK_SECRET_KEY: "${CLERK_SECRET_KEY:-}"
     ports:

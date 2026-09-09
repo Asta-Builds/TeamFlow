@@ -26,7 +26,7 @@ export class CreateProjectDto {
   @IsString()
   status?: string;
 
-  @ApiPropertyOptional({ example: 'Asta-Builds/TeamFlow' })
+  @ApiPropertyOptional({ example: 'owner/repository' })
   @IsOptional()
   @IsString()
   github_repo?: string;

@@ -12,7 +12,7 @@ export class KeycloakDto {
 
   @ApiPropertyOptional({
     description: 'Callback redirect URI used during code acquisition',
-    example: 'http://localhost:3000/auth/callback',
+    example: 'https://app.example.com/auth/callback',
   })
   @IsOptional()
   @IsString()

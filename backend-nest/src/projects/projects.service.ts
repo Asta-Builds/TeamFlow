@@ -15,8 +15,9 @@ import { UpdateProjectDto } from './dto/update-project.dto.js';
 
 @Injectable()
 export class ProjectsService {
-  private readonly pythonAiUrl =
-    process.env.PYTHON_AI_SERVICE_URL || 'http://127.0.0.1:8000';
+  private readonly pythonAiUrl = (
+    process.env.PYTHON_AI_SERVICE_URL || ''
+  ).replace(/\/+$/, '');
 
   constructor(
     private prisma: PrismaService,
@@ -166,7 +167,7 @@ export class ProjectsService {
         name: dto.name,
         description: dto.description || '',
         status: dto.status || 'active',
-        githubRepo: dto.github_repo || 'Asta-Builds/TeamFlow',
+        githubRepo: dto.github_repo?.trim() || '',
         ownerId: currentUser.id,
         organizationId: currentUser.organizationId,
         members: dto.members?.length
@@ -283,7 +284,6 @@ export class ProjectsService {
     agentKey: string,
     organizationId: number,
     defaultName: string,
-    defaultEmail: string,
     defaultRole: string,
   ) {
     let user = await this.prisma.user.findFirst({
@@ -292,18 +292,28 @@ export class ProjectsService {
     if (!user) {
       user = await this.prisma.user.create({
         data: {
-          email: `${agentKey}-${organizationId}@teamflow.dev`,
+          email: this.agentEmail(agentKey, organizationId),
           name: defaultName,
           role: defaultRole,
           agentKey,
           organizationId,
-          password: 'pbkdf2_sha256$870000$disabled$agentpassword',
+          password: `!agent_${randomUUID()}`,
           userStatus: 'active',
           isActive: true,
         },
       });
     }
     return user;
+  }
+
+  private agentEmail(agentKey: string, organizationId: number): string {
+    const domain = (process.env.AGENT_EMAIL_DOMAIN || '').trim();
+    if (!/^[a-z0-9.-]+$/i.test(domain)) {
+      throw new BadRequestException(
+        'AGENT_EMAIL_DOMAIN must be configured with a valid domain',
+      );
+    }
+    return `${agentKey}+organization-${organizationId}@${domain}`;
   }
 
   async pmGenerateTasks(projectId: number, planText: string, currentUser: any) {
@@ -340,7 +350,7 @@ export class ProjectsService {
 
     // 1. Try forwarding to Python AI service
     const bridgeToken = this.getBridgeToken(currentUser);
-    if (this.httpService && bridgeToken) {
+    if (this.httpService && bridgeToken && this.pythonAiUrl) {
       try {
         const response = await this.httpService.axiosRef.post(
           `${this.pythonAiUrl}/api/projects/${projectId}/pm_generate_tasks/`,
@@ -370,80 +380,48 @@ export class ProjectsService {
       'pm',
       orgId,
       'Athena (AI)',
-      'pm@teamflow.dev',
       'pm',
     );
-    const backendUser = await this.getOrCreateAgentUser(
-      'backend_core',
-      orgId,
-      'Marcus Aurelius (AI)',
-      'backend1@teamflow.dev',
-      'backend',
-    );
-    const frontendUser = await this.getOrCreateAgentUser(
-      'frontend_app',
-      orgId,
-      'Cleopatra (AI)',
-      'frontend1@teamflow.dev',
-      'frontend',
-    );
-    const qaUser = await this.getOrCreateAgentUser(
-      'qa',
-      orgId,
-      'Alan Turing (AI)',
-      'qa@teamflow.dev',
-      'qa',
-    );
+    const ceoUser = currentUser || pmUser;
+    const ceoName = (ceoUser.name || 'CEO').split(' ')[0];
 
     const ticketSpecs = [
       {
-        title: `[WBS 1.1 - Backend] API Endpoints & Data Model for ${summaryTitle}`,
+        title: `[WBS 1.1 - Architecture & Core APIs] ${summaryTitle}`,
         taskType: 'feature',
         priority: 'high',
-        assigneeId: backendUser.id,
+        assigneeId: ceoUser.id,
         description: `### 📋 Project Management Specification (WBS 1.1)\n**Strategic Objective:** Deliver core backend architecture for \`${summaryTitle}\` within time and budget constraints.\n\n**1. Scope Boundaries:**\n- **In-Scope:** Data models with validation, authenticated REST API endpoints, transaction mutexes, and unit test suite.\n- **Out-of-Scope:** Non-critical third-party integrations (deferred to Milestone 2).\n\n**2. Deliverables & Definition of Done (DoD):**\n- Relational schema models validated against PostgreSQL constraints\n- REST endpoints with status code handling (200/201/400/403/404)\n- Mutex concurrency locks\n- Open GitHub PR on \`${project.githubRepo}\`\n\n**3. Risk & Contingency:**\n- *Risk:* Concurrent race conditions during high-volume writes.\n- *Mitigation:* Transactional mutex locking and rollback safety.`,
         dialogue: [
           {
             authorId: pmUser.id,
-            text: `Hey @${backendUser.name.split(' ')[0]}! Here are the WBS 1.1 backend delivery specifications for **${summaryTitle}**. Scope is strictly locked to prevent creep. Let me know if you encounter any architectural blockers.`,
-          },
-          {
-            authorId: backendUser.id,
-            text: `Thanks @${pmUser.name.split(' ')[0]}! I've reviewed the scope boundaries and requirements. I'll scaffold the models, serializer schemas, and open the PR shortly.`,
+            text: `Hey @${ceoName}! Here are the WBS 1.1 core delivery specifications for **${summaryTitle}**. Scope is strictly locked to prevent creep. Let me know if you need any adjustments.`,
           },
         ],
       },
       {
-        title: `[WBS 1.2 - Frontend] Next.js Views & State Management for ${summaryTitle}`,
+        title: `[WBS 1.2 - Frontend Views & Reactive State] ${summaryTitle}`,
         taskType: 'feature',
         priority: 'high',
-        assigneeId: frontendUser.id,
+        assigneeId: ceoUser.id,
         description: `### 📋 Project Management Specification (WBS 1.2)\n**Strategic Objective:** Deliver high-ergonomics Next.js user interface for \`${summaryTitle}\` adhering to WCAG 2.1 AA.\n\n**1. Scope Boundaries:**\n- **In-Scope:** Next.js 16 App Router views, responsive drawer modals, Lucide React icons, and Sonner feedback toasts.\n- **Out-of-Scope:** Raw emojis, unauthorized color overrides outside SuperDesign tokens.\n\n**2. Deliverables & Definition of Done (DoD):**\n- SuperDesign dark theme styling (bg-slate-950, border-slate-800)\n- Lucide React vector icons (strictly zero raw emojis in production code)\n- Sonner toasts for interactive user feedback\n- Client state synchronization with backend REST APIs\n\n**3. Risk & Contingency:**\n- *Risk:* Layout shift or unhandled loading states.\n- *Mitigation:* Skeleton loaders and optimistic UI state updates.`,
         dialogue: [
           {
             authorId: pmUser.id,
-            text: `Hi @${frontendUser.name.split(' ')[0]}, here are the WBS 1.2 client UI requirements for **${summaryTitle}**. Ensure strict compliance with SuperDesign dark tokens and WCAG AA accessibility.`,
-          },
-          {
-            authorId: frontendUser.id,
-            text: `On it @${pmUser.name.split(' ')[0]}! I'll build the Next.js 16 App Router components using Lucide icons, responsive drawer modals, and optimistic toast feedback.`,
+            text: `@${ceoName}, here are the WBS 1.2 client UI requirements for **${summaryTitle}**. Ensure strict compliance with SuperDesign dark tokens and WCAG AA accessibility.`,
           },
         ],
       },
       {
-        title: `[WBS 1.3 - QA] Automated Integration & Regression Suite for ${summaryTitle}`,
+        title: `[WBS 1.3 - QA Gatekeeper & Verification Harness] ${summaryTitle}`,
         taskType: 'task',
         priority: 'medium',
-        assigneeId: qaUser.id,
+        assigneeId: ceoUser.id,
         description: `### 📋 Project Management Specification (WBS 1.3)\n**Strategic Objective:** Quality assurance gatekeeper signoff for \`${summaryTitle}\` across all acceptance criteria.\n\n**1. Scope Boundaries:**\n- **In-Scope:** Automated integration test harness, concurrency edge-cases, and 5-stage Kanban decision gate validation.\n- **Out-of-Scope:** Manual exploratory load stress >10k concurrent users.\n\n**2. Deliverables & Definition of Done (DoD):**\n- Automated integration test suite with >=95.0% assertion coverage\n- Zero unhandled 500 exceptions across edge conditions\n- Contract Compliance Score: 100% verified\n\n**3. Risk & Contingency:**\n- *Risk:* Uncaught regression in adjacent modules.\n- *Mitigation:* Full regression suite pass required before Tech Lead merge gate.`,
         dialogue: [
           {
             authorId: pmUser.id,
-            text: `Hey @${qaUser.name.split(' ')[0]}, please define the acceptance test matrix for **${summaryTitle}** and enforce the 5-stage Kanban decision gate.`,
-          },
-          {
-            authorId: qaUser.id,
-            text: `Confirmed @${pmUser.name.split(' ')[0]}. I'll set up automated integration tests and monitor the staging build before certifying the gate.`,
+            text: `@${ceoName}, I have configured the acceptance test matrix for **${summaryTitle}** to enforce the 5-stage Kanban decision gate.`,
           },
         ],
       },
@@ -460,7 +438,7 @@ export class ProjectsService {
           status: 'todo',
           projectId,
           organizationId: orgId,
-          createdById: pmUser.id,
+          createdById: ceoUser.id,
           assigneeId: spec.assigneeId,
           comments: {
             create: spec.dialogue.map((d) => ({
@@ -496,7 +474,7 @@ export class ProjectsService {
           recipientId: currentUser.id,
           actorId: pmUser.id,
           title: `PM Agent (${pmUser.name}) Decomposed Your Plan`,
-          message: `Created ${createdTasks.length} engineering tickets and assigned them to specialist AI agents.`,
+          message: `Created ${createdTasks.length} engineering tickets under Athena PM governance.`,
           link: `/projects/${projectId}`,
           organizationId: orgId,
         },
@@ -539,7 +517,7 @@ export class ProjectsService {
       ok: true,
       project_id: projectId,
       tasks_created_count: createdTasks.length,
-      pm_summary: `**Athena (AI PM)** (Project Manager): Decomposed initiative into **${createdTasks.length} WBS-governed sprint tickets**.\n- **WBS 1.1 Backend Core:** ${backendUser.name} (Data models, REST APIs, mutex concurrency)\n- **WBS 1.2 Frontend App:** ${frontendUser.name} (Next.js 16 App Router, SuperDesign tokens, Lucide icons)\n- **WBS 1.3 QA Gatekeeper:** ${qaUser.name} (Acceptance test harness, contract compliance score)\nScope boundaries and risk matrices locked to prevent scope creep. All specialists notified.`,
+      pm_summary: `**Athena (AI PM)** (Project Manager): Decomposed initiative into **${createdTasks.length} WBS-governed sprint tickets**.\n- Structured deliverables with clear scope boundaries, DoD acceptance criteria, and risk mitigation.\n- Tracked under continuous PM delivery governance for your workspace.`,
       tasks_data: mappedTasks,
     };
   }

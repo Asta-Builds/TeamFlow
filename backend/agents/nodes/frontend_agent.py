@@ -31,8 +31,7 @@ def frontend_agent_node(state: TicketState) -> Dict[str, Any]:
 
     slug = title.lower().replace(" ", "-")[:24]
     branch_name = f"feat/frontend-{slug}"
-    repo_name = state.get("project_name", "Asta-Builds/TeamFlow")
-    branch_info = create_branch(repo_name, branch_name)
+    repo_name = (state.get("github_repo") or "").strip()
     
     pr_title = f"feat(frontend): {title}"
     pr_body = (
@@ -43,7 +42,11 @@ def frontend_agent_node(state: TicketState) -> Dict[str, Any]:
         f"- Verified accessibility, contrast ratios, and dark/light themes.\n"
         f"- Integrated with backend REST API endpoints."
     )
-    pr_info = open_pull_request(repo_name, pr_title, pr_body, branch_name)
+    if repo_name:
+        create_branch(repo_name, branch_name)
+        pr_info = open_pull_request(repo_name, pr_title, pr_body, branch_name)
+    else:
+        pr_info = {"pr_url": "", "is_live_pr": False}
     
     code_changes["frontend/component.tsx"] = f"// Automated React component for: {title}\n"
 
@@ -62,7 +65,7 @@ def frontend_agent_node(state: TicketState) -> Dict[str, Any]:
     if ticket_id:
         add_ticket_comment(
             ticket_id,
-            "frontend1@teamflow.dev",
+            "pm",
             f"🎨 Frontend Agent: UI components complete. Opened Pull Request: {pr_info['pr_url']}"
         )
         log_task_activity(ticket_id, "Cleopatra Philopator", "opened_pr", {"pr_url": pr_info["pr_url"]})

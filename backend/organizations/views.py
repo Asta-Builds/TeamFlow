@@ -20,8 +20,12 @@ class CreateCheckoutSessionView(views.APIView):
         if tier not in [Organization.Tier.GROWTH, Organization.Tier.ENTERPRISE]:
             return response.Response({"detail": "Invalid tier requested."}, status=400)
 
-        success_url = request.data.get("success_url", "http://localhost:3000/settings/billing")
-        cancel_url = request.data.get("cancel_url", "http://localhost:3000/settings/billing")
+        success_url = request.data.get("success_url")
+        cancel_url = request.data.get("cancel_url")
+        if not success_url or not cancel_url:
+            return response.Response(
+                {"detail": "success_url and cancel_url are required."}, status=400
+            )
 
         try:
             session = create_checkout_session(user.organization, tier, success_url, cancel_url)
@@ -38,7 +42,9 @@ class CreatePortalSessionView(views.APIView):
         if not user.is_privileged:
             return response.Response({"detail": "Only HR admins can manage subscriptions."}, status=403)
 
-        return_url = request.data.get("return_url", "http://localhost:3000/settings/billing")
+        return_url = request.data.get("return_url")
+        if not return_url:
+            return response.Response({"detail": "return_url is required."}, status=400)
 
         try:
             session = create_portal_session(user.organization, return_url)

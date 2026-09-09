@@ -151,7 +151,7 @@ model Project {
   name         String   @db.VarChar(200)
   description  String   @default("") @db.Text
   status       String   @default("active") @db.VarChar(20)
-  githubRepo   String   @default("Asta-Builds/TeamFlow") @map("github_repo") @db.VarChar(255)
+  githubRepo   String   @default("") @map("github_repo") @db.VarChar(255)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

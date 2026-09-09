@@ -30,6 +30,22 @@ except Exception:
 WORKSPACE_ROOT = os.environ.get("WORKSPACE_ROOT", _default_ws)
 
 
+def _configured_git_identity() -> tuple[str, str]:
+    name = os.environ.get("GIT_AUTHOR_NAME", "").strip()
+    email = os.environ.get("GIT_AUTHOR_EMAIL", "").strip()
+    if not name or not email:
+        raise RuntimeError(
+            "GIT_AUTHOR_NAME and GIT_AUTHOR_EMAIL must be configured for agent Git operations."
+        )
+    return name, email
+
+
+def _configure_git_identity(cwd: str) -> None:
+    name, email = _configured_git_identity()
+    _run_git_command(["config", "user.name", name], cwd=cwd)
+    _run_git_command(["config", "user.email", email], cwd=cwd)
+
+
 def sanitize_sensitive_data(text: Any) -> str:
     """Removes sensitive GitHub tokens from strings before logging or LLM consumption."""
     if text is None:
@@ -91,8 +107,7 @@ def bootstrap_new_project_repo(
 
     # 1. Initialize git repo
     _run_git_command(["init", "-b", "main"], cwd=project_dir)
-    _run_git_command(["config", "user.name", "TeamFlow AI Swarm"], cwd=project_dir)
-    _run_git_command(["config", "user.email", "swarm@teamflow.dev"], cwd=project_dir)
+    _configure_git_identity(project_dir)
 
     # 2. Add remote if github_repo is configured
     if github_repo:
@@ -521,8 +536,7 @@ def clone_or_pull(
             }
 
         # Configure agent identity inside cloned repo
-        _run_git_command(["config", "user.name", "TeamFlow AI Swarm"], cwd=local_dir)
-        _run_git_command(["config", "user.email", "swarm@teamflow.dev"], cwd=local_dir)
+        _configure_git_identity(local_dir)
 
         return {
             "success": True,
@@ -533,8 +547,7 @@ def clone_or_pull(
         }
     else:
         # Existing repository: checkout and pull
-        _run_git_command(["config", "user.name", "TeamFlow AI Swarm"], cwd=local_dir)
-        _run_git_command(["config", "user.email", "swarm@teamflow.dev"], cwd=local_dir)
+        _configure_git_identity(local_dir)
 
         if token and "github.com" in auth_url:
             _run_git_command(["remote", "set-url", "origin", auth_url], cwd=local_dir)
@@ -556,8 +569,8 @@ def commit_and_push(
     local_dir: str,
     commit_message: str,
     branch: str = "main",
-    author_name: str = "TeamFlow AI Swarm",
-    author_email: str = "swarm@teamflow.dev",
+    author_name: Optional[str] = None,
+    author_email: Optional[str] = None,
     files: Optional[List[str]] = None,
     force: bool = False
 ) -> Dict[str, Any]:
@@ -566,6 +579,9 @@ def commit_and_push(
     """
     if not os.path.exists(local_dir):
         return {"success": False, "error": f"Directory does not exist: {local_dir}"}
+
+    if not author_name or not author_email:
+        author_name, author_email = _configured_git_identity()
 
     # Ensure on correct branch
     git_checkout_branch(branch, create_if_missing=True, cwd=local_dir)

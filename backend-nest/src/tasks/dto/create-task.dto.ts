@@ -65,7 +65,7 @@ export class CreateTaskDto {
   due_date?: string;
 
   @ApiPropertyOptional({
-    example: 'https://github.com/Asta-Builds/TeamFlow/pull/42',
+    example: 'https://github.com/owner/repository/pull/42',
   })
   @IsOptional()
   @IsString()

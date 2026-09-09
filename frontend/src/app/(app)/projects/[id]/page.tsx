@@ -1232,9 +1232,10 @@ function TaskDetailPanel({
                         </div>
                       </div>
 
-                      <div className="pt-1 flex justify-end">
+                      {latestTrace.langfuse_url ? (
+                        <div className="pt-1 flex justify-end">
                         <a
-                          href={latestTrace.langfuse_url || "http://localhost:3001"}
+                          href={latestTrace.langfuse_url}
                           target="_blank"
                           rel="noreferrer"
                           className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1"
@@ -1242,7 +1243,8 @@ function TaskDetailPanel({
                           <span>Open in Self-Hosted Langfuse</span>
                           <ExternalLink className="h-2.5 w-2.5" />
                         </a>
-                      </div>
+                        </div>
+                      ) : null}
                     </div>
 
                     {/* Step-by-Step Multi-Agent Execution Timeline */}

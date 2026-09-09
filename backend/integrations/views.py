@@ -99,7 +99,7 @@ class SlackTestView(views.APIView):
                 "qa_channel": integration.qa_channel,
                 "seo_channel": integration.seo_channel,
             },
-            action_url="http://localhost:3000/settings"
+            action_url="/settings"
         )
 
         if result.get("ok"):

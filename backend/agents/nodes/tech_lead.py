@@ -60,7 +60,7 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
         
         # Log to TeamFlow DB
         if ticket_id:
-            add_ticket_comment(ticket_id, "lead@teamflow.dev", f"🎯 Tech Lead: Code review completed on {state['pr_url']}. Moving ticket to QA.")
+            add_ticket_comment(ticket_id, "pm", f"🎯 Tech Lead: Code review completed on {state['pr_url']}. Moving ticket to QA.")
             log_task_activity(ticket_id, "Sarah Jenkins", "reviewed_pr", {"pr_url": state["pr_url"]})
         emit_state_event(
             state,
@@ -109,7 +109,7 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
     if ticket_id:
         add_ticket_comment(
             ticket_id,
-            "lead@teamflow.dev",
+            "pm",
             f"🎯 Tech Lead: Ticket analyzed and context retrieved via pgvector RAG. Assigned to {new_subtasks[0]['role']} agent."
         )
 

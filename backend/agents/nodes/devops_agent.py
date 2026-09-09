@@ -44,10 +44,10 @@ def devops_agent_node(state: TicketState) -> Dict[str, Any]:
 
     # 3. Mark ticket as Done in TeamFlow DB
     if ticket_id:
-        update_ticket_status(ticket_id, "done", actor_email="devops@teamflow.dev")
+        update_ticket_status(ticket_id, "done", actor_email="pm")
         add_ticket_comment(
             ticket_id,
-            "devops@teamflow.dev",
+            "pm",
             "🚀 DevOps Agent: PR merged into main. Staging deployment succeeded and health verified. Ticket resolved!"
         )
         log_task_activity(ticket_id, "Joan Arc", "deployed_release", {"environment": "staging"})

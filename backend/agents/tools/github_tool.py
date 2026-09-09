@@ -58,8 +58,8 @@ def commit_and_push(
     local_dir: str,
     commit_message: str,
     branch: str = "main",
-    author_name: str = "TeamFlow AI Swarm",
-    author_email: str = "swarm@teamflow.dev",
+    author_name: Optional[str] = None,
+    author_email: Optional[str] = None,
     files: Optional[List[str]] = None,
     force: bool = False,
 ) -> Dict[str, Any]:

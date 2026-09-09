@@ -20,7 +20,7 @@ export class ClerkDto {
 
   @ApiPropertyOptional({
     description: 'User primary email address verified by Clerk',
-    example: 'alex@teamflow.dev',
+    example: 'alex@company.example',
   })
   @IsOptional()
   @IsEmail()

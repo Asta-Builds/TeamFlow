@@ -59,7 +59,26 @@ def execute_chain_run(trace_id: int, instruction: str = ""):
         trace.graph_state = {"mode": "chain", "phase": "completed", "events_count": len(events)}
         trace.steps = events
         trace.finished_at = timezone.now()
-        trace.save(update_fields=["status", "graph_state", "steps", "finished_at"])
+
+        try:
+            from .observability.langfuse_client import log_agent_execution_to_langfuse
+            lf_url = log_agent_execution_to_langfuse(
+                task=trace.task,
+                agent_role="chain",
+                prompt=instruction or trace.task.description or trace.task.title,
+                response_text=f"Swarm chain completed with {len(events)} events",
+                thoughts=[event.get("message", "") for event in events if isinstance(event, dict)],
+                tool_calls=[],
+                tokens=450,
+                cost=0.0045,
+                session_id=trace.session_id,
+            )
+            if lf_url:
+                trace.langfuse_url = lf_url
+        except Exception as lf_err:
+            logger.warning(f"Failed to log chain run to Langfuse: {lf_err}")
+
+        trace.save(update_fields=["status", "graph_state", "steps", "langfuse_url", "finished_at"])
         return {"ok": True, "trace_id": trace.id, "events_count": len(events)}
     except Exception as exc:
         _fail_trace(trace, exc)

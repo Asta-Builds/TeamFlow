@@ -84,7 +84,12 @@ export class ProjectsController {
     return this.projectsService.remove(id, user);
   }
 
-  @Post([':id/pm_generate_tasks', ':id/pm_generate_tasks/'])
+  @Post([
+    ':id/pm_generate_tasks',
+    ':id/pm_generate_tasks/',
+    ':id/pm-generate-tasks',
+    ':id/pm-generate-tasks/',
+  ])
   @ApiOperation({ summary: 'AI Product Manager decomposes plan into sprint tickets' })
   async pmGenerateTasks(
     @Param('id', ParseIntPipe) id: number,

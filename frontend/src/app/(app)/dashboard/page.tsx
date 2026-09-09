@@ -39,6 +39,8 @@ import {
   Calendar,
 } from "lucide-react";
 
+const LANGFUSE_URL = process.env.NEXT_PUBLIC_LANGFUSE_URL;
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { data: projects = [], isLoading: pLoading } = useProjects();
@@ -94,15 +96,17 @@ export default function DashboardPage() {
             <Bot className="h-3.5 w-3.5 text-indigo-400" />
             <span>Google Antigravity SDK Active</span>
           </div>
-          <a
-            href="http://localhost:3001"
-            target="_blank"
-            rel="noreferrer"
-            className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-600 transition"
-          >
-            <Activity className="h-3.5 w-3.5 text-purple-400" />
-            <span>Langfuse Observability</span>
-          </a>
+          {LANGFUSE_URL ? (
+            <a
+              href={LANGFUSE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-600 transition"
+            >
+              <Activity className="h-3.5 w-3.5 text-purple-400" />
+              <span>Langfuse Observability</span>
+            </a>
+          ) : null}
           <Link
             href="/projects"
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-2 cursor-pointer"

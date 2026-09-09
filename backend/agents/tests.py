@@ -34,23 +34,21 @@ User = get_user_model()
 
 
 class AgentRegistryTestCase(TestCase):
-    def test_blueprint_roster_has_nine_specialist_seats(self):
-        """The public roster matches the 1+2+2+1+1+1+1 company blueprint."""
-        self.assertEqual(len(blueprint_agent_keys()), 9)
-        self.assertEqual(get_agent_spec("backend_integrations")["email"], "backend2@teamflow.dev")
-        self.assertEqual(get_agent_spec("frontend_design_system")["email"], "frontend2@teamflow.dev")
+    def test_blueprint_roster_has_the_active_pm_seat(self):
+        self.assertEqual(blueprint_agent_keys(), ["pm"])
+        self.assertEqual(get_agent_spec("pm")["email_local"], "pm")
 
     def test_legacy_agent_mentions_resolve_to_primary_seats(self):
-        self.assertEqual(resolve_agent_key("backend"), "backend_core")
-        self.assertEqual(resolve_agent_key("frontend"), "frontend_app")
-        self.assertEqual(resolve_agent_key("backend2"), "backend_integrations")
-        self.assertEqual(resolve_agent_key("frontend2"), "frontend_design_system")
+        self.assertEqual(resolve_agent_key("backend"), "pm")
+        self.assertEqual(resolve_agent_key("frontend"), "pm")
+        self.assertEqual(resolve_agent_key("backend2"), "pm")
+        self.assertEqual(resolve_agent_key("frontend2"), "pm")
 
     def test_engine_uses_seat_identity_with_existing_domain_permission(self):
         engine = AntigravityAgentEngine("backend_integrations")
-        self.assertEqual(engine.agent_key, "backend_integrations")
-        self.assertEqual(engine.role, "backend")
-        self.assertEqual(engine.spec["email"], "backend2@teamflow.dev")
+        self.assertEqual(engine.agent_key, "pm")
+        self.assertEqual(engine.role, "pm")
+        self.assertEqual(engine.spec["email_local"], "pm")
         self.assertIn("Report only work", engine.spec["system_instructions"])
 
     def test_agent_users_are_scoped_per_organization(self):

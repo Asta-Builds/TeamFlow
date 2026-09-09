@@ -186,7 +186,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@teamflow.dev"
+                placeholder="name@company.example"
                 className="flex h-9 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1 text-xs text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
               />
             </div>

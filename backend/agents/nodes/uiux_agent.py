@@ -47,7 +47,7 @@ def uiux_agent_node(state: TicketState) -> Dict[str, Any]:
     if ticket_id:
         add_ticket_comment(
             ticket_id,
-            "design@teamflow.dev",
+            "pm",
             f"✨ UI/UX Agent: Completed design tokens & layout specs for {title}. Handoff to Frontend engineer."
         )
         log_task_activity(ticket_id, "Leonardo DaVinci", "created_design_spec", {"title": title})

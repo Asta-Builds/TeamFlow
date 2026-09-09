@@ -27,49 +27,49 @@ interface SwarmStage {
 
 const INITIAL_STAGES: SwarmStage[] = [
   {
-    id: "tech_lead",
-    agent: "Sarah Jenkins",
-    role: "AI Tech Lead",
+    id: "initiation",
+    agent: "Athena (AI)",
+    role: "AI PM · Initiation",
     icon: Code2,
     status: "pending",
-    detail: "Querying pgvector RAG store & decomposing architectural scope...",
-    tokens: 420,
+    detail: "Querying pgvector RAG memory & formulating project charter...",
+    tokens: 380,
   },
   {
-    id: "backend",
-    agent: "Marcus Aurelius",
-    role: "AI Senior Backend",
+    id: "planning",
+    agent: "Athena (AI)",
+    role: "AI PM · Planning",
     icon: GitPullRequest,
     status: "pending",
-    detail: "Implementing database schema, migrations & REST API endpoints...",
-    tokens: 680,
+    detail: "Synthesizing Work Breakdown Structure (WBS) & risk mitigation matrix...",
+    tokens: 520,
   },
   {
-    id: "frontend",
-    agent: "Ada Lovelace",
-    role: "AI Senior Frontend",
+    id: "execution",
+    agent: "Athena (AI)",
+    role: "AI PM · Execution",
     icon: Sparkles,
     status: "pending",
-    detail: "Building Next.js 16 components, Lucide icons & Sonner feedback...",
-    tokens: 590,
+    detail: "Scaffolding specifications, data contracts & acceptance criteria...",
+    tokens: 610,
   },
   {
-    id: "qa",
-    agent: "Alan Turing",
-    role: "AI QA Engineer",
-    icon: ShieldCheck,
-    status: "pending",
-    detail: "Running boundary test suites, WCAG AA audit & signing QA decision gate...",
-    tokens: 480,
-  },
-  {
-    id: "devops",
-    agent: "Joan of Arc",
-    role: "AI DevOps Engineer",
+    id: "monitoring",
+    agent: "Athena (AI)",
+    role: "AI PM · Monitoring",
     icon: Rocket,
     status: "pending",
-    detail: "Automating staging container release, health check & Langfuse trace...",
-    tokens: 390,
+    detail: "Enforcing scope governance, burn rate limits & anti-creep boundaries...",
+    tokens: 440,
+  },
+  {
+    id: "closing",
+    agent: "Athena (AI)",
+    role: "AI PM · Closing",
+    icon: ShieldCheck,
+    status: "pending",
+    detail: "Validating Definition of Done, AST compliance & Langfuse session trace...",
+    tokens: 410,
   },
 ];
 
@@ -159,8 +159,8 @@ export function SwarmRunnerModal({
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Autonomous Multi-Agent Swarm Orchestrator"
-      description="Orchestrate full-lifecycle tickets through autonomous AI specialists grounded in pgvector RAG."
+      title="Athena (AI) · Project Delivery & WBS Engine"
+      description="Orchestrate full project delivery through 5 autonomous phases led by Athena (AI Project Manager) grounded in pgvector RAG."
       maxWidth="3xl"
     >
       <div className="space-y-6">

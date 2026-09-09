@@ -11,9 +11,10 @@ const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
 });
+const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://teamflow.dev"),
+  ...(appUrl ? { metadataBase: new URL(appUrl) } : {}),
   title: {
     default: "TeamFlow — Enterprise Multi-Agent Virtual Tech Management",
     template: "%s | TeamFlow",
@@ -34,7 +35,7 @@ export const metadata: Metadata = {
     title: "TeamFlow — Enterprise Multi-Agent Virtual Tech Management",
     description:
       "Autonomous software engineering management platform with LangGraph orchestration, pgvector RAG, and Langfuse tracing.",
-    url: "https://teamflow.dev",
+    ...(appUrl ? { url: appUrl } : {}),
     siteName: "TeamFlow",
     locale: "en_US",
     type: "website",

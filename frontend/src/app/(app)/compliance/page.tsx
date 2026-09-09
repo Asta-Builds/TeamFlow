@@ -31,7 +31,7 @@ export default function CompliancePage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
-  const [url, setUrl] = useState("https://teamflow.dev");
+  const [url, setUrl] = useState("");
   const [selectedAuditForTask, setSelectedAuditForTask] = useState<{ auditId: number; issueIdx: number } | null>(null);
   const [targetProjectId, setTargetProjectId] = useState<number | "">("");
 

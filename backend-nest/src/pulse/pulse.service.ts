@@ -12,6 +12,31 @@ import {
   StartFocusSessionDto,
 } from './dto/pulse.dto.js';
 
+function parseDateOnly(dateStr?: string): Date {
+  if (!dateStr) {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(now.getUTCDate()).padStart(2, '0');
+    return new Date(`${y}-${m}-${d}T00:00:00.000Z`);
+  }
+  const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00.000Z`);
+  }
+  const d = new Date(dateStr);
+  return new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0),
+  );
+}
+
+function formatDateOnly(d: Date | string): string {
+  if (typeof d === 'string') {
+    return d.split('T')[0];
+  }
+  return d.toISOString().split('T')[0];
+}
+
 @Injectable()
 export class PulseService {
   constructor(private prisma: PrismaService) {}
@@ -32,16 +57,24 @@ export class PulseService {
 
   private mapSession(session: any) {
     if (!session) return null;
+    const isRunning = session.status === 'active' && session.lastResumedAt;
     return {
       id: session.id,
+      plan_item: session.planItemId,
+      task_title: session.planItem?.task?.title || null,
+      project_name: session.planItem?.task?.project?.name || null,
       status: session.status,
       started_at: session.startedAt.toISOString(),
+      running_since: isRunning
+        ? session.lastResumedAt.toISOString()
+        : null,
       last_resumed_at: session.lastResumedAt
         ? session.lastResumedAt.toISOString()
         : null,
       elapsed_seconds: this.computeElapsed(session),
       ended_at: session.endedAt ? session.endedAt.toISOString() : null,
-      plan_item: session.planItemId,
+      created_at: session.createdAt.toISOString(),
+      updated_at: session.updatedAt.toISOString(),
       plan_item_detail: session.planItem
         ? {
             id: session.planItem.id,
@@ -53,10 +86,44 @@ export class PulseService {
     };
   }
 
+  private formatPlanItem(item: any, user: any) {
+    const isDone = item.task.status === 'done';
+    const canComplete =
+      !isDone &&
+      (Boolean(user.isPrivileged) ||
+        item.task.assigneeId === user.id ||
+        item.task.createdById === user.id);
+
+    return {
+      id: item.id,
+      task: item.taskId,
+      task_title: item.task.title,
+      project_id: item.task.projectId,
+      project_name: item.task.project?.name || '',
+      task_status: item.task.status,
+      task_priority: item.task.priority,
+      task_type: item.task.taskType || 'task',
+      due_date: item.task.dueDate ? formatDateOnly(item.task.dueDate) : null,
+      date: formatDateOnly(item.date),
+      time_block: item.timeBlock,
+      position: item.position,
+      can_complete_task: canComplete,
+      created_at: item.createdAt.toISOString(),
+      updated_at: item.updatedAt.toISOString(),
+      task_detail: {
+        id: item.task.id,
+        title: item.task.title,
+        status: item.task.status,
+        priority: item.task.priority,
+        project_name: item.task.project?.name,
+      },
+    };
+  }
+
   async getDashboard(user: any, dateStr?: string) {
     requireOrganization(user);
-    const targetDate = dateStr ? new Date(dateStr) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    const targetDate = parseDateOnly(dateStr);
+    const targetDateStr = formatDateOnly(targetDate);
 
     const organizationId = user.organizationId;
     if (!organizationId) {
@@ -75,6 +142,7 @@ export class PulseService {
           include: {
             project: true,
             assignee: true,
+            createdBy: true,
           },
         },
       },
@@ -85,7 +153,33 @@ export class PulseService {
       ],
     });
 
-    // 2. Note for date
+    const plannedTaskIds = planItems.map((p) => p.taskId);
+
+    // 2. Candidate tasks: open tasks in organization visible to user, not yet planned
+    const candidateTasks = await this.prisma.task.findMany({
+      where: {
+        ...visibleTasks(user),
+        organizationId,
+        status: { not: 'done' },
+        id: { notIn: plannedTaskIds.length ? plannedTaskIds : [-1] },
+        OR: [
+          { assigneeId: user.id },
+          { createdById: user.id },
+          { dueDate: targetDate },
+        ],
+      },
+      include: {
+        project: true,
+      },
+      orderBy: [
+        { dueDate: 'asc' },
+        { priority: 'asc' },
+        { createdAt: 'desc' },
+      ],
+      take: 12,
+    });
+
+    // 3. Note for date
     const note = await this.prisma.pulseNote.findFirst({
       where: {
         userId: user.id,
@@ -94,7 +188,7 @@ export class PulseService {
       },
     });
 
-    // 3. Active / paused focus session
+    // 4. Active / paused focus session
     const activeSession = await this.prisma.pulseFocusSession.findFirst({
       where: {
         userId: user.id,
@@ -108,54 +202,102 @@ export class PulseService {
       },
     });
 
-    // 4. Total focus seconds today
+    // 5. Total focus seconds today
+    const nextDay = new Date(targetDate.getTime() + 24 * 60 * 60 * 1000);
     const sessionsToday = await this.prisma.pulseFocusSession.findMany({
       where: {
         userId: user.id,
         organizationId,
-        startedAt: { gte: targetDate },
+        startedAt: { gte: targetDate, lt: nextDay },
       },
     });
 
-    const totalSecondsToday = sessionsToday.reduce(
+    let totalSecondsToday = sessionsToday.reduce(
       (acc, s) => acc + this.computeElapsed(s),
       0,
     );
+    if (activeSession && !sessionsToday.some((s) => s.id === activeSession.id)) {
+      totalSecondsToday += this.computeElapsed(activeSession);
+    }
+
+    // 6. Weekly progress (7 days ending on targetDate)
+    const weekStart = new Date(targetDate.getTime() - 6 * 24 * 60 * 60 * 1000);
+    const weeklyPlanItems = await this.prisma.pulsePlanItem.findMany({
+      where: {
+        userId: user.id,
+        organizationId,
+        date: { gte: weekStart, lte: targetDate },
+      },
+      include: {
+        task: true,
+      },
+    });
+
+    const weeklyProgress: Array<{ date: string; total: number; completed: number }> = [];
+    for (let offset = 0; offset < 7; offset++) {
+      const d = new Date(weekStart.getTime() + offset * 24 * 60 * 60 * 1000);
+      const dStr = formatDateOnly(d);
+      const itemsForDay = weeklyPlanItems.filter(
+        (item) => formatDateOnly(item.date) === dStr,
+      );
+      weeklyProgress.push({
+        date: dStr,
+        total: itemsForDay.length,
+        completed: itemsForDay.filter((item) => item.task.status === 'done').length,
+      });
+    }
+
+    const totalPlanned = planItems.length;
+    const totalCompleted = planItems.filter((i) => i.task.status === 'done').length;
+
+    const formattedPlanItems = planItems.map((item) =>
+      this.formatPlanItem(item, user),
+    );
+
+    const formattedSession = this.mapSession(activeSession);
 
     return {
-      selected_date: targetDate.toISOString().split('T')[0],
-      plan_items: planItems.map((item) => ({
-        id: item.id,
-        task: item.taskId,
-        date: item.date.toISOString().split('T')[0],
-        time_block: item.timeBlock,
-        position: item.position,
-        task_detail: {
-          id: item.task.id,
-          title: item.task.title,
-          status: item.task.status,
-          priority: item.task.priority,
-          project_name: item.task.project?.name,
-        },
+      date: targetDateStr,
+      selected_date: targetDateStr,
+      plan_items: formattedPlanItems,
+      candidate_tasks: candidateTasks.map((t) => ({
+        id: t.id,
+        title: t.title,
+        project_id: t.projectId,
+        project_name: t.project.name,
+        priority: t.priority,
+        status: t.status,
+        due_date: t.dueDate ? formatDateOnly(t.dueDate) : null,
       })),
       note: {
-        date: targetDate.toISOString().split('T')[0],
+        id: note?.id,
+        date: targetDateStr,
         body: note?.body || '',
+        created_at: note?.createdAt.toISOString(),
+        updated_at: note?.updatedAt.toISOString(),
       },
-      active_session: this.mapSession(activeSession),
+      current_session: formattedSession,
+      active_session: formattedSession,
+      summary: {
+        planned: totalPlanned,
+        completed: totalCompleted,
+        completion_percentage:
+          totalPlanned > 0 ? Math.round((totalCompleted / totalPlanned) * 100) : 0,
+        focused_seconds: totalSecondsToday,
+      },
       stats: {
         focus_minutes_today: Math.round(totalSecondsToday / 60),
         total_sessions_today: sessionsToday.length,
-        completed_plan_items: planItems.filter((i) => i.task.status === 'done')
-          .length,
+        completed_plan_items: totalCompleted,
       },
+      weekly_progress: weeklyProgress,
     };
   }
 
   async getNote(user: any, dateStr?: string) {
     requireOrganization(user);
-    const targetDate = dateStr ? new Date(dateStr) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    const targetDate = parseDateOnly(dateStr);
+    const targetDateStr = formatDateOnly(targetDate);
 
     const note = await this.prisma.pulseNote.findFirst({
       where: {
@@ -166,15 +308,17 @@ export class PulseService {
     });
 
     return {
-      date: targetDate.toISOString().split('T')[0],
+      id: note?.id,
+      date: targetDateStr,
       body: note?.body || '',
+      created_at: note?.createdAt.toISOString(),
+      updated_at: note?.updatedAt.toISOString(),
     };
   }
 
   async updateNote(user: any, dto: UpdateNoteDto) {
     requireOrganization(user);
-    const targetDate = dto.date ? new Date(dto.date) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    const targetDate = parseDateOnly(dto.date);
 
     const note = await this.prisma.pulseNote.upsert({
       where: {
@@ -195,15 +339,17 @@ export class PulseService {
     });
 
     return {
-      date: note.date.toISOString().split('T')[0],
+      id: note.id,
+      date: formatDateOnly(note.date),
       body: note.body,
+      created_at: note.createdAt.toISOString(),
+      updated_at: note.updatedAt.toISOString(),
     };
   }
 
   async getPlanItems(user: any, dateStr?: string) {
     requireOrganization(user);
-    const targetDate = dateStr ? new Date(dateStr) : new Date();
-    targetDate.setHours(0, 0, 0, 0);
+    const targetDate = parseDateOnly(dateStr);
 
     const items = await this.prisma.pulsePlanItem.findMany({
       where: {
@@ -213,35 +359,38 @@ export class PulseService {
       },
       include: {
         task: {
-          include: { project: true },
+          include: { project: true, assignee: true, createdBy: true },
         },
       },
       orderBy: [{ timeBlock: 'asc' }, { position: 'asc' }],
     });
 
-    return items.map((item) => ({
-      id: item.id,
-      task: item.taskId,
-      date: item.date.toISOString().split('T')[0],
-      time_block: item.timeBlock,
-      position: item.position,
-      task_detail: {
-        id: item.task.id,
-        title: item.task.title,
-        status: item.task.status,
-        project_name: item.task.project?.name,
-      },
-    }));
+    return items.map((item) => this.formatPlanItem(item, user));
   }
 
   async createPlanItem(user: any, dto: CreatePlanItemDto) {
     requireOrganization(user);
     const task = await this.prisma.task.findFirst({
       where: { id: dto.task, ...visibleTasks(user) },
+      include: { project: true, assignee: true, createdBy: true },
     });
     if (!task) throw new NotFoundException('Task not found');
-    const targetDate = new Date(dto.date);
-    targetDate.setHours(0, 0, 0, 0);
+    const targetDate = parseDateOnly(dto.date);
+
+    const existing = await this.prisma.pulsePlanItem.findUnique({
+      where: {
+        pulse_unique_daily_task_per_user: {
+          userId: user.id,
+          date: targetDate,
+          taskId: dto.task,
+        },
+      },
+    });
+    if (existing) {
+      throw new ConflictException(
+        'This task is already in your plan for that day.',
+      );
+    }
 
     const item = await this.prisma.pulsePlanItem.create({
       data: {
@@ -253,23 +402,13 @@ export class PulseService {
         position: dto.position || 0,
       },
       include: {
-        task: { include: { project: true } },
+        task: {
+          include: { project: true, assignee: true, createdBy: true },
+        },
       },
     });
 
-    return {
-      id: item.id,
-      task: item.taskId,
-      date: item.date.toISOString().split('T')[0],
-      time_block: item.timeBlock,
-      position: item.position,
-      task_detail: {
-        id: item.task.id,
-        title: item.task.title,
-        status: item.task.status,
-        project_name: item.task.project?.name,
-      },
-    };
+    return this.formatPlanItem(item, user);
   }
 
   async deletePlanItem(user: any, id: number) {

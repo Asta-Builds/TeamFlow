@@ -5,17 +5,24 @@ import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS || process.env.FRONTEND_URL || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  if (corsOrigins.length === 0) {
+    throw new Error('CORS_ALLOWED_ORIGINS or FRONTEND_URL must be configured');
+  }
+  const port = Number(process.env.PORT);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('PORT must be a valid TCP port number');
+  }
 
   // Set global API prefix matching Django API paths
   app.setGlobalPrefix('api');
 
   // Enable CORS for frontend consumption
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      process.env.FRONTEND_URL || '',
-    ].filter(Boolean),
+    origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -40,10 +47,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = process.env.PORT || 8001;
   await app.listen(port);
-  console.log(`🚀 TeamFlow NestJS Backend is running on: http://localhost:${port}/api`);
-  console.log(`📚 Swagger Documentation is available at: http://localhost:${port}/api/docs`);
+  console.log(`TeamFlow NestJS Backend is listening on port ${port}`);
 }
 
 await bootstrap();

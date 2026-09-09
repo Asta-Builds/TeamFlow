@@ -10,14 +10,22 @@ from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
-LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY", "pk-lf-teamflow-demo")
-LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY", "sk-lf-teamflow-demo")
-LANGFUSE_HOST = os.environ.get("LANGFUSE_HOST", "http://langfuse:3000")
-LANGFUSE_UI_HOST = os.environ.get("LANGFUSE_UI_HOST", "http://localhost:3001")
+LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY", "")
+LANGFUSE_HOST = os.environ.get("LANGFUSE_HOST", "")
+LANGFUSE_UI_HOST = os.environ.get("LANGFUSE_UI_HOST", "").rstrip("/")
+LANGFUSE_PROJECT_ID = os.environ.get("LANGFUSE_PROJECT_ID", "")
+
+
+def _is_configured() -> bool:
+    return bool(LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY and LANGFUSE_HOST)
 
 
 def get_langfuse_client():
     """Initializes and returns the Langfuse Python SDK client."""
+    if not _is_configured():
+        logger.debug("Langfuse is disabled because its connection settings are not configured.")
+        return None
     try:
         from langfuse import Langfuse
         return Langfuse(
@@ -30,12 +38,45 @@ def get_langfuse_client():
         return None
 
 
+def _ensure_langchain_compat_shim():
+    """Provides compatibility between langchain_core 0.3+ and langfuse 2.x callback handler."""
+    import sys
+    try:
+        import langchain.callbacks.base  # noqa: F401
+    except (ImportError, ModuleNotFoundError):
+        import langchain_core.callbacks as lcc
+        import langchain_core.agents as lca
+        import langchain_core.documents as lcd
+
+        class ShimModule:
+            pass
+
+        cb_mod = ShimModule()
+        cb_mod.base = lcc
+        cb_mod.BaseCallbackHandler = lcc.BaseCallbackHandler
+        sys.modules.setdefault("langchain.callbacks", cb_mod)
+        sys.modules.setdefault("langchain.callbacks.base", lcc)
+
+        schema_mod = ShimModule()
+        schema_agent = ShimModule()
+        schema_agent.AgentAction = lca.AgentAction
+        schema_agent.AgentFinish = lca.AgentFinish
+        sys.modules.setdefault("langchain.schema", schema_mod)
+        sys.modules.setdefault("langchain.schema.agent", schema_agent)
+        schema_doc = ShimModule()
+        schema_doc.Document = lcd.Document
+        sys.modules.setdefault("langchain.schema.document", schema_doc)
+
+
 def get_langfuse_callback(session_id: str, tags: Optional[list] = None):
     """
     Returns a Langfuse callback handler configured with session_id = ticket_id.
     """
+    if not _is_configured():
+        return None
     try:
-        from langfuse.langchain import CallbackHandler
+        _ensure_langchain_compat_shim()
+        from langfuse.callback import CallbackHandler
         return CallbackHandler(
             public_key=LANGFUSE_PUBLIC_KEY,
             secret_key=LANGFUSE_SECRET_KEY,
@@ -44,13 +85,15 @@ def get_langfuse_callback(session_id: str, tags: Optional[list] = None):
             tags=tags or ["teamflow", "langgraph-multi-agent", "antigravity-sdk"],
         )
     except Exception as e:
-        logger.debug(f"Langfuse CallbackHandler initialized in offline mock mode: {e}")
+        logger.warning(f"Could not initialize Langfuse CallbackHandler: {e}")
         return None
 
 
 def generate_langfuse_trace_url(session_id: str) -> str:
     """Generates direct browser dashboard URL for the ticket's multi-agent session trace."""
-    return f"{LANGFUSE_UI_HOST}/sessions/{session_id}"
+    if not LANGFUSE_UI_HOST or not LANGFUSE_PROJECT_ID:
+        return ""
+    return f"{LANGFUSE_UI_HOST}/project/{LANGFUSE_PROJECT_ID}/sessions/{session_id}"
 
 
 def log_agent_execution_to_langfuse(
@@ -69,30 +112,52 @@ def log_agent_execution_to_langfuse(
     to Langfuse, ensuring real-time visibility in the Langfuse dashboard.
     """
     session_id = session_id or f"ticket-{task.id}"
+    trace_url = generate_langfuse_trace_url(session_id)
     try:
         client = get_langfuse_client()
         if not client:
-            return generate_langfuse_trace_url(session_id)
+            return trace_url
 
-        client.create_event(
-            name=f"agent-{agent_role}",
-            metadata={
-                "task_id": task.id,
-                "task_title": task.title,
-                "project_id": task.project_id if task.project else None,
-                "agent_role": agent_role,
-                "session_id": session_id,
-                "tokens": tokens,
-                "cost_usd": cost,
-                "thoughts": thoughts,
-                "tool_calls": [str(tc) for tc in tool_calls],
-            },
-            input={"prompt": prompt, "task": task.title},
-            output={"response": response_text},
+        metadata = {
+            "task_id": task.id,
+            "task_title": task.title,
+            "project_id": task.project_id if getattr(task, "project", None) else None,
+            "agent_role": agent_role,
+            "session_id": session_id,
+            "tokens": tokens,
+            "cost_usd": cost,
+        }
+
+        trace_kwargs = {
+            "name": f"agent-{agent_role}",
+            "session_id": session_id,
+            "tags": [agent_role, "antigravity-sdk", "orchestration"],
+            "metadata": metadata,
+            "input": {"prompt": prompt, "task": task.title},
+            "output": {"response": response_text},
+        }
+        user_id = getattr(getattr(task, "assignee", None), "email", "")
+        if user_id:
+            trace_kwargs["user_id"] = user_id
+        trace = client.trace(
+            **trace_kwargs,
         )
+
+        trace.generation(
+            name=f"{agent_role}-execution",
+            input={"prompt": prompt},
+            output={"response": response_text, "thoughts": thoughts},
+            metadata={
+                "tool_calls": [str(tc) for tc in tool_calls],
+                "thoughts": thoughts,
+                "cost_usd": cost,
+            },
+            usage={"total": tokens},
+        )
+
         client.flush()
-        logger.info(f"Successfully logged agent event {session_id} to Langfuse")
-        return generate_langfuse_trace_url(session_id)
+        logger.info(f"Successfully logged agent trace {session_id} to Langfuse")
+        return trace_url
     except Exception as e:
-        logger.debug(f"Langfuse event logged in background: {e}")
-        return generate_langfuse_trace_url(session_id)
+        logger.warning(f"Langfuse trace logging exception: {e}")
+        return trace_url

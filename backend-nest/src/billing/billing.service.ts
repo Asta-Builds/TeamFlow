@@ -41,6 +41,17 @@ export class BillingService {
       throw new BadRequestException('Invalid subscription tier');
   }
 
+  private requireRedirectUrl(url: string | undefined, field: string): string {
+    if (!url) {
+      throw new BadRequestException(`${field} must be provided by the client`);
+    }
+    try {
+      return new URL(url).toString();
+    } catch {
+      throw new BadRequestException(`${field} must be an absolute URL`);
+    }
+  }
+
   async createCheckoutSession(
     user: any,
     tier = 'growth',
@@ -50,10 +61,8 @@ export class BillingService {
     this.validateTier(tier);
     this.requireMockBilling(user);
 
-    const defaultSuccess =
-      successUrl || 'http://localhost:3000/billing?success=true';
-    const defaultCancel =
-      cancelUrl || 'http://localhost:3000/billing?canceled=true';
+    const defaultSuccess = this.requireRedirectUrl(successUrl, 'success_url');
+    const defaultCancel = this.requireRedirectUrl(cancelUrl, 'cancel_url');
     const mockSessionId = `cs_mock_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
     const sep = defaultSuccess.includes('?') ? '&' : '?';
     const checkoutUrl = `${defaultSuccess}${sep}session_id=${mockSessionId}&tier=${tier}`;
@@ -72,7 +81,7 @@ export class BillingService {
   async createPortalSession(user: any, returnUrl?: string) {
     this.requireMockBilling(user);
 
-    const defaultReturn = returnUrl || 'http://localhost:3000/billing';
+    const defaultReturn = this.requireRedirectUrl(returnUrl, 'return_url');
     const mockPortalId = `portal_mock_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
 
     return {

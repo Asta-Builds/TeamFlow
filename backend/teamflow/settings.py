@@ -4,25 +4,27 @@ See the Virtual Tech Company Blueprint for architecture context.
 """
 
 import sys
+import secrets
 from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TESTING = "test" in sys.argv
 
 env = environ.Env(
-    DEBUG=(bool, True),
-    SECRET_KEY=(str, "django-insecure-dev-key-change-me-in-production"),
-    ALLOWED_HOSTS=(list, ["localhost", "127.0.0.1"]),
-    CORS_ALLOWED_ORIGINS=(list, ["http://localhost:3000", "http://127.0.0.1:3000"]),
-    CSRF_TRUSTED_ORIGINS=(list, ["http://localhost:3000", "http://127.0.0.1:3000"]),
+    DEBUG=(bool, False),
+    SECRET_KEY=(str, ""),
+    ALLOWED_HOSTS=(list, []),
+    CORS_ALLOWED_ORIGINS=(list, []),
+    CSRF_TRUSTED_ORIGINS=(list, []),
     DATABASE_URL=(str, ""),
-    CELERY_BROKER_URL=(str, "redis://localhost:6379/0"),
-    KEYCLOAK_URL=(str, "http://localhost:8080/realms/teamflow"),
-    KEYCLOAK_ISSUER_URL=(str, "http://localhost:8080/realms/teamflow"),
-    KEYCLOAK_CLIENT_ID=(str, "teamflow-app"),
+    CELERY_BROKER_URL=(str, ""),
+    KEYCLOAK_URL=(str, ""),
+    KEYCLOAK_ISSUER_URL=(str, ""),
+    KEYCLOAK_CLIENT_ID=(str, ""),
     KEYCLOAK_CLIENT_SECRET=(str, ""),
     KEYCLOAK_HTTP_TIMEOUT_SECONDS=(int, 5),
     SLACK_SIGNING_SECRET=(str, ""),
@@ -30,12 +32,18 @@ env = environ.Env(
     STRIPE_WEBHOOK_SECRET=(str, ""),
     STRIPE_PRICE_GROWTH=(str, ""),
     STRIPE_PRICE_ENTERPRISE=(str, ""),
+    AGENT_EMAIL_DOMAIN=(str, ""),
 )
 
 # Load a .env file if present (dev convenience).
 environ.Env.read_env(BASE_DIR / ".env")
 
 SECRET_KEY = env("SECRET_KEY")
+if not SECRET_KEY:
+    if TESTING:
+        SECRET_KEY = secrets.token_urlsafe(64)
+    else:
+        raise ImproperlyConfigured("SECRET_KEY must be configured outside the test suite.")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
@@ -208,3 +216,6 @@ STRIPE_PRICES = {
     "growth": env("STRIPE_PRICE_GROWTH"),
     "enterprise": env("STRIPE_PRICE_ENTERPRISE"),
 }
+AGENT_EMAIL_DOMAIN = env("AGENT_EMAIL_DOMAIN").strip()
+if TESTING and not AGENT_EMAIL_DOMAIN:
+    AGENT_EMAIL_DOMAIN = "agents.invalid"

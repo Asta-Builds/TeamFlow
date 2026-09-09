@@ -20,7 +20,10 @@ function setup() {
     service: new AgentsService(prisma as any, http as any),
   };
 }
-beforeEach(() => vi.stubEnv('PYTHON_AI_JWT_SECRET', 'c'.repeat(48)));
+beforeEach(() => {
+  vi.stubEnv('PYTHON_AI_JWT_SECRET', 'c'.repeat(48));
+  vi.stubEnv('PYTHON_AI_SERVICE_URL', 'https://ai.example');
+});
 afterEach(() => vi.unstubAllEnvs());
 
 it('rejects users without a tenant before querying feeds or traces', async () => {

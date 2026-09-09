@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 
 const CLERK_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const API_DOCS_URL = process.env.NEXT_PUBLIC_API_DOCS_URL || "/api/docs/";
+const SOURCE_REPOSITORY_URL = process.env.NEXT_PUBLIC_SOURCE_REPOSITORY_URL;
 
 const DEMO_STEPS = [
   {
@@ -160,7 +162,7 @@ export default function LandingPage() {
               <a href="#agents" className="hover:text-white transition">Multi-Agent Swarm</a>
               <a href="#roles" className="hover:text-white transition">Role Portals</a>
               <a href="#pricing" className="hover:text-white transition">Pricing</a>
-              <a href="http://localhost:8000/api/docs/" target="_blank" rel="noreferrer" className="hover:text-white transition flex items-center gap-1">
+              <a href={API_DOCS_URL} target="_blank" rel="noreferrer" className="hover:text-white transition flex items-center gap-1">
                 <span>API Docs</span>
                 <ExternalLink className="h-2.5 w-2.5" />
               </a>
@@ -641,8 +643,8 @@ export default function LandingPage() {
           <div className="flex flex-wrap items-center gap-6">
             <Link href="/login" className="hover:text-slate-300 transition">Login</Link>
             <button onClick={loginWithClerk} className="hover:text-slate-300 transition cursor-pointer">Clerk Auth</button>
-            <a href="http://localhost:8000/api/docs/" target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">Swagger API</a>
-            <a href="https://github.com/Asta-Builds/TeamFlow" target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">GitHub</a>
+            <a href={API_DOCS_URL} target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">Swagger API</a>
+            {SOURCE_REPOSITORY_URL ? <a href={SOURCE_REPOSITORY_URL} target="_blank" rel="noreferrer" className="hover:text-slate-300 transition">Source repository</a> : null}
             <span>v2.0 Standalone</span>
           </div>
         </div>

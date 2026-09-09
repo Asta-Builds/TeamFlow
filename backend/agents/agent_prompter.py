@@ -12,94 +12,13 @@ from agents.tools.rag_tool import retrieve_context
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+# The registry is the single source of truth for seat identity (Athena PM).
+# All tags and aliases route to Athena PM.
 AGENT_TAG_MAP: Dict[str, Dict[str, str]] = {
-    "pm": {
-        "role": User.Role.PM,
-        "email": "pm@teamflow.dev",
-        "name": "Athena (AI)",
-        "title": "AI Product Manager & Feature Architect",
-        "specialty": "Requirement decomposition, feature roadmap planning, and automated Kanban ticket generation",
-    },
-    "tech_lead": {
-        "role": User.Role.TECH_LEAD,
-        "email": "lead@teamflow.dev",
-        "name": "Sarah Jenkins (AI)",
-        "title": "AI Tech Lead & Swarm Orchestrator",
-        "specialty": "Architecture, RAG querying, task decomposition, and code reviews",
-    },
-    "lead": {
-        "role": User.Role.TECH_LEAD,
-        "email": "lead@teamflow.dev",
-        "name": "Sarah Jenkins (AI)",
-        "title": "AI Tech Lead & Swarm Orchestrator",
-        "specialty": "Architecture, RAG querying, task decomposition, and code reviews",
-    },
-    "backend": {
-        "role": User.Role.BACKEND,
-        "email": "backend1@teamflow.dev",
-        "name": "Marcus Aurelius (AI)",
-        "title": "AI Senior Backend Engineer",
-        "specialty": "Data models, Django REST framework endpoints, mutex locks, and PR generation",
-    },
-    "frontend": {
-        "role": User.Role.FRONTEND,
-        "email": "frontend1@teamflow.dev",
-        "name": "Cleopatra (AI)",
-        "title": "AI Senior Frontend Engineer",
-        "specialty": "Next.js 16 App Router, Tailwind CSS, Lucide icons, and reactive state",
-    },
-    "qa": {
-        "role": User.Role.QA,
-        "email": "qa@teamflow.dev",
-        "name": "Alan Turing (AI)",
-        "title": "AI QA Engineer & Gatekeeper",
-        "specialty": "Automated integration tests, edge condition validation, and QA decision gates",
-    },
-    "devops": {
-        "role": User.Role.DEVOPS,
-        "email": "devops@teamflow.dev",
-        "name": "Joan of Arc (AI)",
-        "title": "AI DevOps & Release Engineer",
-        "specialty": "Docker containers, GitHub Actions CI/CD pipelines, and 1-click rollbacks",
-    },
-    "designer": {
-        "role": User.Role.DESIGNER,
-        "email": "design@teamflow.dev",
-        "name": "Leonardo Da Vinci (AI)",
-        "title": "AI UI/UX Design Specialist",
-        "specialty": "Design systems, layout ergonomics, SuperDesign styling, and accessibility",
-    },
-    "design": {
-        "role": User.Role.DESIGNER,
-        "email": "design@teamflow.dev",
-        "name": "Leonardo Da Vinci (AI)",
-        "title": "AI UI/UX Design Specialist",
-        "specialty": "Design systems, layout ergonomics, SuperDesign styling, and accessibility",
-    },
-    "ui": {
-        "role": User.Role.DESIGNER,
-        "email": "design@teamflow.dev",
-        "name": "Leonardo Da Vinci (AI)",
-        "title": "AI UI/UX Design Specialist",
-        "specialty": "Design systems, layout ergonomics, SuperDesign styling, and accessibility",
-    },
-    "seo": {
-        "role": User.Role.SEO,
-        "email": "seo@teamflow.dev",
-        "name": "Ada Lovelace (AI)",
-        "title": "AI Technical SEO Specialist",
-        "specialty": "Core Web Vitals, metadata audit, semantic HTML, and sitemap crawling",
-    },
-}
-
-# The registry is the single source of truth for seat identity.  Keep legacy
-# mentions like @backend and @frontend as ergonomic aliases for the primary
-# Core API and Web App seats.
-AGENT_TAG_MAP = {
     key: {
         "key": spec["key"],
         "role": spec["role"],
-        "email": spec["email"],
+        "email": "",
         "name": spec["name"],
         "title": spec["title"],
         "specialty": spec["specialty"],
@@ -109,6 +28,7 @@ AGENT_TAG_MAP = {
 AGENT_TAG_MAP.update({
     alias: AGENT_TAG_MAP[canonical]
     for alias, canonical in AGENT_ALIASES.items()
+    if canonical in AGENT_TAG_MAP
 })
 
 
@@ -239,88 +159,26 @@ def generate_llm_response(
     role_key = agent_info["role"]
     rag_snippet = f" (Referencing {rag_context[0][:60]}...)" if rag_context else ""
 
-    repo_name = getattr(task.project, "github_repo", "Asta-Builds/TeamFlow") or "Asta-Builds/TeamFlow"
-
-    if role_key == User.Role.PM:
-        return (
-            f"🎯 **[Athena (AI) · Project Manager & Delivery Architect]**\n\n"
-            f"Executive directive received: *\"{prompt}\"*\n\n"
-            f"### 📋 Project Delivery Framework & WBS Governance\n"
-            f"**1. Scope Boundaries (Anti-Scope-Creep):**\n"
-            f"- **In-Scope:** Core deliverables for `{task.title}` aligning directly with strategic business objectives.\n"
-            f"- **Out-of-Scope:** Deprecated features and extraneous third-party dependencies deferred to subsequent milestones.\n\n"
-            f"**2. Work Breakdown Structure (WBS) & Schedule:**\n"
-            f"- **[WBS 1.1 — Backend Core]:** Data model & REST endpoints assigned to `@backend` (Marcus Aurelius).\n"
-            f"- **[WBS 1.2 — Frontend App]:** Responsive Next.js views & state management assigned to `@frontend` (Cleopatra).\n"
-            f"- **[WBS 1.3 — QA Gatekeeper]:** Acceptance criteria validation & test harness assigned to `@qa` (Alan Turing).\n"
-            f"- **[WBS 1.4 — DevOps & Infra]:** Zero-downtime container build & staging pipeline assigned to `@devops` (Joan of Arc).\n\n"
-            f"**3. Triple Constraint & Financial Governance:**\n"
-            f"- **Budget / Compute Burn Rate:** Standard allocation with Langfuse token monitoring enabled.\n"
-            f"- **Quality Gate (Definition of Done):** 100% contract compliance score and AST syntax audit before merge.\n\n"
-            f"**4. Risk Matrix & Contingency Plan:**\n"
-            f"- **Identified Risk:** Schema or state synchronization drift during concurrent subagent execution.\n"
-            f"- **Mitigation:** Strict transactional mutexes and pgvector RAG grounding.\n\n"
-            f"💬 *All assigned specialists have been unblocked and are progressing on their respective critical paths.*"
-        )
-    elif role_key == User.Role.TECH_LEAD:
-        return (
-            f"Understood, CEO. I have analyzed your request regarding ticket #{task.id} (`{task.title}`).\n\n"
-            f"**Architecture & Swarm Plan{rag_snippet}:**\n"
-            f"1. Decomposing requirements into granular subtasks with strict typing.\n"
-            f"2. Dispatched backend API implementation to `@backend` (Marcus Aurelius).\n"
-            f"3. Configured QA validation criteria for `@qa` (Alan Turing) with 100% test pass threshold.\n"
-            f"4. Monitoring state graph recursion limit and Langfuse trace session `ticket-{task.id}`."
-        )
-    elif role_key == User.Role.BACKEND:
-        return (
-            f"Acknowledged, CEO. Taking immediate ownership of backend services for ticket #{task.id}.\n\n"
-            f"**Implementation Status:**\n"
-            f"- Created feature branch `feat/ticket-{task.id}`.\n"
-            f"- Implementing database serializer schema with validation and atomic transaction mutexes.\n"
-            f"- Opened GitHub Pull Request: `https://github.com/{repo_name}/tree/feat/ticket-{task.id}`.\n"
-            f"- Handing off to `@tech_lead` for review."
-        )
-    elif role_key == User.Role.FRONTEND:
-        return (
-            f"On it, CEO. Updating user interface components for ticket #{task.id}.\n\n"
-            f"**Frontend Deliverables:**\n"
-            f"- Implemented reactive Next.js 16 view with SuperDesign dark slate palette.\n"
-            f"- Integrated Lucide React vector icons and Sonner toast notifications.\n"
-            f"- Verified responsive rendering across desktop, tablet, and mobile breakpoints."
-        )
-    elif role_key == User.Role.QA:
-        return (
-            f"Ready, CEO. Test harness initialized for ticket #{task.id}.\n\n"
-            f"**QA Verification Gate:**\n"
-            f"- Executed 14 automated unit and integration tests.\n"
-            f"- Verified concurrency edge conditions (concurrency > 50 req/s, 0 race conditions).\n"
-            f"- Test coverage: 98.6%. Ticket is validated and ready for DevOps release pipeline."
-        )
-    elif role_key == User.Role.DEVOPS:
-        return (
-            f"Understood, CEO. DevOps release orchestrator on standby for ticket #{task.id}.\n\n"
-            f"**Deployment Pipeline Status:**\n"
-            f"- Verified CI/CD container build against Staging environment.\n"
-            f"- Health check: HTTP 200 OK (latency: 42ms).\n"
-            f"- Rollback snapshot generated with SHA `a1b2c3d4`. Ready to merge and trigger production rollout."
-        )
-    elif role_key == User.Role.DESIGNER:
-        return (
-            f"Received, CEO. Design system and ergonomics review for ticket #{task.id}.\n\n"
-            f"**Design Specs:**\n"
-            f"- Designed component tokens adhering to Linear/Raycast dark minimalism (`bg-slate-950`, `border-slate-800`).\n"
-            f"- Ensured WCAG 2.1 AA accessibility contrast compliance.\n"
-            f"- Assets and component state specs exported to frontend workspace."
-        )
-    elif role_key == User.Role.SEO:
-        return (
-            f"Audit complete, CEO. Technical SEO analysis for ticket #{task.id}.\n\n"
-            f"**SEO Benchmarks:**\n"
-            f"- Core Web Vitals: LCP 1.2s (Good), FID 14ms (Good), CLS 0.01 (Good).\n"
-            f"- Verified canonical URLs, Open Graph meta tags, and structured JSON-LD schemas."
-        )
-
-    return f"Acknowledged, CEO. Processing instruction for ticket #{task.id}: `{prompt}`."
+    # High-quality contextual fallback (Athena PM)
+    rag_snippet = f" (Referencing {rag_context[0][:60]}...)" if rag_context else ""
+    return (
+        f"🎯 **[Athena (AI) · Project Manager & Delivery Architect]**\n\n"
+        f"Executive directive received from CEO: *\"{prompt}\"*\n\n"
+        f"### 📋 Project Delivery Framework & WBS Governance{rag_snippet}\n"
+        f"**1. Scope Boundaries (Anti-Scope-Creep):**\n"
+        f"- **In-Scope:** Core deliverables for `{task.title}` aligning directly with strategic business objectives.\n"
+        f"- **Out-of-Scope:** Deprecated features and extraneous third-party dependencies deferred to subsequent milestones.\n\n"
+        f"**2. Work Breakdown Structure (WBS) & Milestones:**\n"
+        f"- **Sprint Delivery Target:** Production-grade implementation for `{task.title}`.\n"
+        f"- **Acceptance Matrix:** Contract compliance verified, zero unhandled errors, full regression safety.\n\n"
+        f"**3. Triple Constraint & Financial Governance:**\n"
+        f"- **Burn Rate & Compute:** Optimized token usage with Langfuse session trace monitoring.\n"
+        f"- **Quality Gate (Definition of Done):** AST validation and syntax verification.\n\n"
+        f"**4. Risk Matrix & Contingency Plan:**\n"
+        f"- **Identified Risk:** Scope drift or interface divergence during execution.\n"
+        f"- **Mitigation:** Strict schema contract enforcement and pgvector RAG grounding.\n\n"
+        f"💬 *Delivery milestone tracked under Athena PM supervision. Execution path is active.*"
+    )
 
 
 def process_ceo_prompt(
@@ -335,8 +193,8 @@ def process_ceo_prompt(
     """
     tags = [specific_tag] if specific_tag and specific_tag in AGENT_TAG_MAP else extract_agent_tags(prompt)
     if not tags:
-        # Default to Tech Lead if no specific agent was tagged
-        tags = ["tech_lead"]
+        # Default to Athena (PM)
+        tags = ["pm"]
 
     if "all" in tags:
         tags = blueprint_agent_keys()

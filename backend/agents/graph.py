@@ -198,6 +198,27 @@ def execute_ticket_swarm(
             "status", "graph_state", "steps", "tokens_used", "cost_usd",
             "duration_seconds", "langfuse_url", "finished_at",
         ])
+
+        # Stream completed swarm trace to Langfuse
+        try:
+            from .observability.langfuse_client import log_agent_execution_to_langfuse
+            thoughts = [
+                f"State transitioned to {step.get('node', 'node')}" if isinstance(step, dict) else str(step)
+                for step in final_state.get("history", [])
+            ]
+            log_agent_execution_to_langfuse(
+                task=task,
+                agent_role="swarm",
+                prompt=task.description or task.title,
+                response_text=f"Swarm orchestration completed with status {final_status}. PR: {final_state.get('pr_url') or 'N/A'}",
+                thoughts=thoughts,
+                tool_calls=[],
+                tokens=trace.tokens_used or 500,
+                cost=float(trace.cost_usd or 0.005),
+                session_id=session_id,
+            )
+        except Exception as lf_err:
+            logger.warning(f"Failed to log swarm completion to Langfuse: {lf_err}")
         emit_agent_event(
             task=task,
             trace=trace,

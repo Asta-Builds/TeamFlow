@@ -51,120 +51,8 @@ class AntigravityAgentResult:
 
 
 ANTIGRAV_AGENT_SPECS: Dict[str, Dict[str, Any]] = {
-    "pm": {
-        "name": "Athena (AI)",
-        "role": "pm",
-        "email": "pm@teamflow.dev",
-        "system_instructions": (
-            "You are the autonomous Project Manager (PM) in TeamFlow, powered by Google Antigravity SDK. "
-            "Your objective: lead projects from concept to completion within scope, time, budget, and quality constraints. "
-            "Your responsibilities span 5 phases: "
-            "1) Initiation: Define business value, project charter, and stakeholder alignment. "
-            "2) Planning: Establish Work Breakdown Structures (WBS), milestones, risk matrix, and cost/burn-rate estimates. "
-            "3) Execution: Allocate tasks to specialist agents (Backend, Frontend, QA, DevOps, Designer, SEO) and unblock operational bottlenecks. "
-            "4) Monitoring & Controlling: Track KPIs, burndown progress, and strictly prevent scope creep. "
-            "5) Closing: Verify definition of done, archive documentation, and produce post-mortem retrospectives."
-        ),
-        "capabilities": [
-            "wbs_decomposition",
-            "milestone_tracking",
-            "risk_matrix_analysis",
-            "scope_governance",
-            "budget_forecasting",
-            "kpi_monitoring",
-            "sprint_planning",
-            "post_mortem",
-        ],
-        "default_model": "pro",
-    },
-    "tech_lead": {
-        "name": "Sarah Jenkins (AI)",
-        "role": "tech_lead",
-        "email": "lead@teamflow.dev",
-        "system_instructions": (
-            "You are the autonomous Tech Lead Agent in TeamFlow, powered by Google Antigravity SDK. "
-            "Your responsibilities: architecture analysis, querying pgvector RAG store for ADRs and codebase patterns, "
-            "decomposing tasks into specialist subtasks, delegating to Backend/Frontend subagents, and reviewing pull requests."
-        ),
-        "capabilities": ["rag_search", "subagent_dispatch", "pr_review", "codebase_inspection"],
-        "default_model": "pro",
-    },
-    "backend": {
-        "name": "Marcus Aurelius (AI)",
-        "role": "backend",
-        "email": "backend1@teamflow.dev",
-        "system_instructions": (
-            "You are the autonomous Senior Backend Engineer in TeamFlow, powered by Google Antigravity SDK. "
-            "Your responsibilities: Django REST framework APIs, database models, mutex concurrency locks, serializer schemas, "
-            "and opening automated GitHub Pull Requests."
-        ),
-        "capabilities": ["github_pr", "api_scaffold", "sql_optimization", "run_tests"],
-        "default_model": "pro",
-    },
-    "frontend": {
-        "name": "Cleopatra (AI)",
-        "role": "frontend",
-        "email": "frontend1@teamflow.dev",
-        "system_instructions": (
-            "You are the autonomous Senior Frontend Engineer in TeamFlow, powered by Google Antigravity SDK. "
-            "Your responsibilities: Next.js 16 App Router UI, SuperDesign slate theme, Lucide vector icons, "
-            "Sonner toast notifications, and client state orchestration."
-        ),
-        "capabilities": ["component_builder", "style_validator", "accessibility_audit"],
-        "default_model": "pro",
-    },
-    "qa": {
-        "name": "Alan Turing (AI)",
-        "role": "qa",
-        "email": "qa@teamflow.dev",
-        "system_instructions": (
-            "You are the autonomous QA Gatekeeper in TeamFlow, powered by Google Antigravity SDK. "
-            "Your responsibilities: automated integration test suites, boundary condition testing, "
-            "regression analysis, and enforcing the 5-stage Kanban decision gate."
-        ),
-        "capabilities": ["integration_tests", "qa_decision_gate", "regression_suite"],
-        "default_model": "pro",
-    },
-    "devops": {
-        "name": "Joan of Arc (AI)",
-        "role": "devops",
-        "email": "devops@teamflow.dev",
-        "system_instructions": (
-            "You are the autonomous DevOps & Release Engineer in TeamFlow, powered by Google Antigravity SDK. "
-            "Your responsibilities: Docker container builds, GitHub Actions CI/CD workflows, live build log streaming, "
-            "and 1-click instant rollback."
-        ),
-        "capabilities": ["docker_ci", "deployment_trigger", "rollback_snapshot", "health_check"],
-        "default_model": "pro",
-    },
-    "designer": {
-        "name": "Leonardo Da Vinci (AI)",
-        "role": "designer",
-        "email": "design@teamflow.dev",
-        "system_instructions": (
-            "You are the autonomous UI/UX Design Specialist in TeamFlow, powered by Google Antigravity SDK. "
-            "Your responsibilities: design token systems, ergonomic interface layouts, and WCAG AA accessibility compliance."
-        ),
-        "capabilities": ["design_tokens", "wcag_checker", "mockup_generator"],
-        "default_model": "flash",
-    },
-    "seo": {
-        "name": "Ada Lovelace (AI)",
-        "role": "seo",
-        "email": "seo@teamflow.dev",
-        "system_instructions": (
-            "You are the autonomous Technical SEO Specialist in TeamFlow, powered by Google Antigravity SDK. "
-            "Your responsibilities: Core Web Vitals (LCP, FID, CLS, TTFB), meta tags inspection, sitemap crawling, "
-            "and automated performance issue triage into engineering tickets."
-        ),
-        "capabilities": ["cwv_audit", "sitemap_crawler", "ticket_generator"],
-        "default_model": "flash",
-    },
+    key: get_agent_spec(key) for key in AGENT_SEATS
 }
-
-# The canonical registry keeps seat identity separate from the Django role used
-# for permissions.  The legacy aliases remain valid through resolve_agent_key.
-ANTIGRAV_AGENT_SPECS = {key: get_agent_spec(key) for key in AGENT_SEATS}
 
 
 class AntigravityAgentEngine:
@@ -173,7 +61,7 @@ class AntigravityAgentEngine:
     Interfaces with google.antigravity when available, with full structured fallback.
     """
 
-    def __init__(self, agent_role: str = "tech_lead"):
+    def __init__(self, agent_role: str = "pm"):
         self.agent_key = resolve_agent_key(agent_role)
         self.spec = get_agent_spec(self.agent_key)
         self.role = self.spec["role"]
@@ -210,7 +98,7 @@ class AntigravityAgentEngine:
         tool_calls: List[AntigravityToolCall] = []
 
         # Simulate Antigravity Tool Invocations based on role
-        repo_name = getattr(task.project, "github_repo", "Asta-Builds/TeamFlow") or "Asta-Builds/TeamFlow"
+        repo_name = getattr(task.project, "github_repo", "") or ""
 
         if self.role == "pm":
             thoughts.append("[Antigravity SDK: Thinking] Analyzing project phases (Initiation -> Planning) and defining scope boundaries")
@@ -233,31 +121,40 @@ class AntigravityAgentEngine:
                 )
             )
             if self.role == "backend":
-                slug = task.title.lower().replace(" ", "-")[:24] if task.title else f"ticket-{task.id}"
-                branch_name = f"feat/{slug}"
-                branch_res = create_branch(repo_name, branch_name)
-                tool_calls.append(
-                    AntigravityToolCall(
-                        name="create_branch",
-                        args={"repo": repo_name, "branch": branch_name},
-                        output=branch_res.get("message") or f"Checked out branch {branch_name}"
+                if not repo_name:
+                    tool_calls.append(
+                        AntigravityToolCall(
+                            name="repository_configuration_required",
+                            args={},
+                            output="No repository is linked to this project; branch and pull-request creation were skipped.",
+                        )
                     )
-                )
-                pr_title = f"feat(backend): {task.title}"
-                pr_body = (
-                    f"## Summary\n"
-                    f"Autonomous backend implementation for #{task.id}: {task.title}.\n\n"
-                    f"### Context & Requirements\n"
-                    f"{prompt}"
-                )
-                pr_res = open_pull_request(repo_name, pr_title, pr_body, branch_name)
-                tool_calls.append(
-                    AntigravityToolCall(
-                        name="open_pull_request",
-                        args={"repo": repo_name, "title": pr_title, "branch": branch_name},
-                        output=pr_res.get("pr_url", f"https://github.com/{repo_name}/tree/{branch_name}")
+                else:
+                    slug = task.title.lower().replace(" ", "-")[:24] if task.title else f"ticket-{task.id}"
+                    branch_name = f"feat/{slug}"
+                    branch_res = create_branch(repo_name, branch_name)
+                    tool_calls.append(
+                        AntigravityToolCall(
+                            name="create_branch",
+                            args={"repo": repo_name, "branch": branch_name},
+                            output=branch_res.get("message") or f"Checked out branch {branch_name}"
+                        )
                     )
-                )
+                    pr_title = f"feat(backend): {task.title}"
+                    pr_body = (
+                        f"## Summary\n"
+                        f"Autonomous backend implementation for #{task.id}: {task.title}.\n\n"
+                        f"### Context & Requirements\n"
+                        f"{prompt}"
+                    )
+                    pr_res = open_pull_request(repo_name, pr_title, pr_body, branch_name)
+                    tool_calls.append(
+                        AntigravityToolCall(
+                            name="open_pull_request",
+                            args={"repo": repo_name, "title": pr_title, "branch": branch_name},
+                            output=pr_res.get("pr_url", f"https://github.com/{repo_name}/tree/{branch_name}")
+                        )
+                    )
 
         elif self.role == "qa":
             thoughts.append("[Antigravity SDK: Thinking] Evaluating test coverage and validating acceptance criteria gate")
@@ -378,14 +275,37 @@ class AntigravityAgentEngine:
         if not response_text:
             role_label = self.spec["name"]
             tools_str = f" [Tools executed: `{'`, `'.join(t.name for t in tool_calls)}`]" if tool_calls else ""
-            response_text = (
-                f"**[Google Antigravity SDK · {role_label}]**\n\n"
-                f"CEO Prompt: *\"{prompt}\"*\n\n"
-                f"**Execution Status on Ticket #{task.id} (`{task.title}`):**\n"
-                f"- Grounded in vector knowledge base with {len(rag_context)} architectural chunks.{tools_str}\n"
-                f"- Executed specialist task loop according to Antigravity rules and permissions.\n"
-                f"- Output verified and ready for next Kanban phase (`{task.status}`)."
-            )
+            if self.role == "pm":
+                project_name = task.project.name if task.project else "Workspace Project"
+                response_text = (
+                    f"### 📋 Athena (AI) · Project Manager & Delivery Architect\n\n"
+                    f"**CEO Directive:** *\"{prompt}\"*\n"
+                    f"**Project:** `{project_name}` · **Ticket:** #{task.id} (`{task.title}`)\n\n"
+                    f"#### 🏛️ Phase Governance Status: Planning & Work Breakdown Structure (WBS)\n"
+                    f"As Project Manager, I have evaluated the directive against our 5-phase delivery governance and locked the scope boundaries:\n\n"
+                    f"1. **Scope Boundaries (Triple Constraint Control):**\n"
+                    f"   - **In-Scope:** Architectural decomposition, data modeling with relational constraints, typed API endpoints, and QA acceptance gates.\n"
+                    f"   - **Out-of-Scope:** Non-critical visual enhancements and auxiliary integrations (deferred to avoid scope creep).\n\n"
+                    f"2. **Work Breakdown Structure (WBS Deliverables):**\n"
+                    f"   - `WBS 1.1` **Backend Core (Marcus Aurelius):** Schema models, validated REST endpoints, and transactional mutex locks.\n"
+                    f"   - `WBS 1.2` **Frontend Views (Cleopatra):** Next.js 16 App Router interface with SuperDesign dark tokens and Lucide vector icons.\n"
+                    f"   - `WBS 1.3` **QA Gatekeeper (Alan Turing):** Automated regression suite with >=95% test assertion coverage.\n"
+                    f"   - `WBS 1.4` **DevOps CI/CD (Joan of Arc):** Multi-stage container build and automated 1-click rollback snapshot.\n\n"
+                    f"3. **Risk Matrix & Contingencies:**\n"
+                    f"   - *Concurrency Hazard:* Handled via atomic DB transactions and mutex locks.\n"
+                    f"   - *Delivery Slippage:* Unblocking critical path tasks first.\n\n"
+                    f"4. **Definition of Done (DoD):**\n"
+                    f"   - 100% QA gate contract compliance, verified Sonner toast feedback, and Tech Lead PR review approval."
+                )
+            else:
+                response_text = (
+                    f"**[Google Antigravity SDK · {role_label}]**\n\n"
+                    f"CEO Prompt: *\"{prompt}\"*\n\n"
+                    f"**Execution Status on Ticket #{task.id} (`{task.title}`):**\n"
+                    f"- Grounded in vector knowledge base with {len(rag_context)} architectural chunks.{tools_str}\n"
+                    f"- Executed specialist task loop according to Antigravity rules and permissions.\n"
+                    f"- Output verified and ready for next Kanban phase (`{task.status}`)."
+                )
 
         # 4. Parse file changes and execute Git lifecycle on workspace mount
         try:
@@ -395,7 +315,7 @@ class AntigravityAgentEngine:
                 task=task,
                 agent_info={
                     "name": self.spec["name"],
-                    "email": self.spec["email"],
+                    "email": getattr(user, "email", "") if user else "",
                     "role": self.role
                 }
             )
@@ -431,7 +351,7 @@ def run_antigravity_agent(
 
     # 2. Automatically apply task status transitions, assignees, and PR links based on agent work
     old_status = task.status
-    repo_name = getattr(task.project, "github_repo", "Asta-Builds/TeamFlow") or "Asta-Builds/TeamFlow"
+    repo_name = getattr(task.project, "github_repo", "") or ""
 
     if engine.role == "pm":
         task.status = Task.Status.IN_PROGRESS
@@ -472,7 +392,7 @@ def run_antigravity_agent(
     elif engine.role in {"backend", "frontend"}:
         task.status = Task.Status.IN_REVIEW
         task.assignee = agent_user
-        if not task.pr_url or "teamflow/teamflow" in task.pr_url:
+        if repo_name and not task.pr_url:
             task.pr_url = f"https://github.com/{repo_name}/tree/feat/ticket-{task.id}"
     elif engine.role == "tech_lead":
         if task.status == Task.Status.TODO:

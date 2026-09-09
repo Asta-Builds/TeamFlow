@@ -115,11 +115,16 @@ class KeycloakAuthView(APIView):
 
     def post(self, request):
         code = request.data.get("code")
-        redirect_uri = request.data.get("redirect_uri") or "http://localhost:3000/auth/callback"
+        redirect_uri = request.data.get("redirect_uri")
         token = request.data.get("token") or request.data.get("access_token") or request.data.get("id_token")
 
         # 1. If an authorization code was received, exchange it with Keycloak
         if code and not token:
+            if not redirect_uri:
+                return Response(
+                    {"detail": "redirect_uri is required when exchanging an authorization code."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             try:
                 data = urllib.parse.urlencode({
                     "grant_type": "authorization_code",
@@ -249,29 +254,26 @@ class ClerkAuthView(APIView):
             raise AuthenticationFailed("A verified Clerk token, clerk_id, or email is required.")
 
         if not email:
-            email = f"{clerk_id.lower()}@clerk.teamflow.dev"
+            raise AuthenticationFailed("The verified Clerk identity must include an email address.")
 
         email = email.lower()
         if not name:
             name = email.split("@")[0].replace(".", " ").capitalize()
 
-        if "@" in email:
-            domain = email.split("@")[-1]
-            company = domain.split(".")[0].capitalize()
-            org_name = f"{company} Workspace" if company.lower() not in {"gmail", "yahoo", "hotmail", "outlook", "example", "clerk"} else "TeamFlow Workspace"
-        else:
-            org_name = "TeamFlow Workspace"
-
-        org, _ = Organization.objects.get_or_create(
-            name=org_name,
-            defaults={
-                "subscription_tier": Organization.Tier.GROWTH,
-                "subscription_status": Organization.Status.ACTIVE,
-            }
-        )
-
         user = User.objects.filter(email=email).first()
         if not user:
+            if "@" in email:
+                domain = email.split("@")[-1]
+                company = domain.split(".")[0].capitalize()
+                org_name = f"{company} Workspace" if company.lower() not in {"gmail", "yahoo", "hotmail", "outlook", "example", "clerk"} else f"{name}'s Workspace"
+            else:
+                org_name = f"{name}'s Workspace"
+
+            org = Organization.objects.create(
+                name=org_name,
+                subscription_tier=Organization.Tier.GROWTH,
+                subscription_status=Organization.Status.ACTIVE,
+            )
             user = User.objects.create(
                 email=email,
                 name=name,
@@ -283,12 +285,20 @@ class ClerkAuthView(APIView):
             user.set_unusable_password()
             user.save()
         else:
+            update_fields = []
             if not user.organization:
+                org = Organization.objects.create(
+                    name=f"{name}'s Workspace",
+                    subscription_tier=Organization.Tier.GROWTH,
+                    subscription_status=Organization.Status.ACTIVE,
+                )
                 user.organization = org
-                user.save(update_fields=["organization"])
+                update_fields.append("organization")
             if avatar_url and not user.avatar_url:
                 user.avatar_url = avatar_url
-                user.save(update_fields=["avatar_url"])
+                update_fields.append("avatar_url")
+            if update_fields:
+                user.save(update_fields=update_fields)
 
         refresh = RefreshToken.for_user(user)
         return Response(

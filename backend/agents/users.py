@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
@@ -10,9 +13,11 @@ from .registry import AGENT_SEATS, get_agent_spec, resolve_agent_key
 User = get_user_model()
 
 
-def _scoped_email(base_email: str, organization_id: int) -> str:
-    local, domain = base_email.split("@", 1)
-    return f"{local}+org-{organization_id}@{domain}"
+def _scoped_email(agent_key: str, organization_id: int) -> str:
+    domain = getattr(settings, "AGENT_EMAIL_DOMAIN", "").strip()
+    if not re.fullmatch(r"[A-Za-z0-9.-]+", domain):
+        raise ValueError("AGENT_EMAIL_DOMAIN must be configured with a valid domain.")
+    return f"{agent_key}+organization-{organization_id}@{domain}"
 
 
 @transaction.atomic
@@ -30,15 +35,11 @@ def get_or_create_agent_user(agent_key: str, organization):
     if existing:
         return existing
 
-    base_user = User.objects.filter(email=spec["email"]).first()
-    if base_user and base_user.organization_id == organization.id:
-        user = base_user
-    else:
-        email = spec["email"] if base_user is None else _scoped_email(spec["email"], organization.id)
-        user, _created = User.objects.get_or_create(
-            email=email,
-            defaults={"organization": organization},
-        )
+    email = _scoped_email(spec["email_local"], organization.id)
+    user, _created = User.objects.get_or_create(
+        email=email,
+        defaults={"organization": organization},
+    )
 
     user.organization = organization
     user.agent_key = canonical_key
@@ -53,10 +54,11 @@ def get_or_create_agent_user(agent_key: str, organization):
 
 
 def agent_key_from_identifier(identifier: str) -> str:
-    """Resolve a registry key from a canonical key, alias, or base agent email."""
-    normalized = (identifier or "tech_lead").strip().lower()
+    """Resolve a registry key from a canonical key, alias, or scoped agent email."""
+    normalized = (identifier or "pm").strip().lower()
     for key, spec in AGENT_SEATS.items():
-        if normalized == spec["email"].lower():
+        email_local = spec["email_local"].lower()
+        if normalized == email_local or normalized.split("@", 1)[0].split("+", 1)[0] == email_local:
             return key
     return resolve_agent_key(normalized)
 

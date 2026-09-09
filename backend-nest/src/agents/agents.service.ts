@@ -21,89 +21,8 @@ export const AGENT_SEATS = [
     key: 'pm',
     role: 'pm',
     name: 'Athena (AI)',
-    email: 'pm@teamflow.dev',
+    email: '',
     title: 'Project Manager & Delivery Architect',
-    engine: 'Google Antigravity SDK',
-    status: 'ready',
-  },
-  {
-    key: 'tech_lead',
-    role: 'tech_lead',
-    name: 'Sarah Jenkins (AI)',
-    email: 'lead@teamflow.dev',
-    title: 'Tech Lead & System Architect',
-    engine: 'Google Antigravity SDK',
-    status: 'ready',
-  },
-  {
-    key: 'backend_core',
-    role: 'backend',
-    name: 'Marcus Aurelius (AI)',
-    email: 'backend1@teamflow.dev',
-    title: 'Senior Backend Engineer — Core API',
-    engine: 'Google Antigravity SDK',
-    status: 'ready',
-  },
-  {
-    key: 'backend_integrations',
-    role: 'backend',
-    name: 'Julius Caesar (AI)',
-    email: 'backend2@teamflow.dev',
-    title: 'Senior Backend Engineer — Integrations & Data',
-    engine: 'Google Antigravity SDK',
-    status: 'ready',
-  },
-  {
-    key: 'frontend_app',
-    role: 'frontend',
-    name: 'Cleopatra (AI)',
-    email: 'frontend1@teamflow.dev',
-    title: 'Senior Frontend Engineer — Web App',
-    engine: 'Google Antigravity SDK',
-    status: 'ready',
-  },
-  {
-    key: 'frontend_design_system',
-    role: 'frontend',
-    name: 'Alexander (AI)',
-    email: 'frontend2@teamflow.dev',
-    title: 'Senior Frontend Engineer — Design System',
-    engine: 'Google Antigravity SDK',
-    status: 'ready',
-  },
-  {
-    key: 'devops',
-    role: 'devops',
-    name: 'Joan of Arc (AI)',
-    email: 'devops@teamflow.dev',
-    title: 'DevOps & Release Engineer',
-    engine: 'Google Antigravity SDK',
-    status: 'ready',
-  },
-  {
-    key: 'qa',
-    role: 'qa',
-    name: 'Alan Turing (AI)',
-    email: 'qa@teamflow.dev',
-    title: 'QA Automation Engineer & Gatekeeper',
-    engine: 'Google Antigravity SDK',
-    status: 'ready',
-  },
-  {
-    key: 'designer',
-    role: 'designer',
-    name: 'Leonardo Da Vinci (AI)',
-    email: 'design@teamflow.dev',
-    title: 'UI/UX Design Specialist',
-    engine: 'Google Antigravity SDK',
-    status: 'ready',
-  },
-  {
-    key: 'seo',
-    role: 'seo',
-    name: 'Ada Lovelace (AI)',
-    email: 'seo@teamflow.dev',
-    title: 'Technical SEO Specialist',
     engine: 'Google Antigravity SDK',
     status: 'ready',
   },
@@ -111,8 +30,9 @@ export const AGENT_SEATS = [
 
 @Injectable()
 export class AgentsService {
-  private readonly pythonAiUrl =
-    process.env.PYTHON_AI_SERVICE_URL || 'http://127.0.0.1:8000';
+  private readonly pythonAiUrl = (
+    process.env.PYTHON_AI_SERVICE_URL || ''
+  ).replace(/\/+$/, '');
 
   constructor(
     private prisma: PrismaService,
@@ -143,11 +63,20 @@ export class AgentsService {
     return { Authorization: `Bearer ${token}` };
   }
 
+  private requirePythonAiUrl(): string {
+    if (!this.pythonAiUrl) {
+      throw new ServiceUnavailableException(
+        'The Python AI service URL is not configured',
+      );
+    }
+    return this.pythonAiUrl;
+  }
+
   async getStatus(user: any) {
     this.organizationId(user);
     try {
       const response = await this.httpService.axiosRef.get(
-        `${this.pythonAiUrl}/api/agents/status/`,
+        `${this.requirePythonAiUrl()}/api/agents/status/`,
         {
           headers: this.bridgeHeaders(user),
           timeout: 10000,
@@ -226,7 +155,7 @@ export class AgentsService {
       tokens_used: t.tokensUsed,
       cost_usd: t.costUsd.toNumber(),
       duration_seconds: t.durationSeconds,
-      langfuse_url: t.langfuseUrl,
+      langfuse_url: this.formatLangfuseUrl(t.langfuseUrl, t.sessionId),
       created_at: t.createdAt.toISOString(),
       finished_at: t.finishedAt ? t.finishedAt.toISOString() : null,
     }));
@@ -278,7 +207,7 @@ export class AgentsService {
       tokens_used: t.tokensUsed,
       cost_usd: t.costUsd.toNumber(),
       duration_seconds: t.durationSeconds,
-      langfuse_url: t.langfuseUrl,
+      langfuse_url: this.formatLangfuseUrl(t.langfuseUrl, t.sessionId),
       created_at: t.createdAt.toISOString(),
       finished_at: t.finishedAt ? t.finishedAt.toISOString() : null,
     }));
@@ -302,7 +231,7 @@ export class AgentsService {
 
     try {
       const response = await this.httpService.axiosRef.post(
-        `${this.pythonAiUrl}/api/agents/dispatch/${taskId}/`,
+        `${this.requirePythonAiUrl()}/api/agents/dispatch/${taskId}/`,
         {},
         { headers: this.bridgeHeaders(user), timeout: 10000 },
       );
@@ -343,7 +272,7 @@ export class AgentsService {
 
     try {
       const response = await this.httpService.axiosRef.post(
-        `${this.pythonAiUrl}/api/agents/swarm-chain/${taskId}/`,
+        `${this.requirePythonAiUrl()}/api/agents/swarm-chain/${taskId}/`,
         { instruction: instruction || '' },
         { headers: this.bridgeHeaders(user), timeout: 15000 },
       );
@@ -379,16 +308,15 @@ export class AgentsService {
     }
     try {
       const response = await this.httpService.axiosRef.post(
-        `${this.pythonAiUrl}/api/agents/ingest-rag/`,
+        `${this.requirePythonAiUrl()}/api/agents/ingest-rag/`,
         projectId ? { project_id: projectId } : {},
         { headers: this.bridgeHeaders(user), timeout: 15000 },
       );
       return response.data;
     } catch {
-      return {
-        message: 'Knowledge base RAG indexing initiated.',
-        chunks_ingested: 0,
-      };
+      throw new ServiceUnavailableException(
+        'RAG ingestion could not be confirmed. Check the Python AI service and retry.',
+      );
     }
   }
 
@@ -532,5 +460,13 @@ export class AgentsService {
     res.on('close', () => {
       clearInterval(timer);
     });
+  }
+
+  private formatLangfuseUrl(url: string, sessionId: string): string {
+    if (url) return url;
+    const baseUrl = process.env.LANGFUSE_UI_HOST?.replace(/\/$/, '');
+    const projectId = process.env.LANGFUSE_PROJECT_ID;
+    if (!baseUrl || !projectId || !sessionId) return '';
+    return `${baseUrl}/project/${projectId}/sessions/${sessionId}`;
   }
 }

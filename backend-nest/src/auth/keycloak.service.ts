@@ -51,13 +51,9 @@ export class KeycloakService {
   private readonly jwksTtlMs = 3600_000; // 1 hour
 
   constructor(private readonly httpService: HttpService) {
-    this.keycloakUrl = (
-      process.env.KEYCLOAK_URL || 'http://keycloak:8080/realms/teamflow'
-    ).replace(/\/+$/, '');
-    this.issuerUrl = (
-      process.env.KEYCLOAK_ISSUER_URL || 'http://localhost:8080/realms/teamflow'
-    ).replace(/\/+$/, '');
-    this.clientId = process.env.KEYCLOAK_CLIENT_ID || 'teamflow-app';
+    this.keycloakUrl = (process.env.KEYCLOAK_URL || '').replace(/\/+$/, '');
+    this.issuerUrl = (process.env.KEYCLOAK_ISSUER_URL || '').replace(/\/+$/, '');
+    this.clientId = process.env.KEYCLOAK_CLIENT_ID || '';
     this.clientSecret = process.env.KEYCLOAK_CLIENT_SECRET || '';
   }
 
@@ -65,6 +61,7 @@ export class KeycloakService {
     code: string,
     redirectUri: string,
   ): Promise<string> {
+    this.requireConfiguration();
     const params = new URLSearchParams({
       grant_type: 'authorization_code',
       client_id: this.clientId,
@@ -107,6 +104,7 @@ export class KeycloakService {
   }
 
   async fetchJwks(forceRefresh = false): Promise<Map<string, any>> {
+    this.requireConfiguration();
     const now = Date.now();
     if (
       !forceRefresh &&
@@ -146,6 +144,7 @@ export class KeycloakService {
   }
 
   async verifyKeycloakToken(token: string): Promise<KeycloakClaims> {
+    this.requireConfiguration();
     if (!token || typeof token !== 'string') {
       throw new UnauthorizedException('Keycloak token must be a valid string');
     }
@@ -220,16 +219,8 @@ export class KeycloakService {
       throw new UnauthorizedException('Keycloak token has expired');
     }
 
-    // Issuer validation (accept both internal Docker network issuer and host/browser issuer)
-    const allowedIssuers = new Set([
-      this.issuerUrl,
-      this.keycloakUrl,
-      this.issuerUrl.replace('localhost', '127.0.0.1'),
-      this.keycloakUrl.replace('keycloak', 'localhost'),
-    ]);
-
     const tokenIssuer = (payload.iss || '').replace(/\/+$/, '');
-    if (!allowedIssuers.has(tokenIssuer)) {
+    if (tokenIssuer !== this.issuerUrl) {
       throw new UnauthorizedException(
         `Invalid Keycloak token issuer: ${payload.iss}`,
       );
@@ -269,5 +260,11 @@ export class KeycloakService {
       }
     }
     return null;
+  }
+
+  private requireConfiguration(): void {
+    if (!this.keycloakUrl || !this.issuerUrl || !this.clientId) {
+      throw new UnauthorizedException('Keycloak is not configured');
+    }
   }
 }

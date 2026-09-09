@@ -27,7 +27,7 @@ export default function TeamPage() {
   // Invite Form state
   const [newEmail, setNewEmail] = useState("");
   const [newName, setNewName] = useState("");
-  const [newRole, setNewRole] = useState<Role>("backend");
+  const [newRole, setNewRole] = useState<Role>("member");
   const [newBio, setNewBio] = useState("");
 
   const canManage =
@@ -89,14 +89,14 @@ export default function TeamPage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Virtual Tech Team Directory
+              Workspace Team & AI Directory
             </h1>
             <span className="text-xs font-bold text-indigo-400 bg-indigo-950 px-2.5 py-0.5 rounded-full border border-indigo-800/50">
-              1 Human Founder · {aiAgentsCount} Autonomous AI Agents
+              {members.filter((m) => m.role === "ceo").length} Workspace CEO · {aiAgentsCount} Autonomous AI Agent{aiAgentsCount !== 1 ? "s" : ""}
             </span>
           </div>
           <p className="text-xs text-slate-400">
-            Autonomous specialist AI agent seats directed by the human CEO & Executive.
+            Multi-tenant workspace organization managed by the executive CEO with Athena (AI Project Manager).
           </p>
         </div>
 
@@ -106,7 +106,7 @@ export default function TeamPage() {
             className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition flex items-center gap-1.5 cursor-pointer"
           >
             <UserPlus className="h-4 w-4" />
-            <span>Deploy AI Agent Seat</span>
+            <span>Invite Team Member</span>
           </button>
         )}
       </div>
@@ -115,7 +115,7 @@ export default function TeamPage() {
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {members.map((m) => {
           const statusInfo = USER_STATUS_STYLES[m.user_status || "active"];
-          const isHuman = m.role === "ceo";
+          const isHuman = m.role === "ceo" || !m.agent_key;
 
           return (
             <div
@@ -146,7 +146,7 @@ export default function TeamPage() {
                   </span>
                   {!isHuman && (
                     <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-                      Autonomous Seat
+                      Autonomous AI PM
                     </span>
                   )}
                 </div>
@@ -191,8 +191,8 @@ export default function TeamPage() {
           <div className="w-full max-w-md rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Bot className="h-4 w-4 text-indigo-400" />
-                <span>Deploy Autonomous AI Agent Seat</span>
+                <UserPlus className="h-4 w-4 text-indigo-400" />
+                <span>Invite Workspace Member</span>
               </h2>
               <button onClick={() => setShowInviteModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X className="h-4 w-4" />
@@ -200,49 +200,43 @@ export default function TeamPage() {
             </div>
             <form onSubmit={handleInvite} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Agent Specialist Name *</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Full Name *</label>
                 <input
                   required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  placeholder="e.g. Leonardo Da Vinci (AI)"
+                  placeholder="e.g. Sarah Connor"
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Agent Identifier Email *</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Email Address *</label>
                 <input
                   required
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  placeholder="agent@teamflow.dev"
+                  placeholder="member@company.com"
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Specialist Role *</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Workspace Role *</label>
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as Role)}
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                 >
-                  <option value="tech_lead">AI Tech Lead (Swarm Orchestration)</option>
-                  <option value="backend">AI Senior Backend Engineer</option>
-                  <option value="frontend">AI Senior Frontend Engineer</option>
-                  <option value="devops">AI DevOps & Release Engineer</option>
-                  <option value="qa">AI QA & Gatekeeper Engineer</option>
-                  <option value="designer">AI UI/UX Design Specialist</option>
-                  <option value="seo">AI Technical SEO Specialist</option>
-                  <option value="member">AI Member Agent</option>
+                  <option value="ceo">CEO (Executive Access)</option>
+                  <option value="member">Workspace Member</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Agent Mission Scope</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Bio / Title</label>
                 <input
                   value={newBio}
                   onChange={(e) => setNewBio(e.target.value)}
-                  placeholder="e.g. Automated query optimization and Redis cache invalidation"
+                  placeholder="e.g. Lead Product Designer"
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
@@ -258,7 +252,7 @@ export default function TeamPage() {
                   type="submit"
                   className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 cursor-pointer"
                 >
-                  Deploy Agent Seat
+                  Invite Member
                 </button>
               </div>
             </form>

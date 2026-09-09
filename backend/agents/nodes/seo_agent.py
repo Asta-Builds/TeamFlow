@@ -47,7 +47,7 @@ def seo_agent_node(state: TicketState) -> Dict[str, Any]:
     if ticket_id:
         add_ticket_comment(
             ticket_id,
-            "seo@teamflow.dev",
+            "pm",
             f"🔍 SEO Agent: Technical audit complete. Canonical and metadata verified for {title}."
         )
         log_task_activity(ticket_id, "Ada Lovelace", "audited_seo", {"title": title})

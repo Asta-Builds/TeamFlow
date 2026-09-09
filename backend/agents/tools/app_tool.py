@@ -21,7 +21,7 @@ def _agent_for_task(task, identifier: str):
 def update_ticket_status(
     task_id: int,
     status: str,
-    actor_email: str = "lead@teamflow.dev",
+    actor_email: str = "pm",
     details: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """App DB Tool: Updates task status and logs TaskActivity."""
@@ -90,7 +90,7 @@ def set_ticket_qa_decision(
     task_id: int,
     qa_passed: bool,
     reason: str = "",
-    actor_email: str = "qa@teamflow.dev",
+    actor_email: str = "pm",
 ) -> Dict[str, Any]:
     """App DB Tool: Records QA approval or rejection with mandatory reason."""
     try:
@@ -133,7 +133,7 @@ def trigger_app_deployment(
     environment: str = "staging",
     branch: str = "main",
     commit_sha: str = "a1b2c3d4",
-    actor_email: str = "devops@teamflow.dev",
+    actor_email: str = "pm",
 ) -> Dict[str, Any]:
     """App DB Tool: Triggers and records an automated deployment in TeamFlow."""
     try:
