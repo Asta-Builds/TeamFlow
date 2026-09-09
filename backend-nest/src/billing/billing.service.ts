@@ -61,8 +61,8 @@ export class BillingService {
     this.validateTier(tier);
     this.requireMockBilling(user);
 
-    const defaultSuccess = this.requireRedirectUrl(successUrl, 'success_url');
-    const defaultCancel = this.requireRedirectUrl(cancelUrl, 'cancel_url');
+    const defaultSuccess = this.requireRedirectUrl(successUrl || 'http://localhost:3000/billing?success=true', 'success_url');
+    const defaultCancel = this.requireRedirectUrl(cancelUrl || 'http://localhost:3000/billing?canceled=true', 'cancel_url');
     const mockSessionId = `cs_mock_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
     const sep = defaultSuccess.includes('?') ? '&' : '?';
     const checkoutUrl = `${defaultSuccess}${sep}session_id=${mockSessionId}&tier=${tier}`;

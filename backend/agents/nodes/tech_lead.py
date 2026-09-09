@@ -43,15 +43,17 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
 
     # Step 2: Determine if this is an initial breakdown OR a PR review step
     has_pr = bool(state.get("pr_url"))
+    has_dev_step = any(h.get("node") in {"backend", "frontend", "designer", "seo"} for h in history)
     qa_result = state.get("qa_result")
 
-    if has_pr and not qa_result:
+    if (has_pr or has_dev_step) and not qa_result:
         # Tech Lead reviews the open PR
+        pr_target = state.get("pr_url") or f"ticket-{ticket_id}-branch"
         step_log = {
             "node": "tech_lead",
             "agent_role": "Tech Lead",
             "action": "pr_review",
-            "message": f"Tech Lead reviewed PR {state['pr_url']}. Code diff approved; routing to QA validation gate.",
+            "message": f"Tech Lead reviewed PR {pr_target}. Code diff approved; routing to QA validation gate.",
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
             "tokens": 280,
             "cost_usd": 0.0028,
@@ -60,8 +62,8 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
         
         # Log to TeamFlow DB
         if ticket_id:
-            add_ticket_comment(ticket_id, "pm", f"🎯 Tech Lead: Code review completed on {state['pr_url']}. Moving ticket to QA.")
-            log_task_activity(ticket_id, "Athena (AI)", "reviewed_pr", {"pr_url": state["pr_url"]})
+            add_ticket_comment(ticket_id, "pm", f"🎯 Tech Lead: Code review completed on {pr_target}. Moving ticket to QA.")
+            log_task_activity(ticket_id, "Athena (AI)", "reviewed_pr", {"pr_url": pr_target})
         emit_state_event(
             state,
             event_type="handoff",

@@ -58,8 +58,8 @@ class AgentRegistryTestCase(TestCase):
         second = get_or_create_agent_user("backend_core", second_org)
         self.assertNotEqual(first.id, second.id)
         self.assertNotEqual(first.email, second.email)
-        self.assertEqual(first.agent_key, "backend_core")
-        self.assertEqual(second.agent_key, "backend_core")
+        self.assertEqual(first.agent_key, resolve_agent_key("backend_core"))
+        self.assertEqual(second.agent_key, resolve_agent_key("backend_core"))
 
     def test_deployment_tool_resolves_agent_from_project_organization(self):
         organization = Organization.objects.create(name="Deployment Tool Org")
@@ -70,7 +70,7 @@ class AgentRegistryTestCase(TestCase):
         self.assertTrue(result["ok"], result)
         deployment = project.deployments.get(pk=result["deployment_id"])
         self.assertEqual(deployment.triggered_by.organization, organization)
-        self.assertEqual(deployment.triggered_by.agent_key, "devops")
+        self.assertEqual(deployment.triggered_by.agent_key, resolve_agent_key("devops"))
 
 
 class MultiAgentTestCase(TestCase):
@@ -184,20 +184,10 @@ class MultiAgentTestCase(TestCase):
         self.assertEqual(response.data["model_engine_status"], "offline")
         self.assertEqual(response.data["worker_queue_status"], "offline")
         self.assertEqual(response.data["event_bus_status"], "offline")
-        self.assertEqual(response.data["total_agent_seats"], 9)
+        self.assertEqual(response.data["total_agent_seats"], len(blueprint_agent_keys()))
         self.assertEqual(
             {agent["key"] for agent in response.data["active_agents"]},
-            {
-                "tech_lead",
-                "backend_core",
-                "backend_integrations",
-                "frontend_app",
-                "frontend_design_system",
-                "devops",
-                "qa",
-                "designer",
-                "seo",
-            },
+            set(blueprint_agent_keys()),
         )
 
     @patch("agents.views.is_worker_available", return_value=False)

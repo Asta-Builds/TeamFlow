@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { KeycloakService } from './keycloak.service.js';
 import { generateKeyPairSync, createSign } from 'node:crypto';
 
@@ -26,6 +26,11 @@ describe('KeycloakService', () => {
   }
 
   beforeEach(() => {
+    vi.stubEnv('KEYCLOAK_URL', 'http://localhost:8080');
+    vi.stubEnv('KEYCLOAK_ISSUER_URL', 'http://localhost:8080/realms/teamflow');
+    vi.stubEnv('KEYCLOAK_CLIENT_ID', 'teamflow-app');
+    vi.stubEnv('KEYCLOAK_CLIENT_SECRET', 'test-client-secret');
+
     httpServiceMock = {
       axiosRef: {
         get: vi.fn().mockResolvedValue({
@@ -37,6 +42,10 @@ describe('KeycloakService', () => {
       },
     };
     service = new KeycloakService(httpServiceMock);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe('exchangeCodeForToken', () => {

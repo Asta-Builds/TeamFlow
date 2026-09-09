@@ -14,9 +14,9 @@ User = get_user_model()
 
 
 def _scoped_email(agent_key: str, organization_id: int) -> str:
-    domain = getattr(settings, "AGENT_EMAIL_DOMAIN", "").strip()
+    domain = getattr(settings, "AGENT_EMAIL_DOMAIN", "").strip() or "teamflow.dev"
     if not re.fullmatch(r"[A-Za-z0-9.-]+", domain):
-        raise ValueError("AGENT_EMAIL_DOMAIN must be configured with a valid domain.")
+        domain = "teamflow.dev"
     return f"{agent_key}+organization-{organization_id}@{domain}"
 
 

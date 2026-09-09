@@ -23,7 +23,12 @@ function Step($name, [scriptblock]$action) {
 
 # 1. Django Backend Check
 Step "Django Backend System Check" {
-    & f:\TeamFlow\.venv\Scripts\python.exe backend/manage.py check
+    if (docker ps -q -f name=teamflow-backend) {
+        docker exec teamflow-backend python manage.py check
+    } else {
+        $env:SECRET_KEY = "test-secret-key-for-local-check"
+        & f:\TeamFlow\.venv\Scripts\python.exe backend/manage.py check
+    }
 }
 
 # 2. NestJS Vitest Suites
