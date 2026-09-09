@@ -463,10 +463,10 @@ export class AgentsService {
   }
 
   private formatLangfuseUrl(url: string, sessionId: string): string {
-    if (url) return url;
-    const baseUrl = process.env.LANGFUSE_UI_HOST?.replace(/\/$/, '');
-    const projectId = process.env.LANGFUSE_PROJECT_ID;
-    if (!baseUrl || !projectId || !sessionId) return '';
+    const baseUrl = (process.env.LANGFUSE_UI_HOST || 'http://localhost:3001').replace(/\/$/, '');
+    const projectId = process.env.LANGFUSE_PROJECT_ID || 'cmtuisfno0006oihvk2oqcrrv';
+    if (!sessionId) return url || '';
+    if (url && url.includes('/project/')) return url;
     return `${baseUrl}/project/${projectId}/sessions/${sessionId}`;
   }
 }

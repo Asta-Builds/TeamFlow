@@ -10,11 +10,11 @@ from typing import Optional, Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
-LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY", "")
-LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY", "")
-LANGFUSE_HOST = os.environ.get("LANGFUSE_HOST", "")
-LANGFUSE_UI_HOST = os.environ.get("LANGFUSE_UI_HOST", "").rstrip("/")
-LANGFUSE_PROJECT_ID = os.environ.get("LANGFUSE_PROJECT_ID", "")
+LANGFUSE_PUBLIC_KEY = os.environ.get("LANGFUSE_PUBLIC_KEY") or "pk-lf-fc9b9462-567c-4e92-8082-773b759e8a17"
+LANGFUSE_SECRET_KEY = os.environ.get("LANGFUSE_SECRET_KEY") or "sk-lf-dc01ab22-3da6-4af4-80b2-e1acf712d048"
+LANGFUSE_HOST = os.environ.get("LANGFUSE_HOST") or "http://langfuse:3000"
+LANGFUSE_UI_HOST = (os.environ.get("LANGFUSE_UI_HOST") or "http://localhost:3001").rstrip("/")
+LANGFUSE_PROJECT_ID = os.environ.get("LANGFUSE_PROJECT_ID") or "cmtuisfno0006oihvk2oqcrrv"
 
 
 def _is_configured() -> bool:
@@ -91,9 +91,9 @@ def get_langfuse_callback(session_id: str, tags: Optional[list] = None):
 
 def generate_langfuse_trace_url(session_id: str) -> str:
     """Generates direct browser dashboard URL for the ticket's multi-agent session trace."""
-    if not LANGFUSE_UI_HOST or not LANGFUSE_PROJECT_ID:
-        return ""
-    return f"{LANGFUSE_UI_HOST}/project/{LANGFUSE_PROJECT_ID}/sessions/{session_id}"
+    ui_host = LANGFUSE_UI_HOST or "http://localhost:3001"
+    project_id = LANGFUSE_PROJECT_ID or "cmtuisfno0006oihvk2oqcrrv"
+    return f"{ui_host}/project/{project_id}/sessions/{session_id}"
 
 
 def log_agent_execution_to_langfuse(
