@@ -50,7 +50,7 @@ def uiux_agent_node(state: TicketState) -> Dict[str, Any]:
             "pm",
             f"✨ UI/UX Agent: Completed design tokens & layout specs for {title}. Handoff to Frontend engineer."
         )
-        log_task_activity(ticket_id, "Leonardo DaVinci", "created_design_spec", {"title": title})
+        log_task_activity(ticket_id, "Athena (AI)", "created_design_spec", {"title": title})
 
     return {
         "assigned_agent": "frontend",

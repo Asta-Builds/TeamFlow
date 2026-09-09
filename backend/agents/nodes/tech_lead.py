@@ -61,7 +61,7 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
         # Log to TeamFlow DB
         if ticket_id:
             add_ticket_comment(ticket_id, "pm", f"🎯 Tech Lead: Code review completed on {state['pr_url']}. Moving ticket to QA.")
-            log_task_activity(ticket_id, "Sarah Jenkins", "reviewed_pr", {"pr_url": state["pr_url"]})
+            log_task_activity(ticket_id, "Athena (AI)", "reviewed_pr", {"pr_url": state["pr_url"]})
         emit_state_event(
             state,
             event_type="handoff",

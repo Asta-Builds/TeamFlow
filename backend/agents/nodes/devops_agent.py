@@ -50,7 +50,7 @@ def devops_agent_node(state: TicketState) -> Dict[str, Any]:
             "pm",
             "🚀 DevOps Agent: PR merged into main. Staging deployment succeeded and health verified. Ticket resolved!"
         )
-        log_task_activity(ticket_id, "Joan Arc", "deployed_release", {"environment": "staging"})
+        log_task_activity(ticket_id, "Athena (AI)", "deployed_release", {"environment": "staging"})
 
     step_log = {
         "node": "devops",

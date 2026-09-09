@@ -69,7 +69,7 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
             "pm",
             f"💻 Backend Agent: Implementation complete. Opened Pull Request: {pr_info['pr_url']}"
         )
-        log_task_activity(ticket_id, "Marcus Aurelius", "opened_pr", {"pr_url": pr_info["pr_url"]})
+        log_task_activity(ticket_id, "Athena (AI)", "opened_pr", {"pr_url": pr_info["pr_url"]})
 
     publish_agent_event("pr_ready", {"ticket_id": ticket_id, "pr_url": pr_info["pr_url"]})
     emit_state_event(

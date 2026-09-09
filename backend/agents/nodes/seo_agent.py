@@ -50,7 +50,7 @@ def seo_agent_node(state: TicketState) -> Dict[str, Any]:
             "pm",
             f"🔍 SEO Agent: Technical audit complete. Canonical and metadata verified for {title}."
         )
-        log_task_activity(ticket_id, "Ada Lovelace", "audited_seo", {"title": title})
+        log_task_activity(ticket_id, "Athena (AI)", "audited_seo", {"title": title})
 
     return {
         "assigned_agent": "tech_lead",
