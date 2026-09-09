@@ -396,7 +396,7 @@ export class AgentsService {
 
     let currentAfter = Math.max(0, query.after || 0);
     const startTime = Date.now();
-    const duration = 25000;
+    const duration = 60000;
 
     const timer = setInterval(async () => {
       if (res.writableEnded || Date.now() - startTime > duration) {
@@ -455,7 +455,7 @@ export class AgentsService {
         clearInterval(timer);
         if (!res.writableEnded) res.end();
       }
-    }, 1000);
+    }, 300);
 
     res.on('close', () => {
       clearInterval(timer);

@@ -57,6 +57,11 @@ import {
   RefreshCw,
   ShieldCheck,
   Clock,
+  Terminal,
+  Layers,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface PmGenerateTasksResponse {
@@ -723,6 +728,163 @@ export default function ProjectBoardPage() {
   );
 }
 
+function AgentReasoningTerminal({
+  events,
+  isStreaming,
+  currentStatus,
+  showIfEmpty = false,
+}: {
+  events: AgentEvent[];
+  isStreaming: boolean;
+  currentStatus?: string | null;
+  showIfEmpty?: boolean;
+}) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  useEffect(() => {
+    if (isExpanded) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [events, isStreaming, isExpanded]);
+
+  if (events.length === 0 && !isStreaming && !showIfEmpty) {
+    return null;
+  }
+
+  return (
+    <div className="rounded-2xl border border-indigo-800/40 bg-slate-950/90 shadow-xl overflow-hidden text-xs">
+      {/* Terminal Header Bar */}
+      <div className="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border-b border-indigo-900/40">
+        <div className="flex items-center gap-2">
+          <div className="relative flex h-2.5 w-2.5 items-center justify-center">
+            {isStreaming ? (
+              <>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+              </>
+            ) : (
+              <span className="inline-flex rounded-full h-2 w-2 bg-indigo-400"></span>
+            )}
+          </div>
+          <Terminal className="h-3.5 w-3.5 text-indigo-400" />
+          <span className="font-mono font-bold text-white text-[11px] uppercase tracking-wider">
+            Athena · Live Reasoning Stream
+          </span>
+          {isStreaming ? (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 font-semibold flex items-center gap-1">
+              <Loader2 className="h-2.5 w-2.5 animate-spin text-emerald-400" />
+              <span>Streaming Live (SSE)</span>
+            </span>
+          ) : (
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-medium">
+              {events.length > 0 ? `${events.length} events logged` : "Awaiting agent prompt"}
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer"
+            title={isExpanded ? "Collapse Terminal" : "Expand Terminal"}
+          >
+            {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Terminal Content */}
+      {isExpanded && (
+        <div className="p-3 max-h-64 overflow-y-auto space-y-2 font-mono text-[11px] bg-slate-950/95">
+          {events.length === 0 && !isStreaming && (
+            <div className="text-center py-4 text-slate-500 font-mono text-xs">
+              No live reasoning events yet. Mention @pm in comments or run swarm to trigger live thoughts.
+            </div>
+          )}
+
+          {events.map((e) => {
+            const isThought = e.event_type === "thought";
+            const isTool = e.event_type === "tool_call";
+            const isCompleted = e.event_type === "completed";
+            const isFailed = e.event_type === "failed";
+
+            return (
+              <div
+                key={e.id}
+                className={`p-2.5 rounded-xl border transition-all ${
+                  isThought
+                    ? "bg-indigo-950/40 border-indigo-800/40 text-indigo-200"
+                    : isTool
+                    ? "bg-amber-950/30 border-amber-800/40 text-amber-200"
+                    : isCompleted
+                    ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-200"
+                    : isFailed
+                    ? "bg-rose-950/40 border-rose-800/50 text-rose-200"
+                    : "bg-slate-900/60 border-slate-800 text-slate-300"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {isThought ? (
+                      <Sparkles className="h-3 w-3 text-indigo-400 shrink-0" />
+                    ) : isTool ? (
+                      <Layers className="h-3 w-3 text-amber-400 shrink-0" />
+                    ) : isCompleted ? (
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
+                    ) : isFailed ? (
+                      <XCircle className="h-3 w-3 text-rose-400 shrink-0" />
+                    ) : (
+                      <Bot className="h-3 w-3 text-slate-400 shrink-0" />
+                    )}
+                    <span className="font-bold text-[10px] uppercase tracking-wider text-white">
+                      {e.sender_name || "Athena"} · {e.event_type}
+                    </span>
+                    {e.metadata && typeof e.metadata === "object" && "tool_name" in e.metadata && (
+                      <span className="bg-amber-950 border border-amber-800/60 text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                        {String(e.metadata.tool_name)}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[9px] text-slate-500 font-mono">
+                    {new Date(e.created_at).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })}
+                  </span>
+                </div>
+
+                <div className="whitespace-pre-wrap leading-relaxed pl-4 font-sans text-xs">
+                  {e.message}
+                </div>
+
+                {e.metadata && typeof e.metadata === "object" && "model" in e.metadata && (
+                  <div className="mt-1.5 pt-1 border-t border-slate-800/40 flex items-center justify-between text-[9px] text-slate-400 font-mono">
+                    <span>Model: {String(e.metadata.model)}</span>
+                    {"tokens_used" in e.metadata && (
+                      <span>Tokens: {String(e.metadata.tokens_used)}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {isStreaming && (
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-indigo-950/30 border border-indigo-800/30 text-indigo-300 text-xs animate-pulse">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400 shrink-0" />
+              <span className="font-medium">{currentStatus || "Athena is reasoning & formulating WBS decomposition..."}</span>
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TaskDetailPanel({
   task,
   teamMembers,
@@ -745,6 +907,10 @@ function TaskDetailPanel({
   const [traces, setTraces] = useState<AgentExecutionTrace[]>([]);
   const [runningSwarm, setRunningSwarm] = useState(false);
   const [runningChain, setRunningChain] = useState(false);
+  const [liveEvents, setLiveEvents] = useState<AgentEvent[]>([]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
+  const lastEventIdRef = useRef<number>(0);
 
   const refresh = useCallback(() => {
     apiFetch<Task>(`/tasks/${task.id}/`).then(setDetail);
@@ -754,6 +920,72 @@ function TaskDetailPanel({
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Fetch initial agent events for this task
+  useEffect(() => {
+    getAgentEvents({ taskId: task.id })
+      .then((res) => {
+        if (res.events && res.events.length > 0) {
+          setLiveEvents(res.events);
+          lastEventIdRef.current = res.last_event_id || res.events[res.events.length - 1].id;
+        }
+      })
+      .catch(() => {});
+  }, [task.id]);
+
+  // Real-time SSE stream subscription for this task
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    async function listen() {
+      while (active && !controller.signal.aborted) {
+        try {
+          await streamAgentEvents(
+            { taskId: task.id, after: lastEventIdRef.current },
+            (event) => {
+              if (!active) return;
+              lastEventIdRef.current = Math.max(lastEventIdRef.current, event.id);
+              setLiveEvents((prev) => {
+                if (prev.some((e) => e.id === event.id)) return prev;
+                return [...prev, event].slice(-100);
+              });
+
+              if (
+                event.event_type === "thought" ||
+                event.event_type === "tool_call" ||
+                event.event_type === "progress" ||
+                event.event_type === "started"
+              ) {
+                setIsStreaming(true);
+                setStreamingStatus(event.message || "Athena is reasoning...");
+              } else if (event.event_type === "completed" || event.event_type === "failed") {
+                setIsStreaming(false);
+                setStreamingStatus(null);
+                refresh();
+                if (event.event_type === "completed") {
+                  toast.success(`${event.sender_name || "Athena (PM)"} completed execution.`);
+                }
+              }
+            },
+            controller.signal,
+          );
+        } catch {
+          // Pause briefly before reconnecting
+        }
+        if (active && !controller.signal.aborted) {
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+      }
+    }
+
+    void listen();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [task.id, refresh]);
 
   async function updateField(patch: Partial<Task>) {
     const updated = await apiFetch<Task>(`/tasks/${task.id}/`, {
@@ -766,6 +998,8 @@ function TaskDetailPanel({
 
   async function handleRunSwarm() {
     setRunningSwarm(true);
+    setIsStreaming(true);
+    setStreamingStatus("Dispatching Athena PM & autonomous swarm...");
     try {
       const result = await dispatchAgentSwarm(detail.id);
       setTraces((current) => [result.trace, ...current]);
@@ -773,6 +1007,7 @@ function TaskDetailPanel({
       toast.success("Autonomous swarm queued. Live updates will appear in the agent stream.");
     } catch (err) {
       toast.error("Error executing multi-agent swarm: " + String(err));
+      setIsStreaming(false);
     } finally {
       setRunningSwarm(false);
     }
@@ -780,6 +1015,8 @@ function TaskDetailPanel({
 
   async function handleRunSwarmChain() {
     setRunningChain(true);
+    setIsStreaming(true);
+    setStreamingStatus("Running autonomous swarm chain...");
     try {
       const res = await executeSwarmChain(detail.id, comment.trim());
       setTraces((current) => [res.trace, ...current]);
@@ -788,6 +1025,7 @@ function TaskDetailPanel({
       toast.success("Flux autonome mis en file d’attente. Suivez son avancement dans le flux en direct.");
     } catch (err) {
       toast.error("Erreur lors de l'exécution du flux autonome : " + getErrorMessage(err));
+      setIsStreaming(false);
     } finally {
       setRunningChain(false);
     }
@@ -797,6 +1035,16 @@ function TaskDetailPanel({
     e.preventDefault();
     if (!comment.trim()) return;
     setPosting(true);
+    const hasAgentMention = /@(pm|tech_lead|backend|frontend|qa|devops|designer|seo|all)/i.test(comment);
+    const commentBody = comment.trim();
+    if (hasAgentMention) {
+      setIsStreaming(true);
+      setStreamingStatus("Athena PM is analyzing prompt & querying RAG...");
+      executeSwarmChain(task.id, commentBody).then((chainRes) => {
+        setTraces((current) => [chainRes.trace, ...current]);
+        toast.success("Athena PM has picked up your prompt and started execution.");
+      }).catch(() => {});
+    }
     try {
       const res = await apiFetch<TaskCommentResponse>(`/tasks/${task.id}/comments/`, {
         method: "POST",
@@ -818,6 +1066,7 @@ function TaskDetailPanel({
       }
     } catch (err) {
       toast.error("Failed to add comment: " + String(err));
+      setIsStreaming(false);
     } finally {
       setPosting(false);
     }
@@ -925,6 +1174,27 @@ function TaskDetailPanel({
                 </button>
               </div>
             </div>
+
+            {/* Live Streaming Indicator inside Banner */}
+            {isStreaming && (
+              <div className="mt-3 flex items-center justify-between p-2.5 rounded-xl bg-emerald-950/70 border border-emerald-700/60 text-emerald-300 text-xs">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <span className="relative flex h-2 w-2 shrink-0">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                  </span>
+                  <span className="font-bold shrink-0">Athena PM is reasoning</span>
+                  <span className="text-[11px] text-emerald-400/80 font-mono truncate max-w-xs">{streamingStatus}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("agents")}
+                  className="shrink-0 text-[11px] font-bold text-emerald-200 underline hover:text-white cursor-pointer ml-2"
+                >
+                  View Stream
+                </button>
+              </div>
+            )}
           </div>
 
           {/* QA Alert if Rejected */}
@@ -1201,6 +1471,13 @@ function TaskDetailPanel({
             {/* TAB: Multi-Agent Workflow */}
             {activeTab === "agents" && (
               <div className="space-y-4">
+                {/* Live Real-Time Athena Reasoning Terminal */}
+                <AgentReasoningTerminal
+                  events={liveEvents}
+                  isStreaming={isStreaming}
+                  currentStatus={streamingStatus}
+                  showIfEmpty={true}
+                />
                 {latestTrace ? (
                   <div className="space-y-4">
                     {/* Langfuse Observability Card */}
@@ -1383,6 +1660,17 @@ function TaskDetailPanel({
                     </p>
                   )}
                 </div>
+
+                {/* Live Athena Reasoning Terminal during comment prompt */}
+                {(isStreaming || liveEvents.length > 0) && (
+                  <div className="pt-2">
+                    <AgentReasoningTerminal
+                      events={liveEvents}
+                      isStreaming={isStreaming}
+                      currentStatus={streamingStatus}
+                    />
+                  </div>
+                )}
 
                 {/* CEO Agent Tag Mention Pills */}
                 <div className="pt-2 border-t border-slate-800 space-y-2">

@@ -13,6 +13,7 @@ from typing import Dict, Any, List, Optional, AsyncGenerator
 from dataclasses import dataclass, field
 
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from tasks.models import Task, Comment, TaskActivity
 from notifications.models import Notification
 from .models import AgentExecutionTrace
@@ -21,7 +22,8 @@ from .users import get_or_create_agent_user
 from .tools.rag_tool import retrieve_context
 from .tools.github_tool import create_branch, open_pull_request, merge_pull_request
 from .tools.app_tool import trigger_app_deployment
-from .events import emit_agent_event
+from .tools.redis_tool import publish_agent_event
+from .events import emit_agent_event, ensure_task_organization
 from .observability.langfuse_client import generate_langfuse_trace_url
 
 logger = logging.getLogger(__name__)
@@ -90,56 +92,97 @@ class AntigravityAgentEngine:
         session_id = f"agy-{self.agent_key}-task-{task.id}-{int(start_time)}"
         langfuse_url = generate_langfuse_trace_url(session_id)
 
-        thoughts: List[str] = [
-            f"[Antigravity SDK] Initializing agent persona '{self.spec['name']}' ({self.agent_key})",
-            f"[Antigravity SDK] Ingesting prompt instructions: '{prompt[:60]}...'",
-            f"[Antigravity SDK] Retrieving pgvector RAG memory embeddings ({len(rag_context)} chunks found)",
-        ]
+        # Ensure task organization is valid
+        task = ensure_task_organization(task)
+
+        # 1. Create trace upfront in RUNNING status for live tracking
+        trace = AgentExecutionTrace.objects.create(
+            task=task,
+            session_id=session_id,
+            status=AgentExecutionTrace.Status.RUNNING,
+            graph_state={
+                "engine": "google_antigravity_sdk",
+                "agent_role": self.agent_key,
+                "prompt": prompt,
+                "phase": "running",
+            },
+            langfuse_url=langfuse_url,
+        )
+
+        def _broadcast(event_type: str, message: str, metadata: Optional[Dict[str, Any]] = None):
+            try:
+                emit_agent_event(
+                    task=task,
+                    trace=trace,
+                    session_id=session_id,
+                    event_type=event_type,
+                    sender_key=self.agent_key,
+                    message=message,
+                    current_work=message,
+                    metadata=metadata or {},
+                )
+                publish_agent_event(f"task_{task.id}", {
+                    "event_type": event_type,
+                    "session_id": session_id,
+                    "agent": self.spec["name"],
+                    "agent_key": self.agent_key,
+                    "message": message,
+                    "metadata": metadata or {},
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+                })
+            except Exception as e:
+                logger.debug(f"Event emission bypassed: {e}")
+
+        thoughts: List[str] = []
+        def _add_thought(text: str):
+            thoughts.append(text)
+            _broadcast("thought", text)
+
+        _broadcast("started", f"Athena is analyzing ticket #{task.id} with Google Antigravity SDK.")
+        _add_thought(f"[Antigravity SDK] Initializing agent persona '{self.spec['name']}' ({self.agent_key})")
+        _add_thought(f"[Antigravity SDK] Ingesting prompt instructions: '{prompt[:60]}...'")
+        _add_thought(f"[Antigravity SDK] Retrieving pgvector RAG memory embeddings ({len(rag_context)} chunks found)")
 
         tool_calls: List[AntigravityToolCall] = []
+        def _add_tool_call(name: str, args: Dict[str, Any], output: str):
+            tc = AntigravityToolCall(name=name, args=args, output=output)
+            tool_calls.append(tc)
+            _broadcast("tool_call", f"Executed tool `{name}`: {output}", metadata={"name": name, "args": args, "output": output})
 
         # Simulate Antigravity Tool Invocations based on role
         repo_name = getattr(task.project, "github_repo", "") or ""
 
         if self.role == "pm":
-            thoughts.append("[Antigravity SDK: Thinking] Analyzing project phases (Initiation -> Planning) and defining scope boundaries")
-            thoughts.append("[Antigravity SDK: Thinking] Synthesizing Work Breakdown Structure (WBS) with risk matrix and DoD acceptance criteria")
-            tool_calls.append(
-                AntigravityToolCall(
-                    name="wbs_decomposition_and_risk_matrix",
-                    args={"project": task.project.name if task.project else "Workspace", "feature": prompt},
-                    output="Decomposed into WBS-structured engineering tickets (Backend Core, Frontend Views, QA Harness, DevOps CI/CD) with risk mitigation plan"
-                )
+            _add_thought("[Antigravity SDK: Thinking] Analyzing project phases (Initiation -> Planning) and defining scope boundaries")
+            _add_thought("[Antigravity SDK: Thinking] Synthesizing Work Breakdown Structure (WBS) with risk matrix and DoD acceptance criteria")
+            _add_tool_call(
+                name="wbs_decomposition_and_risk_matrix",
+                args={"project": task.project.name if task.project else "Workspace", "feature": prompt},
+                output="Decomposed into WBS-structured engineering tickets (Backend Core, Frontend Views, QA Harness, DevOps CI/CD) with risk mitigation plan"
             )
 
         elif self.role in {"tech_lead", "backend"}:
-            thoughts.append("[Antigravity SDK: Thinking] Analyzing architectural dependencies and branch strategy")
-            tool_calls.append(
-                AntigravityToolCall(
-                    name="pgvector_rag_query",
-                    args={"query": f"{task.title} {prompt}", "top_k": 3},
-                    output=f"Retrieved {len(rag_context)} chunks from vector store"
-                )
+            _add_thought("[Antigravity SDK: Thinking] Analyzing architectural dependencies and branch strategy")
+            _add_tool_call(
+                name="pgvector_rag_query",
+                args={"query": f"{task.title} {prompt}", "top_k": 3},
+                output=f"Retrieved {len(rag_context)} chunks from vector store"
             )
             if self.role == "backend":
                 if not repo_name:
-                    tool_calls.append(
-                        AntigravityToolCall(
-                            name="repository_configuration_required",
-                            args={},
-                            output="No repository is linked to this project; branch and pull-request creation were skipped.",
-                        )
+                    _add_tool_call(
+                        name="repository_configuration_required",
+                        args={},
+                        output="No repository is linked to this project; branch and pull-request creation were skipped."
                     )
                 else:
                     slug = task.title.lower().replace(" ", "-")[:24] if task.title else f"ticket-{task.id}"
                     branch_name = f"feat/{slug}"
                     branch_res = create_branch(repo_name, branch_name)
-                    tool_calls.append(
-                        AntigravityToolCall(
-                            name="create_branch",
-                            args={"repo": repo_name, "branch": branch_name},
-                            output=branch_res.get("message") or f"Checked out branch {branch_name}"
-                        )
+                    _add_tool_call(
+                        name="create_branch",
+                        args={"repo": repo_name, "branch": branch_name},
+                        output=branch_res.get("message") or f"Checked out branch {branch_name}"
                     )
                     pr_title = f"feat(backend): {task.title}"
                     pr_body = (
@@ -149,41 +192,37 @@ class AntigravityAgentEngine:
                         f"{prompt}"
                     )
                     pr_res = open_pull_request(repo_name, pr_title, pr_body, branch_name)
-                    tool_calls.append(
-                        AntigravityToolCall(
-                            name="open_pull_request",
-                            args={"repo": repo_name, "title": pr_title, "branch": branch_name},
-                            output=pr_res.get("pr_url", f"https://github.com/{repo_name}/tree/{branch_name}")
-                        )
+                    _add_tool_call(
+                        name="open_pull_request",
+                        args={"repo": repo_name, "title": pr_title, "branch": branch_name},
+                        output=pr_res.get("pr_url", f"https://github.com/{repo_name}/tree/{branch_name}")
                     )
 
         elif self.role == "qa":
-            thoughts.append("[Antigravity SDK: Thinking] Evaluating test coverage and validating acceptance criteria gate")
-            tool_calls.append(
-                AntigravityToolCall(
-                    name="run_integration_suite",
-                    args={"ticket_id": task.id, "coverage": True},
-                    output="Integration suite passed: 100% test gate satisfied."
-                )
+            _add_thought("[Antigravity SDK: Thinking] Evaluating test coverage and validating acceptance criteria gate")
+            _add_tool_call(
+                name="run_integration_suite",
+                args={"ticket_id": task.id, "coverage": True},
+                output="Integration suite passed: 100% test gate satisfied."
             )
 
         elif self.role == "devops":
-            thoughts.append("[Antigravity SDK: Thinking] Verifying Staging Docker container health and triggering deployment")
+            _add_thought("[Antigravity SDK: Thinking] Verifying Staging Docker container health and triggering deployment")
             try:
                 dep_res = trigger_app_deployment(task.project_id, environment="staging")
                 output_str = f"Deployment #{dep_res.get('deployment_id')} triggered (status: {dep_res.get('status')})"
             except Exception as e:
                 output_str = f"Staging container health verified: {e}"
-            tool_calls.append(
-                AntigravityToolCall(
-                    name="verify_staging_pipeline",
-                    args={"environment": "staging", "health_endpoint": "/api/health/"},
-                    output=output_str
-                )
+            _add_tool_call(
+                name="verify_staging_pipeline",
+                args={"environment": "staging", "health_endpoint": "/api/health/"},
+                output=output_str
             )
 
         # Generate intelligent response
+        _broadcast("progress", f"Synthesizing dynamic response for {task.title}...")
         response_text = self._build_antigravity_response(task, prompt, rag_context, tool_calls, user=user)
+        _broadcast("completed", f"Athena response ready ({len(response_text)} chars).", metadata={"response_preview": response_text[:140]})
 
         duration = round(time.time() - start_time, 2)
         tokens = 350 + len(prompt.split()) * 10
@@ -456,9 +495,7 @@ def run_antigravity_agent(
     elif engine.role == "devops":
         task.status = Task.Status.DONE
         task.assignee = agent_user
-        # Create deployment record
         from deployments.models import Deployment
-        from django.utils import timezone
         Deployment.objects.create(
             project=task.project,
             environment=Deployment.Environment.STAGING,
@@ -490,33 +527,36 @@ def run_antigravity_agent(
         body=result.response_text
     )
 
-    # 4. Create trace
-    trace = AgentExecutionTrace.objects.create(
-        task=task,
+    # 4. Update or create trace
+    trace, _ = AgentExecutionTrace.objects.update_or_create(
         session_id=result.session_id,
-        status=AgentExecutionTrace.Status.COMPLETED,
-        graph_state={
-            "engine": "google_antigravity_sdk",
-            "agent_role": result.agent_role,
-            "prompt": prompt,
-            "task_status": task.status,
-            "pr_url": task.pr_url,
-            "thoughts": result.thoughts,
-            "tool_calls": [{"name": t.name, "args": t.args, "output": t.output} for t in result.tool_calls],
-            "subagents": result.subagents_spawned,
-            "retrieved_context": rag_context,
-        },
-        steps=[
-            {"node": "antigravity_init", "agent_role": result.agent_name, "message": t, "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ")}
-            for t in result.thoughts
-        ] + [
-            {"node": t.name, "agent_role": result.agent_name, "message": f"Executed tool {t.name}: {t.output}", "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ")}
-            for t in result.tool_calls
-        ],
-        tokens_used=result.tokens_used,
-        cost_usd=result.cost_usd,
-        duration_seconds=result.duration_seconds,
-        langfuse_url=result.langfuse_url,
+        defaults={
+            "task": task,
+            "status": AgentExecutionTrace.Status.COMPLETED,
+            "graph_state": {
+                "engine": "google_antigravity_sdk",
+                "agent_role": result.agent_role,
+                "prompt": prompt,
+                "task_status": task.status,
+                "pr_url": task.pr_url,
+                "thoughts": result.thoughts,
+                "tool_calls": [{"name": t.name, "args": t.args, "output": t.output} for t in result.tool_calls],
+                "subagents": result.subagents_spawned,
+                "retrieved_context": rag_context,
+            },
+            "steps": [
+                {"node": "antigravity_init", "agent_role": result.agent_name, "message": t, "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ")}
+                for t in result.thoughts
+            ] + [
+                {"node": t.name, "agent_role": result.agent_name, "message": f"Executed tool {t.name}: {t.output}", "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ")}
+                for t in result.tool_calls
+            ],
+            "tokens_used": result.tokens_used,
+            "cost_usd": result.cost_usd,
+            "duration_seconds": result.duration_seconds,
+            "langfuse_url": result.langfuse_url,
+            "finished_at": timezone.now(),
+        }
     )
 
     # 5. Activity & Notification

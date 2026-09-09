@@ -264,6 +264,8 @@ export interface AgentExecutionTrace {
 export type AgentEventType =
   | "queued"
   | "started"
+  | "thought"
+  | "tool_call"
   | "progress"
   | "handoff"
   | "blocked"
