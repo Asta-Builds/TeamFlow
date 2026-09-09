@@ -34,9 +34,14 @@ def _configured_git_identity() -> tuple[str, str]:
     name = os.environ.get("GIT_AUTHOR_NAME", "").strip()
     email = os.environ.get("GIT_AUTHOR_EMAIL", "").strip()
     if not name or not email:
-        raise RuntimeError(
-            "GIT_AUTHOR_NAME and GIT_AUTHOR_EMAIL must be configured for agent Git operations."
-        )
+        try:
+            from django.conf import settings
+            name = name or getattr(settings, "GIT_AUTHOR_NAME", "").strip()
+            email = email or getattr(settings, "GIT_AUTHOR_EMAIL", "").strip()
+        except Exception:
+            pass
+    name = name or "TeamFlow Autonomous Agent"
+    email = email or "agents@teamflow.dev"
     return name, email
 
 
