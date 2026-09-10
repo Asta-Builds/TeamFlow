@@ -57,6 +57,7 @@ class User(AbstractUser):
 
     username = None
     email = models.EmailField("email address", unique=True)
+    clerk_id = models.CharField(max_length=128, unique=True, null=True, blank=True)
     name = models.CharField(max_length=150, blank=True)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.MEMBER)
     agent_key = models.CharField(max_length=64, blank=True, db_index=True)

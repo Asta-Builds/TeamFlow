@@ -66,6 +66,60 @@ export class ClerkService {
     return this.defaultDomain || 'good-gecko-1307.clerk.accounts.dev';
   }
 
+  /**
+   * Retrieves the canonical Clerk profile after an upstream authentication
+   * middleware has already verified the caller's OAuth token.
+   */
+  async getUserProfile(clerkId: string): Promise<ClerkVerifiedUser> {
+    if (!this.secretKey) {
+      throw new UnauthorizedException(
+        'CLERK_SECRET_KEY is required to resolve an MCP OAuth user',
+      );
+    }
+    if (!clerkId) {
+      throw new UnauthorizedException('Clerk user ID is required');
+    }
+
+    try {
+      const response = await this.httpService.axiosRef.get(
+        `${this.apiUrl}/users/${encodeURIComponent(clerkId)}`,
+        {
+          headers: { Authorization: `Bearer ${this.secretKey}` },
+          timeout: 5000,
+        },
+      );
+      const userData = response.data;
+      const primaryId = userData?.primary_email_address_id;
+      const primaryEmail = Array.isArray(userData?.email_addresses)
+        ? userData.email_addresses.find((entry: any) => entry.id === primaryId) ||
+          userData.email_addresses[0]
+        : undefined;
+      const email = primaryEmail?.email_address?.toLowerCase();
+      if (!email) {
+        throw new UnauthorizedException(
+          'Clerk OAuth user must have a primary email address',
+        );
+      }
+      const name =
+        [userData.first_name, userData.last_name].filter(Boolean).join(' ') ||
+        userData.username ||
+        email.split('@')[0];
+      return {
+        clerk_id: clerkId,
+        email,
+        name,
+        avatar_url: userData.image_url,
+        role: 'member',
+      };
+    } catch (error: any) {
+      if (error instanceof UnauthorizedException) throw error;
+      this.logger.warn(
+        `Unable to resolve Clerk profile for MCP OAuth user: ${error.message}`,
+      );
+      throw new UnauthorizedException('Unable to resolve Clerk OAuth user');
+    }
+  }
+
   async fetchJwks(
     issuerUrl?: string,
     forceRefresh = false,

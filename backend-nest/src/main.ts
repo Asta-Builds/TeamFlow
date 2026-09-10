@@ -5,6 +5,9 @@ import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  if (process.env.MCP_ENABLED === 'true') {
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  }
   const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS || process.env.FRONTEND_URL || '')
     .split(',')
     .map((origin) => origin.trim())

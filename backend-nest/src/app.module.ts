@@ -12,6 +12,7 @@ import { SeoModule } from './seo/seo.module.js';
 import { BillingModule } from './billing/billing.module.js';
 import { AgentsModule } from './agents/agents.module.js';
 import { OrganizationsModule } from './organizations/organizations.module.js';
+import { McpModule } from './mcp/mcp.module.js';
 import { AppController } from './app.controller.js';
 
 @Module({
@@ -32,6 +33,7 @@ import { AppController } from './app.controller.js';
     BillingModule,
     AgentsModule,
     OrganizationsModule,
+    McpModule,
   ],
   controllers: [AppController],
 })
