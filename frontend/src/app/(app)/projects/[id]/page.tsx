@@ -164,7 +164,7 @@ export default function ProjectBoardPage() {
   // DevOps Repo Modal State
   const [showDevopsModal, setShowDevopsModal] = useState(false);
   const [devopsRepoName, setDevopsRepoName] = useState("");
-  const [devopsRepoOrg, setDevopsRepoOrg] = useState("Asta-Builds");
+  const [devopsRepoOrg, setDevopsRepoOrg] = useState("");
   const [devopsRepoPrivate, setDevopsRepoPrivate] = useState(false);
   const [devopsCreatingRepo, setDevopsCreatingRepo] = useState(false);
 
@@ -824,7 +824,7 @@ export default function ProjectBoardPage() {
                   <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
                     <span>Joan of Arc (AI) · DevOps Specialist</span>
                     <span className="text-[10px] font-mono text-sky-400 bg-sky-950/80 border border-sky-800 px-1.5 py-0.5 rounded">
-                      devops@teamflow.dev
+                      DevOps agent
                     </span>
                   </h3>
                   <p className="text-xs text-sky-300/80">
@@ -864,7 +864,7 @@ export default function ProjectBoardPage() {
                 <input
                   value={devopsRepoOrg}
                   onChange={(e) => setDevopsRepoOrg(e.target.value)}
-                  placeholder="Asta-Builds (leave empty for authenticated personal user)"
+                  placeholder="Organization or user (leave empty to use configured default)"
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 font-mono focus:border-sky-500 focus:outline-none"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
@@ -930,7 +930,7 @@ export default function ProjectBoardPage() {
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-slate-300">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                  <span>Commits as asta-build and pushes initial scaffold to main</span>
+                  <span>Uses the configured Git identity and pushes the initial scaffold to main</span>
                 </div>
                 <div className="flex items-center gap-2 text-[11px] text-slate-300">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
@@ -1536,7 +1536,7 @@ function TaskDetailPanel({
                   contract={{
                     title: "Definition of Done (DoD) · Acceptance Assertions",
                     summary: "Objective criteria established in planning and verified by QA agent before code merge.",
-                    qa_agent_name: "qa@teamflow.dev (Alan)",
+                    qa_agent_name: "QA agent",
                     qa_status: detail.qa_rejected ? "rejected" : detail.status === "done" ? "passed" : "pending",
                     coverage_percentage: detail.contract_compliance_score ? Math.round(detail.contract_compliance_score) : 88,
                     items: (detail.validation_contract && detail.validation_contract.length > 0)

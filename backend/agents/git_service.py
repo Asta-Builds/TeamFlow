@@ -40,8 +40,10 @@ def _configured_git_identity() -> tuple[str, str]:
             email = email or getattr(settings, "GIT_AUTHOR_EMAIL", "").strip()
         except Exception:
             pass
-    name = name or "asta-build"
-    email = email or "abdelilahdahou10@gmail.com"
+    if not name or not email:
+        raise RuntimeError(
+            "GIT_AUTHOR_NAME and GIT_AUTHOR_EMAIL must be configured for agent Git operations."
+        )
     return name, email
 
 

@@ -32,11 +32,15 @@ export function LangfuseSessionCard({ data }: { data: LangfuseSessionData }) {
       ? String(data.cost_usd)
       : "$0.0018";
 
+  const langfuseHost = process.env.NEXT_PUBLIC_LANGFUSE_URL?.replace(/\/$/, "");
+  const langfuseProjectId = process.env.NEXT_PUBLIC_LANGFUSE_PROJECT_ID;
   const hostUrl =
     data.langfuse_url ||
-    `http://localhost:3001/project/teamflow/traces?search=${encodeURIComponent(
-      data.session_id
-    )}`;
+    (langfuseHost && langfuseProjectId
+      ? `${langfuseHost}/project/${langfuseProjectId}/traces?search=${encodeURIComponent(
+          data.session_id
+        )}`
+      : "");
 
   return (
     <div className="rounded-2xl border border-violet-900/40 bg-slate-900/90 shadow-xl overflow-hidden">
@@ -61,15 +65,21 @@ export function LangfuseSessionCard({ data }: { data: LangfuseSessionData }) {
           </div>
         </div>
 
-        <a
-          href={hostUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-800/50 bg-violet-950/60 hover:bg-violet-900/60 text-violet-200 text-xs font-bold transition shadow-xs"
-        >
-          <span>Open in Langfuse</span>
-          <ExternalLink className="h-3 w-3 text-violet-400" />
-        </a>
+        {hostUrl ? (
+          <a
+            href={hostUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-800/50 bg-violet-950/60 hover:bg-violet-900/60 text-violet-200 text-xs font-bold transition shadow-xs"
+          >
+            <span>Open in Langfuse</span>
+            <ExternalLink className="h-3 w-3 text-violet-400" />
+          </a>
+        ) : (
+          <span className="inline-flex items-center px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800/70 text-slate-400 text-xs font-bold">
+            Langfuse unavailable
+          </span>
+        )}
       </div>
 
       {/* Metrics Row */}

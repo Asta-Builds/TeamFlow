@@ -122,7 +122,7 @@ export default function SettingsPage() {
   const [githubToken, setGithubToken] = useState("");
   const [githubTokenConfigured, setGithubTokenConfigured] = useState(false);
   const [githubTokenPreview, setGithubTokenPreview] = useState("");
-  const [githubOrg, setGithubOrg] = useState("Asta-Builds");
+  const [githubOrg, setGithubOrg] = useState("");
   const [githubVisibility, setGithubVisibility] = useState<"public" | "private">("public");
   const [githubAutoInit, setGithubAutoInit] = useState(true);
   const [githubIncludeCi, setGithubIncludeCi] = useState(true);
@@ -1128,7 +1128,7 @@ export default function SettingsPage() {
                     type="text"
                     value={githubOrg}
                     onChange={(e) => setGithubOrg(e.target.value)}
-                    placeholder="e.g. Asta-Builds"
+                    placeholder="Organization or user"
                     className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
                   />
                   <p className="text-[11px] text-slate-500 mt-0.5">

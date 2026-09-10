@@ -66,7 +66,7 @@ class GitHubIntegration(models.Model):
         max_length=100,
         blank=True,
         default="",
-        help_text="Default GitHub Organization or User login (e.g. Asta-Builds)"
+        help_text="Default GitHub Organization or user login (e.g. organization-or-user)"
     )
     default_visibility = models.CharField(
         max_length=20,

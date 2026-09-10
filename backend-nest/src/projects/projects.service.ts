@@ -561,8 +561,14 @@ export class ProjectsService {
       }
     }
 
+    const organization = dto.org?.trim() || process.env.GITHUB_ORG?.trim();
+    if (!organization) {
+      throw new BadRequestException(
+        'A GitHub organization or user must be provided to create a repository.',
+      );
+    }
     const cleanRepo = (dto.repo_name || project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-+|-+$/g, '');
-    const fullName = `${dto.org || 'Asta-Builds'}/${cleanRepo}`;
+    const fullName = `${organization}/${cleanRepo}`;
     await this.prisma.project.update({
       where: { id: projectId },
       data: { githubRepo: fullName },

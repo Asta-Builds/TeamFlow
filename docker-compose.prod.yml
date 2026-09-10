@@ -59,10 +59,10 @@ services:
       LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
       LANGFUSE_HOST: ${LANGFUSE_HOST:-}
       AGENT_EMAIL_DOMAIN: ${AGENT_EMAIL_DOMAIN:-}
-      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-asta-build}
-      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-abdelilahdahou10@gmail.com}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      GITHUB_ORG: ${GITHUB_ORG:-Asta-Builds}
+      GITHUB_ORG: ${GITHUB_ORG:-}
     depends_on:
       db:
         condition: service_healthy
@@ -95,10 +95,10 @@ services:
       LANGFUSE_HOST: ${LANGFUSE_HOST:-}
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
       CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
-      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-asta-build}
-      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-abdelilahdahou10@gmail.com}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-}
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
-      GITHUB_ORG: ${GITHUB_ORG:-Asta-Builds}
+      GITHUB_ORG: ${GITHUB_ORG:-}
     depends_on:
       db:
         condition: service_healthy

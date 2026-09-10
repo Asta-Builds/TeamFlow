@@ -195,7 +195,7 @@ export function ValidationContractCard({
 
           {/* Footer with sign-off details */}
           <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-[11px] text-slate-500 font-mono">
-            <span>Inspector: {contract.qa_agent_name || "qa@teamflow.dev"}</span>
+            <span>Inspector: {contract.qa_agent_name || "QA agent"}</span>
             {contract.automated_tests_total !== undefined && (
               <span>
                 Automated Suite: {contract.automated_tests_passed || 0}/{contract.automated_tests_total} passed

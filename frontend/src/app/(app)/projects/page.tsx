@@ -248,7 +248,7 @@ export default function ProjectsPage() {
               </span>
             </label>
             <p className="text-[11px] text-slate-400 mt-1 ml-6">
-              Joan (DevOps AI) will create a remote repo under Asta-Builds on GitHub with CI/CD actions and link it to this project.
+              DevOps will create a remote repository under the selected GitHub organization or user and link it to this project.
             </p>
           </div>
 
