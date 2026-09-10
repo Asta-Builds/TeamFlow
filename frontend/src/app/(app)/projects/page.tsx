@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useProjects, useCreateProjectMutation } from "@/lib/queries";
 import { useDebounce } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
@@ -19,6 +20,7 @@ import {
   Search,
   FolderGit2,
   ExternalLink,
+  Timer,
 } from "lucide-react";
 
 const STATUS_STYLES: Record<ProjectStatus, string> = {
@@ -29,6 +31,7 @@ const STATUS_STYLES: Record<ProjectStatus, string> = {
 };
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { data: projects = [], isLoading } = useProjects();
   const createMutation = useCreateProjectMutation();
@@ -349,9 +352,24 @@ export default function ProjectsPage() {
                         </>
                       )}
                     </div>
-                    <Badge className="bg-indigo-950 text-indigo-300 border-indigo-800/50 font-semibold">
-                      {p.task_count ?? 0} tickets
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          router.push(`/pulse?project=${p.id}`);
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-950/50 border border-amber-800/60 hover:bg-amber-900/60 text-[10px] font-bold text-amber-300 transition cursor-pointer"
+                        title="Open in Pulse Execution Cockpit"
+                      >
+                        <Timer className="h-3 w-3 text-amber-400" />
+                        Pulse
+                      </button>
+                      <Badge className="bg-indigo-950 text-indigo-300 border-indigo-800/50 font-semibold">
+                        {p.task_count ?? 0} tickets
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               </Link>
@@ -419,7 +437,19 @@ export default function ProjectsPage() {
                       )}
                     </td>
                     <td className="px-5 py-4 text-right font-bold text-slate-300">
-                      {p.task_count ?? 0}
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href={`/pulse?project=${p.id}`}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-950/40 border border-amber-800/50 hover:bg-amber-900/60 text-[10px] font-bold text-amber-300 transition"
+                          title="Open Project in Pulse Cockpit"
+                        >
+                          <Timer className="h-3 w-3 text-amber-400" />
+                          Pulse
+                        </Link>
+                        <span className="min-w-[20px] text-right">
+                          {p.task_count ?? 0}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 );

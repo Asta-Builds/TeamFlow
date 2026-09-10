@@ -5,13 +5,17 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   apiFetch,
+  createPulsePlanItem,
   dispatchAgentSwarm,
   executeSwarmChain,
   getAgentEvents,
   getAgentTraces,
+  getPulseDashboard,
   ingestRAGKnowledge,
   normalizeList,
+  startPulseFocus,
   streamAgentEvents,
+  updatePulseFocus,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { KanbanSkeleton } from "@/components/skeletons/KanbanSkeleton";
@@ -20,6 +24,9 @@ import type {
   AgentEvent,
   Priority,
   Project,
+  PulseFocusSession,
+  PulsePlanItem,
+  PulseTimeBlock,
   Task,
   TaskStatus,
   TaskType,
@@ -39,6 +46,7 @@ import {
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  ArrowUpRight,
   Plus,
   Search,
   Bot,
@@ -57,6 +65,10 @@ import {
   RefreshCw,
   ShieldCheck,
   Clock,
+  Timer,
+  Play,
+  Pause,
+  SquareCheckBig,
   Terminal,
   Layers,
   Loader2,
@@ -233,6 +245,19 @@ export default function ProjectBoardPage() {
     load();
   }, [load]);
 
+  // Handle ?task=<id> deep linking from Pulse or notifications
+  useEffect(() => {
+    if (typeof window === "undefined" || !tasks.length) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const taskId = urlParams.get("task");
+    if (taskId) {
+      const match = tasks.find((t) => t.id === Number(taskId));
+      if (match) {
+        setSelected(match);
+      }
+    }
+  }, [tasks]);
+
   async function moveTask(task: Task, toStatus: TaskStatus) {
     if (task.status === toStatus) return;
 
@@ -384,6 +409,16 @@ export default function ProjectBoardPage() {
             <Sparkles className="h-3.5 w-3.5 text-violet-400" aria-hidden="true" />
             <span>Plan with AI PM</span>
           </button>
+
+          <Link
+            href={`/pulse?project=${projectId}`}
+            className="rounded-xl border border-indigo-700/60 bg-indigo-950/60 px-3.5 py-2 text-xs font-bold text-indigo-200 hover:bg-indigo-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+            title="Personal execution: Daily planning, focus sessions & time blocks for this project"
+            aria-label="Pulse Cockpit"
+          >
+            <Timer className="h-3.5 w-3.5 text-indigo-400" aria-hidden="true" />
+            <span>Pulse Cockpit</span>
+          </Link>
 
           <button
             type="button"
@@ -556,6 +591,18 @@ export default function ProjectBoardPage() {
 
                       <div className="flex items-center justify-between border-t border-slate-800/80 pt-2 text-[10px] text-slate-500">
                         <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelected(t);
+                            }}
+                            className="flex items-center gap-1 text-slate-500 hover:text-indigo-300 font-bold transition cursor-pointer"
+                            title="Plan or Focus this ticket in Pulse"
+                          >
+                            <Timer className="h-3 w-3 inline text-indigo-400" />
+                            <span>Pulse</span>
+                          </button>
                           {t.pr_url && (
                             <span className="text-indigo-400 font-bold flex items-center gap-1" title="GitHub PR Linked">
                               <GitPullRequest className="h-3 w-3 inline" /> PR
@@ -1002,11 +1049,92 @@ function TaskDetailPanel({
 }) {
   const [comment, setComment] = useState("");
   const [detail, setDetail] = useState<Task>(task);
-  const [activeTab, setActiveTab] = useState<"contract" | "comments" | "activity" | "agents">("contract");
+  const [activeTab, setActiveTab] = useState<"contract" | "comments" | "activity" | "agents" | "pulse">("contract");
   const [posting, setPosting] = useState(false);
   const [rejectModal, setRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [traces, setTraces] = useState<AgentExecutionTrace[]>([]);
+  const [pulsePlanItem, setPulsePlanItem] = useState<PulsePlanItem | null>(null);
+  const [pulseSession, setPulseSession] = useState<PulseFocusSession | null>(null);
+  const [planningBlock, setPlanningBlock] = useState<PulseTimeBlock | null>(null);
+  const [pulseElapsed, setPulseElapsed] = useState(0);
+
+  const loadPulseStatus = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const dash = await getPulseDashboard(today, task.project);
+      const planned = dash.plan_items.find((item) => item.task === task.id) || null;
+      setPulsePlanItem(planned);
+      if (dash.current_session && (dash.current_session.task_id === task.id || dash.current_session.plan_item === planned?.id)) {
+        setPulseSession(dash.current_session);
+        setPulseElapsed(dash.current_session.elapsed_seconds || 0);
+      } else {
+        setPulseSession(null);
+      }
+    } catch {
+      // Ignore if pulse is unreachable
+    }
+  }, [task.id, task.project]);
+
+  useEffect(() => {
+    loadPulseStatus();
+  }, [loadPulseStatus]);
+
+  useEffect(() => {
+    if (pulseSession?.status !== "active") return;
+    const interval = window.setInterval(() => {
+      setPulseElapsed((prev) => prev + 1);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [pulseSession?.status]);
+
+  async function handlePlanInPulse(block: PulseTimeBlock) {
+    setPlanningBlock(block);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await createPulsePlanItem({
+        task: task.id,
+        date: today,
+        time_block: block,
+        position: 0,
+      });
+      toast.success(`Task scheduled for ${block} segment in Pulse!`);
+      await loadPulseStatus();
+    } catch (err) {
+      toast.error("Failed to plan task in Pulse: " + getErrorMessage(err));
+    } finally {
+      setPlanningBlock(null);
+    }
+  }
+
+  async function handleStartTaskFocus() {
+    try {
+      const started = await startPulseFocus({ task: task.id });
+      setPulseSession(started);
+      setPulseElapsed(started.elapsed_seconds || 0);
+      toast.success("Pulse focus session started for this ticket!", {
+        action: {
+          label: "Open Pulse",
+          onClick: () => window.open(`/pulse?project=${task.project}`, "_blank"),
+        },
+      });
+      await loadPulseStatus();
+    } catch (err) {
+      toast.error("Could not start focus session: " + getErrorMessage(err));
+    }
+  }
+
+  async function handleUpdateFocus(action: "pause" | "resume" | "complete") {
+    if (!pulseSession) return;
+    try {
+      const updated = await updatePulseFocus(pulseSession.id, action);
+      setPulseSession(action === "complete" ? null : updated);
+      toast.success(`Focus session ${action}d!`);
+      await loadPulseStatus();
+    } catch (err) {
+      toast.error(`Failed to ${action} focus session: ` + getErrorMessage(err));
+    }
+  }
   const [runningSwarm, setRunningSwarm] = useState(false);
   const [runningChain, setRunningChain] = useState(false);
   const [liveEvents, setLiveEvents] = useState<AgentEvent[]>([]);
@@ -1527,6 +1655,25 @@ function TaskDetailPanel({
                 <Bot className="h-3.5 w-3.5" />
                 <span>Multi-Agent Traces ({traces.length})</span>
               </button>
+              <button
+                onClick={() => setActiveTab("pulse")}
+                className={`pb-2 text-xs font-bold uppercase tracking-wider transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                  activeTab === "pulse"
+                    ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                <Timer className="h-3.5 w-3.5 text-indigo-400" />
+                <span>Pulse Execution</span>
+                {pulsePlanItem && (
+                  <span className="ml-1 rounded-full border border-indigo-700/60 bg-indigo-950 px-1.5 py-0.5 text-[9px] font-extrabold text-indigo-300 uppercase">
+                    {pulsePlanItem.time_block}
+                  </span>
+                )}
+                {pulseSession?.status === "active" && (
+                  <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </button>
             </div>
 
             {/* TAB: Validation Contract (Factory Missions Definition of Done) */}
@@ -1859,6 +2006,154 @@ function TaskDetailPanel({
                 {(!detail.activities || detail.activities.length === 0) && (
                   <p className="text-xs text-slate-500 py-2 text-center">No audit records yet.</p>
                 )}
+              </div>
+            )}
+
+            {/* TAB: Pulse Execution */}
+            {activeTab === "pulse" && (
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-indigo-800/60 bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-950 p-4 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Timer className="h-4 w-4 text-indigo-400" />
+                      <span className="text-xs font-black uppercase tracking-wider text-indigo-300">
+                        Personal Execution & Daily Focus
+                      </span>
+                    </div>
+                    {pulseSession?.status === "active" && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-700/60 bg-emerald-950/80 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                        Focus Active
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Connect this Kanban ticket directly to your daily Pulse execution flow and focus stopwatch.
+                  </p>
+
+                  {/* Focus Stopwatch Card */}
+                  <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/90 p-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
+                        Ticket Focus Stopwatch
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        {pulseSession ? `Status: ${pulseSession.status}` : "No active session"}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex items-baseline gap-3">
+                      <span className="font-mono text-3xl font-black text-white tabular-nums">
+                        {Math.floor(pulseElapsed / 60)}:{String(pulseElapsed % 60).padStart(2, "0")}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        {pulseSession ? "focusing on this ticket" : "ready to launch"}
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {!pulseSession ? (
+                        <button
+                          type="button"
+                          onClick={handleStartTaskFocus}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 transition cursor-pointer"
+                        >
+                          <Play className="h-3.5 w-3.5" />
+                          <span>Start Focus Session Now</span>
+                        </button>
+                      ) : pulseSession.status === "active" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFocus("pause")}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-amber-500 transition cursor-pointer"
+                          >
+                            <Pause className="h-3.5 w-3.5" />
+                            <span>Pause Session</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFocus("complete")}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition cursor-pointer"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>Complete Session</span>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFocus("resume")}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 transition cursor-pointer"
+                          >
+                            <Play className="h-3.5 w-3.5" />
+                            <span>Resume Session</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateFocus("complete")}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-emerald-500 transition cursor-pointer"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            <span>Finish</span>
+                          </button>
+                        </>
+                      )}
+
+                      <Link
+                        href={detail.project ? `/pulse?project=${detail.project}` : "/pulse"}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs font-bold text-slate-300 hover:border-indigo-600 hover:text-white transition"
+                      >
+                        <span>Open Pulse Cockpit</span>
+                        <ArrowUpRight className="h-3.5 w-3.5 text-indigo-400" />
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Daily Segment Planning */}
+                  <div className="mt-4 space-y-2">
+                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                      Schedule into Today&apos;s Time Segments
+                    </label>
+                    {pulsePlanItem ? (
+                      <div className="flex items-center justify-between rounded-xl border border-indigo-700/60 bg-indigo-950/40 p-3">
+                        <div className="flex items-center gap-2">
+                          <SquareCheckBig className="h-4 w-4 text-emerald-400" />
+                          <span className="text-xs font-bold text-white">
+                            Scheduled for today in <span className="capitalize text-indigo-300 font-extrabold">{pulsePlanItem.time_block}</span> segment
+                          </span>
+                        </div>
+                        <Link
+                          href={detail.project ? `/pulse?project=${detail.project}` : "/pulse"}
+                          className="text-xs font-bold text-indigo-400 hover:underline inline-flex items-center gap-1"
+                        >
+                          View in Day Plan <ArrowUpRight className="h-3 w-3" />
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {[
+                          { id: "morning", label: "Morning", range: "08:00 — 12:00" },
+                          { id: "afternoon", label: "Afternoon", range: "13:00 — 17:00" },
+                          { id: "evening", label: "Evening", range: "17:00 — 19:00" },
+                        ].map((blk) => (
+                          <button
+                            key={blk.id}
+                            type="button"
+                            disabled={planningBlock !== null}
+                            onClick={() => handlePlanInPulse(blk.id as PulseTimeBlock)}
+                            className="flex flex-col items-start rounded-xl border border-slate-800 bg-slate-950/80 p-2.5 text-left transition hover:border-indigo-600 hover:bg-indigo-950/20 disabled:opacity-50 cursor-pointer"
+                          >
+                            <span className="text-xs font-bold text-white">
+                              {planningBlock === blk.id ? "Adding…" : `+ Plan ${blk.label}`}
+                            </span>
+                            <span className="text-[10px] text-slate-500">{blk.range}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>

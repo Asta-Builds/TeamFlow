@@ -79,7 +79,9 @@ class PulseNoteSerializer(serializers.ModelSerializer):
 
 
 class PulseFocusSessionSerializer(serializers.ModelSerializer):
+    task_id = serializers.IntegerField(source="plan_item.task.id", read_only=True)
     task_title = serializers.CharField(source="plan_item.task.title", read_only=True)
+    project_id = serializers.IntegerField(source="plan_item.task.project_id", read_only=True)
     project_name = serializers.CharField(source="plan_item.task.project.name", read_only=True)
     running_since = serializers.DateTimeField(source="last_resumed_at", read_only=True)
 
@@ -88,7 +90,9 @@ class PulseFocusSessionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "plan_item",
+            "task_id",
             "task_title",
+            "project_id",
             "project_name",
             "status",
             "started_at",

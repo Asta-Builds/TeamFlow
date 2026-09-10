@@ -356,7 +356,9 @@ export interface PulseNote {
 export interface PulseFocusSession {
   id: number;
   plan_item: number | null;
+  task_id?: number | null;
   task_title: string | null;
+  project_id?: number | null;
   project_name: string | null;
   status: PulseFocusStatus;
   started_at: string;
@@ -375,6 +377,8 @@ export interface PulseWeeklyProgress {
 
 export interface PulseDashboard {
   date: string;
+  project_id?: number | null;
+  available_projects?: Array<{ id: number; name: string; status: string }>;
   plan_items: PulsePlanItem[];
   candidate_tasks: PulseCandidateTask[];
   note: PulseNote;

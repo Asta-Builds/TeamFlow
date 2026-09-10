@@ -17,6 +17,10 @@ import {
   SquareCheckBig,
   TimerReset,
   Trash2,
+  Kanban,
+  ArrowUpRight,
+  FolderKanban,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -29,11 +33,13 @@ import {
   startPulseFocus,
   updatePulseFocus,
 } from "@/lib/api";
+import { TASK_STATUS_LABELS } from "@/lib/ui";
 import type {
   Priority,
   PulseDashboard,
   PulsePlanItem,
   PulseTimeBlock,
+  TaskStatus,
 } from "@/lib/types";
 
 const BLOCKS: Array<{
@@ -52,6 +58,14 @@ const PRIORITY_CLASSES: Record<Priority, string> = {
   medium: "border-blue-800/50 bg-blue-950/50 text-blue-300",
   high: "border-amber-800/50 bg-amber-950/50 text-amber-300",
   urgent: "border-rose-800/50 bg-rose-950/50 text-rose-300",
+};
+
+const KANBAN_STATUS_STYLES: Record<TaskStatus, { badge: string; dot: string }> = {
+  todo: { badge: "border-blue-800/60 bg-blue-950/40 text-blue-300", dot: "bg-blue-400" },
+  in_progress: { badge: "border-amber-800/60 bg-amber-950/40 text-amber-300", dot: "bg-amber-400" },
+  in_review: { badge: "border-purple-800/60 bg-purple-950/40 text-purple-300", dot: "bg-purple-400" },
+  qa: { badge: "border-emerald-800/60 bg-emerald-950/40 text-emerald-300", dot: "bg-emerald-400" },
+  done: { badge: "border-slate-800 bg-slate-900 text-slate-400", dot: "bg-slate-500" },
 };
 
 function localDate(value = new Date()) {
@@ -106,6 +120,7 @@ function apiMessage(error: unknown, fallback: string) {
 
 export default function PulsePage() {
   const [selectedDate, setSelectedDate] = useState(() => localDate());
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [dashboard, setDashboard] = useState<PulseDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingNote, setSavingNote] = useState(false);
@@ -116,10 +131,20 @@ export default function PulsePage() {
   const [working, setWorking] = useState(false);
   const [now, setNow] = useState(() => Date.now());
 
+  // Initialize selectedProjectId from URL query parameter ?project=<id>
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const p = urlParams.get("project");
+    if (p && !isNaN(Number(p))) {
+      setSelectedProjectId(Number(p));
+    }
+  }, []);
+
   const loadDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getPulseDashboard(selectedDate);
+      const data = await getPulseDashboard(selectedDate, selectedProjectId);
       setDashboard(data);
       setNote(data.note.body || "");
       setSelectedTaskId(data.candidate_tasks[0]?.id ?? null);
@@ -129,7 +154,7 @@ export default function PulsePage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, selectedProjectId]);
 
   useEffect(() => {
     const refresh = window.setTimeout(() => {
@@ -322,6 +347,88 @@ export default function PulsePage() {
         </div>
       ) : (
         <>
+          {/* Project & Kanban Scope Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 p-3.5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-700/50 bg-indigo-950/80 text-indigo-400">
+                <Kanban className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                    Project & Kanban Scope
+                  </span>
+                  {selectedProjectId && (
+                    <span className="rounded-full border border-indigo-700/60 bg-indigo-950 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-300">
+                      Filtered
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs font-bold text-white">
+                  {selectedProjectId && dashboard?.available_projects
+                    ? dashboard.available_projects.find((p) => p.id === selectedProjectId)?.name || "Selected Project"
+                    : "All Workspace Projects (Global View)"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <select
+                  aria-label="Filter Pulse by project"
+                  value={selectedProjectId || ""}
+                  onChange={(e) => {
+                    const val = e.target.value ? Number(e.target.value) : null;
+                    setSelectedProjectId(val);
+                    if (typeof window !== "undefined") {
+                      const url = new URL(window.location.href);
+                      if (val) url.searchParams.set("project", String(val));
+                      else url.searchParams.delete("project");
+                      window.history.replaceState(null, "", url.toString());
+                    }
+                  }}
+                  className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-slate-200 outline-none focus:border-indigo-500"
+                >
+                  <option value="">All Projects (Workspace)</option>
+                  {dashboard?.available_projects?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedProjectId && (
+                <>
+                  <Link
+                    href={`/projects/${selectedProjectId}`}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-700/60 bg-indigo-950/80 px-3 py-1.5 text-xs font-bold text-indigo-200 hover:bg-indigo-900/60 transition"
+                    title="Jump directly to this project's 5-stage Kanban board"
+                  >
+                    <Kanban className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>Open Kanban Board</span>
+                    <ArrowUpRight className="h-3 w-3 text-indigo-300" />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedProjectId(null);
+                      if (typeof window !== "undefined") {
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete("project");
+                        window.history.replaceState(null, "", url.toString());
+                      }
+                    }}
+                    className="rounded-xl border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-white transition"
+                    title="Reset to all projects"
+                  >
+                    Clear Filter
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
           <section className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4">
               <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Execution plan</span><SquareCheckBig className="h-4 w-4 text-indigo-400" /></div>
@@ -364,6 +471,11 @@ export default function PulsePage() {
                       {items.map((item) => {
                         const complete = item.task_status === "done";
                         const inFocus = session?.plan_item === item.id;
+                        const statusStyle = KANBAN_STATUS_STYLES[item.task_status] || {
+                          badge: "border-slate-800 bg-slate-900 text-slate-400",
+                          dot: "bg-slate-500",
+                        };
+
                         return (
                           <div key={item.id} className={`group flex items-center gap-3 rounded-xl border p-3 transition ${inFocus ? "border-indigo-700/70 bg-indigo-950/30" : "border-slate-800 bg-slate-900/70 hover:border-slate-700"}`}>
                             <button
@@ -377,17 +489,44 @@ export default function PulsePage() {
                             </button>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
-                                <Link href={`/projects/${item.project_id}`} className={`truncate text-xs font-bold transition hover:text-indigo-300 ${complete ? "text-slate-500 line-through" : "text-white"}`}>{item.task_title}</Link>
+                                <Link
+                                  href={`/projects/${item.project_id}?task=${item.task}`}
+                                  className={`truncate text-xs font-bold transition hover:text-indigo-300 ${complete ? "text-slate-500 line-through" : "text-white"}`}
+                                  title="View on Kanban Board"
+                                >
+                                  {item.task_title}
+                                </Link>
                                 {inFocus && <span className="rounded-full border border-indigo-700/50 bg-indigo-950 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-300">In focus</span>}
                               </div>
                               <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-medium text-slate-500">
-                                <span>{item.project_name}</span><span>·</span><span>{item.task_type}</span>{item.due_date && <><span>·</span><span>Due {item.due_date}</span></>}
+                                <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold ${statusStyle.badge}`}>
+                                  <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`} />
+                                  {TASK_STATUS_LABELS[item.task_status] || item.task_status}
+                                </span>
+                                <Link href={`/projects/${item.project_id}`} className="hover:text-indigo-300 transition underline-offset-2 hover:underline">
+                                  {item.project_name}
+                                </Link>
+                                <span>·</span>
+                                <span>{item.task_type}</span>
+                                {item.due_date && <><span>·</span><span>Due {item.due_date}</span></>}
                               </div>
                             </div>
-                            <span className={`hidden rounded-md border px-2 py-0.5 text-[10px] font-bold sm:inline-flex ${PRIORITY_CLASSES[item.task_priority]}`}>{item.task_priority}</span>
-                            <button type="button" aria-label={`Remove ${item.task_title} from the day`} disabled={working} onClick={() => void removePlanItem(item)} className="rounded-lg p-1.5 text-slate-600 opacity-0 transition hover:bg-rose-950/50 hover:text-rose-300 group-hover:opacity-100 focus:opacity-100">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+
+                            <div className="flex items-center gap-2">
+                              <Link
+                                href={`/projects/${item.project_id}?task=${item.task}`}
+                                className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950/80 px-2 py-1 text-[10px] font-bold text-slate-400 hover:border-indigo-600 hover:text-indigo-200 transition"
+                                title={`Open #${item.task} directly on ${item.project_name} Kanban board`}
+                              >
+                                <Kanban className="h-3 w-3 text-indigo-400" />
+                                <span>Kanban</span>
+                                <ArrowUpRight className="h-2.5 w-2.5 text-slate-500" />
+                              </Link>
+                              <span className={`hidden rounded-md border px-2 py-0.5 text-[10px] font-bold md:inline-flex ${PRIORITY_CLASSES[item.task_priority]}`}>{item.task_priority}</span>
+                              <button type="button" aria-label={`Remove ${item.task_title} from the day`} disabled={working} onClick={() => void removePlanItem(item)} className="rounded-lg p-1.5 text-slate-600 opacity-0 transition hover:bg-rose-950/50 hover:text-rose-300 group-hover:opacity-100 focus:opacity-100">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -402,8 +541,50 @@ export default function PulsePage() {
 
               {addingTo && (
                 <div className="rounded-2xl border border-indigo-800/60 bg-slate-900 p-5 shadow-xl shadow-slate-950/40">
-                  <div className="flex items-start justify-between gap-4"><div><h3 className="text-sm font-bold text-white">Plan a visible task</h3><p className="mt-1 text-xs text-slate-400">Add it to the {addingTo} segment for {formatSelectedDate(selectedDate)}.</p></div><button type="button" onClick={() => setAddingTo(null)} className="text-xs font-semibold text-slate-400 hover:text-white">Cancel</button></div>
-                  {dashboard.candidate_tasks.length ? <div className="mt-4 flex flex-col gap-3 sm:flex-row"><select aria-label="Task to add to Pulse" value={selectedTaskId ?? ""} onChange={(event) => setSelectedTaskId(Number(event.target.value))} className="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500"><option value="" disabled>Select a task</option>{dashboard.candidate_tasks.map((task) => <option key={task.id} value={task.id}>{task.title} · {task.project_name}</option>)}</select><button type="button" disabled={!selectedTaskId || savingPlan} onClick={() => void addToPlan()} className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60">{savingPlan ? "Adding…" : "Add to plan"}</button></div> : <p className="mt-4 rounded-xl border border-dashed border-slate-800 px-3 py-4 text-xs text-slate-500">No open, visible tasks are ready to add. Create or assign one from its project board.</p>}
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-white">Plan a visible task</h3>
+                      <p className="mt-1 text-xs text-slate-400">Add it to the {addingTo} segment for {formatSelectedDate(selectedDate)}.</p>
+                    </div>
+                    <button type="button" onClick={() => setAddingTo(null)} className="text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+                  </div>
+                  {dashboard.candidate_tasks.length ? (
+                    <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                      <select
+                        aria-label="Task to add to Pulse"
+                        value={selectedTaskId ?? ""}
+                        onChange={(event) => setSelectedTaskId(Number(event.target.value))}
+                        className="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500"
+                      >
+                        <option value="" disabled>Select a task</option>
+                        {dashboard.candidate_tasks.map((task) => (
+                          <option key={task.id} value={task.id}>
+                            {task.title} · [{TASK_STATUS_LABELS[task.status] || task.status}] · {task.project_name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={!selectedTaskId || savingPlan}
+                        onClick={() => void addToPlan()}
+                        className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {savingPlan ? "Adding…" : "Add to plan"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex flex-col gap-2 rounded-xl border border-dashed border-slate-800 p-4 text-xs text-slate-400">
+                      <p>No open, visible tasks are ready to add.</p>
+                      {selectedProjectId && (
+                        <Link
+                          href={`/projects/${selectedProjectId}`}
+                          className="inline-flex items-center gap-1 font-bold text-indigo-400 hover:underline"
+                        >
+                          <Kanban className="h-3 w-3" /> Go create or assign tickets on the Kanban board
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </section>
@@ -412,7 +593,22 @@ export default function PulsePage() {
               <section className={`overflow-hidden rounded-2xl border p-5 ${session ? "border-indigo-800/70 bg-indigo-950/30" : "border-slate-800 bg-slate-900/90"}`}>
                 <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-300">Focus session</span><span className={`flex h-2 w-2 rounded-full ${session?.status === "active" ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} /></div>
                 <p className="mt-5 font-mono text-4xl font-black tracking-tight text-white tabular-nums">{formatDuration(elapsed)}</p>
-                <div className="mt-3 min-h-10"><p className="text-xs font-bold text-slate-200">{session?.task_title || "Ready when you are"}</p><p className="mt-0.5 text-[11px] text-slate-400">{session?.project_name || "Start with the next task in your execution plan."}</p></div>
+                <div className="mt-3 min-h-10">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-bold text-slate-200 truncate">{session?.task_title || "Ready when you are"}</p>
+                    {session?.task_id && session?.project_id && (
+                      <Link
+                        href={`/projects/${session.project_id}?task=${session.task_id}`}
+                        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-indigo-700/60 bg-indigo-950/60 px-2 py-0.5 text-[10px] font-bold text-indigo-300 hover:text-white transition"
+                        title="Open task in Kanban board"
+                      >
+                        <Kanban className="h-3 w-3 text-indigo-400" />
+                        <span>Kanban</span>
+                      </Link>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-slate-400">{session?.project_name || "Start with the next task in your execution plan."}</p>
+                </div>
                 <div className="mt-5 grid grid-cols-2 gap-2">
                   <button type="button" disabled={working} onClick={() => void controlFocus()} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60">
                     {session?.status === "active" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />} {session?.status === "active" ? "Pause" : session ? "Resume" : "Start"}

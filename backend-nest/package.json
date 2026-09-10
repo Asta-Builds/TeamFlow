@@ -25,6 +25,9 @@
     "pretest:django-compat": "npm run build"
   },
   "dependencies": {
+    "@clerk/express": "^2.1.67",
+    "@clerk/mcp-tools": "^0.6.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@nestjs/axios": "^12.0.0",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.0",
@@ -38,11 +41,13 @@
     "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "express": "^5.2.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "zod": "^4.6.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",

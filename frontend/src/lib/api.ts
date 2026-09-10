@@ -356,9 +356,11 @@ export async function streamAgentEvents(
 
 // --- Pulse execution workspace ---
 
-export function getPulseDashboard(date: string) {
+export function getPulseDashboard(date: string, projectId?: number | string | null) {
+  const params = new URLSearchParams({ date });
+  if (projectId) params.set("project", String(projectId));
   return apiFetch<import("./types").PulseDashboard>(
-    `/pulse/dashboard/?date=${encodeURIComponent(date)}`
+    `/pulse/dashboard/?${params.toString()}`
   );
 }
 
@@ -385,10 +387,17 @@ export function deletePulsePlanItem(id: number) {
   return apiFetch<void>(`/pulse/plan-items/${id}/`, { method: "DELETE" });
 }
 
-export function startPulseFocus(planItem?: number) {
+export function startPulseFocus(target?: number | { planItem?: number; task?: number }) {
+  const body: Record<string, number> = {};
+  if (typeof target === "number") {
+    body.plan_item = target;
+  } else if (target) {
+    if (target.planItem) body.plan_item = target.planItem;
+    if (target.task) body.task = target.task;
+  }
   return apiFetch<import("./types").PulseFocusSession>("/pulse/focus-sessions/start/", {
     method: "POST",
-    body: planItem ? { plan_item: planItem } : {},
+    body,
   });
 }
 

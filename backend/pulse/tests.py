@@ -140,3 +140,21 @@ class PulseAPITests(APITestCase):
         note = self.client.get(f"/api/pulse/note/?date={self.selected_date}")
         self.assertEqual(note.status_code, 200, note.content)
         self.assertEqual(note.data["body"], "")
+
+    def test_project_filtered_pulse_and_direct_task_focus(self):
+        dashboard = self.client.get(f"/api/pulse/dashboard/?date={self.selected_date}&project={self.project.id}")
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(dashboard.data["project_id"], self.project.id)
+        self.assertTrue(any(p["id"] == self.project.id for p in dashboard.data["available_projects"]))
+
+        # Test starting focus directly from task
+        started = self.client.post(
+            "/api/pulse/focus-sessions/start/",
+            {"task": self.task.id},
+            format="json",
+        )
+        self.assertEqual(started.status_code, 201)
+        self.assertEqual(started.data["task_id"], self.task.id)
+        self.assertEqual(started.data["project_id"], self.project.id)
+        self.assertEqual(started.data["status"], PulseFocusSession.Status.ACTIVE)
+

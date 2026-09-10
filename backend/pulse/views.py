@@ -6,6 +6,7 @@ from rest_framework import decorators, permissions, response, status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.views import APIView
 
+from projects.models import Project
 from tasks.models import Task
 from teamflow.permissions import visible_tasks_for
 from .models import PulseFocusSession, PulseNote, PulsePlanItem
@@ -138,6 +139,30 @@ class PulseFocusSessionViewSet(viewsets.ReadOnlyModelViewSet):
             if plan_item is None:
                 raise ValidationError({"plan_item": "Plan item is not available in your Pulse plan."})
 
+        task_id = request.data.get("task") or request.data.get("task_id")
+        if plan_item is None and task_id is not None:
+            today = timezone.localdate()
+            plan_item = PulsePlanItem.objects.filter(
+                task_id=task_id,
+                user=user,
+                organization=organization,
+                date=today,
+            ).select_related("task", "task__project").first()
+            if not plan_item:
+                task = visible_tasks_for(user).filter(pk=task_id).select_related("project").first()
+                if not task:
+                    raise ValidationError({"task": "Task is not available in your workspace."})
+                hour = timezone.localtime().hour
+                time_block = "morning" if hour < 13 else ("afternoon" if hour < 17 else "evening")
+                plan_item = PulsePlanItem.objects.create(
+                    user=user,
+                    organization=organization,
+                    task=task,
+                    date=today,
+                    time_block=time_block,
+                    position=PulsePlanItem.objects.filter(user=user, date=today, time_block=time_block).count(),
+                )
+
         now = timezone.now()
         session = PulseFocusSession.objects.create(
             user=user,
@@ -208,6 +233,8 @@ class PulseDashboardView(APIView):
         user = request.user
         organization = require_organization(user)
         selected_date = requested_date(request)
+        project_param = request.query_params.get("project")
+        project_id = int(project_param) if project_param and str(project_param).isdigit() else None
         week_start = selected_date - timedelta(days=6)
 
         plan_items = (
@@ -219,14 +246,28 @@ class PulseDashboardView(APIView):
             .select_related("task", "task__project", "task__assignee", "task__created_by")
             .order_by("time_block", "position", "created_at")
         )
+        if project_id:
+            plan_items = plan_items.filter(task__project_id=project_id)
+
         planned_task_ids = plan_items.values_list("task_id", flat=True)
-        candidate_tasks = (
+        candidate_tasks_query = (
             visible_tasks_for(user)
             .filter(~Q(status=Task.Status.DONE))
-            .filter(Q(assignee=user) | Q(created_by=user) | Q(due_date=selected_date))
             .exclude(pk__in=planned_task_ids)
             .select_related("project")
-            .order_by("due_date", "priority", "created_at")[:12]
+        )
+        if project_id:
+            candidate_tasks_query = candidate_tasks_query.filter(project_id=project_id)
+        else:
+            candidate_tasks_query = candidate_tasks_query.filter(
+                Q(assignee=user) | Q(created_by=user) | Q(due_date=selected_date)
+            )
+        candidate_tasks = candidate_tasks_query.order_by("due_date", "priority", "created_at")[:24]
+
+        available_projects = list(
+            Project.objects.filter(organization=organization)
+            .order_by("name")
+            .values("id", "name", "status")
         )
 
         note = PulseNote.objects.filter(
@@ -274,6 +315,8 @@ class PulseDashboardView(APIView):
         return response.Response(
             {
                 "date": selected_date,
+                "project_id": project_id,
+                "available_projects": available_projects,
                 "plan_items": PulsePlanItemSerializer(plan_items, many=True, context={"request": request}).data,
                 "candidate_tasks": [
                     {
