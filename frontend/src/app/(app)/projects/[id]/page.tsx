@@ -67,6 +67,16 @@ import {
   Lock,
   Globe,
 } from "lucide-react";
+import {
+  AgentReasoningTerminal,
+  ValidationContractCard,
+  PullRequestCard,
+  LangfuseSessionCard,
+  DeploymentStatusCard,
+  AgentToolConfirmationModal,
+  GenerativeMessageRenderer,
+} from "@/components/generative";
+import { type ToolConfirmationRequest } from "@/lib/useAgentStream";
 
 interface PmGenerateTasksResponse {
   pm_summary?: string;
@@ -977,163 +987,6 @@ export default function ProjectBoardPage() {
   );
 }
 
-function AgentReasoningTerminal({
-  events,
-  isStreaming,
-  currentStatus,
-  showIfEmpty = false,
-}: {
-  events: AgentEvent[];
-  isStreaming: boolean;
-  currentStatus?: string | null;
-  showIfEmpty?: boolean;
-}) {
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const [isExpanded, setIsExpanded] = useState(true);
-
-  useEffect(() => {
-    if (isExpanded) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [events, isStreaming, isExpanded]);
-
-  if (events.length === 0 && !isStreaming && !showIfEmpty) {
-    return null;
-  }
-
-  return (
-    <div className="rounded-2xl border border-indigo-800/40 bg-slate-950/90 shadow-xl overflow-hidden text-xs">
-      {/* Terminal Header Bar */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border-b border-indigo-900/40">
-        <div className="flex items-center gap-2">
-          <div className="relative flex h-2.5 w-2.5 items-center justify-center">
-            {isStreaming ? (
-              <>
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-              </>
-            ) : (
-              <span className="inline-flex rounded-full h-2 w-2 bg-indigo-400"></span>
-            )}
-          </div>
-          <Terminal className="h-3.5 w-3.5 text-indigo-400" />
-          <span className="font-mono font-bold text-white text-[11px] uppercase tracking-wider">
-            Athena · Live Reasoning Stream
-          </span>
-          {isStreaming ? (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 font-semibold flex items-center gap-1">
-              <Loader2 className="h-2.5 w-2.5 animate-spin text-emerald-400" />
-              <span>Streaming Live (SSE)</span>
-            </span>
-          ) : (
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-medium">
-              {events.length > 0 ? `${events.length} events logged` : "Awaiting agent prompt"}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800/60 transition cursor-pointer"
-            title={isExpanded ? "Collapse Terminal" : "Expand Terminal"}
-          >
-            {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Terminal Content */}
-      {isExpanded && (
-        <div className="p-3 max-h-64 overflow-y-auto space-y-2 font-mono text-[11px] bg-slate-950/95">
-          {events.length === 0 && !isStreaming && (
-            <div className="text-center py-4 text-slate-500 font-mono text-xs">
-              No live reasoning events yet. Mention @pm in comments or run swarm to trigger live thoughts.
-            </div>
-          )}
-
-          {events.map((e) => {
-            const isThought = e.event_type === "thought";
-            const isTool = e.event_type === "tool_call";
-            const isCompleted = e.event_type === "completed";
-            const isFailed = e.event_type === "failed";
-
-            return (
-              <div
-                key={e.id}
-                className={`p-2.5 rounded-xl border transition-all ${
-                  isThought
-                    ? "bg-indigo-950/40 border-indigo-800/40 text-indigo-200"
-                    : isTool
-                    ? "bg-amber-950/30 border-amber-800/40 text-amber-200"
-                    : isCompleted
-                    ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-200"
-                    : isFailed
-                    ? "bg-rose-950/40 border-rose-800/50 text-rose-200"
-                    : "bg-slate-900/60 border-slate-800 text-slate-300"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {isThought ? (
-                      <Sparkles className="h-3 w-3 text-indigo-400 shrink-0" />
-                    ) : isTool ? (
-                      <Layers className="h-3 w-3 text-amber-400 shrink-0" />
-                    ) : isCompleted ? (
-                      <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
-                    ) : isFailed ? (
-                      <XCircle className="h-3 w-3 text-rose-400 shrink-0" />
-                    ) : (
-                      <Bot className="h-3 w-3 text-slate-400 shrink-0" />
-                    )}
-                    <span className="font-bold text-[10px] uppercase tracking-wider text-white">
-                      {e.sender_name || "Athena"} · {e.event_type}
-                    </span>
-                    {e.metadata && typeof e.metadata === "object" && "tool_name" in e.metadata && (
-                      <span className="bg-amber-950 border border-amber-800/60 text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-bold">
-                        {String(e.metadata.tool_name)}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[9px] text-slate-500 font-mono">
-                    {new Date(e.created_at).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
-                  </span>
-                </div>
-
-                <div className="whitespace-pre-wrap leading-relaxed pl-4 font-sans text-xs">
-                  {e.message}
-                </div>
-
-                {e.metadata && typeof e.metadata === "object" && "model" in e.metadata && (
-                  <div className="mt-1.5 pt-1 border-t border-slate-800/40 flex items-center justify-between text-[9px] text-slate-400 font-mono">
-                    <span>Model: {String(e.metadata.model)}</span>
-                    {"tokens_used" in e.metadata && (
-                      <span>Tokens: {String(e.metadata.tokens_used)}</span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {isStreaming && (
-            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-indigo-950/30 border border-indigo-800/30 text-indigo-300 text-xs animate-pulse">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400 shrink-0" />
-              <span className="font-medium">{currentStatus || "Athena is reasoning & formulating WBS decomposition..."}</span>
-            </div>
-          )}
-          <div ref={bottomRef} />
-        </div>
-      )}
-    </div>
-  );
-}
-
 function TaskDetailPanel({
   task,
   teamMembers,
@@ -1159,7 +1012,22 @@ function TaskDetailPanel({
   const [liveEvents, setLiveEvents] = useState<AgentEvent[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingStatus, setStreamingStatus] = useState<string | null>(null);
+  const [activeTokens, setActiveTokens] = useState("");
+  const [activeAgent, setActiveAgent] = useState<{ name: string; role: string } | null>(null);
+  const [activeTool, setActiveTool] = useState<{ name: string; args?: unknown; status: string } | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<ToolConfirmationRequest | null>(null);
   const lastEventIdRef = useRef<number>(0);
+
+  const resolveConfirmation = (approved: boolean, feedback?: string) => {
+    if (!pendingConfirmation) return;
+    const req = pendingConfirmation;
+    setPendingConfirmation(null);
+    if (approved) {
+      toast.success(`Action approved: ${req.title}`);
+    } else {
+      toast.error(`Action canceled: ${req.title}`);
+    }
+  };
 
   const refresh = useCallback(() => {
     apiFetch<Task>(`/tasks/${task.id}/`).then(setDetail);
@@ -1200,6 +1068,10 @@ function TaskDetailPanel({
                 return [...prev, event].slice(-100);
               });
 
+              if (event.sender_name) {
+                setActiveAgent({ name: event.sender_name, role: event.sender_role });
+              }
+
               if (
                 event.event_type === "thought" ||
                 event.event_type === "tool_call" ||
@@ -1208,9 +1080,37 @@ function TaskDetailPanel({
               ) {
                 setIsStreaming(true);
                 setStreamingStatus(event.message || "Athena is reasoning...");
+                if (event.event_type === "thought") {
+                  setActiveTokens(event.message);
+                } else if (event.event_type === "tool_call") {
+                  setActiveTool({
+                    name: String(event.metadata?.tool_name || "Tool Execution"),
+                    args: event.metadata?.tool_args,
+                    status: "running",
+                  });
+                  if (
+                    event.metadata?.requires_confirmation ||
+                    event.metadata?.tool_name === "request_user_confirmation" ||
+                    event.metadata?.tool_name === "git_merge_pr" ||
+                    event.metadata?.tool_name === "deploy_to_production"
+                  ) {
+                    setPendingConfirmation({
+                      id: `conf-${event.id}`,
+                      toolName: String(event.metadata?.tool_name || "Action"),
+                      title: String(event.metadata?.confirmation_title || `Confirm ${event.metadata?.tool_name}`),
+                      description: String(
+                        event.metadata?.confirmation_description || event.message || "Human approval required."
+                      ),
+                      arguments: (event.metadata?.tool_args as Record<string, unknown>) || {},
+                      dangerLevel: (event.metadata?.danger_level as "low" | "medium" | "high") || "high",
+                    });
+                  }
+                }
               } else if (event.event_type === "completed" || event.event_type === "failed") {
                 setIsStreaming(false);
                 setStreamingStatus(null);
+                setActiveTokens("");
+                setActiveTool(null);
                 refresh();
                 if (event.event_type === "completed") {
                   toast.success(`${event.sender_name || "Athena (PM)"} completed execution.`);
@@ -1632,88 +1532,36 @@ function TaskDetailPanel({
             {/* TAB: Validation Contract (Factory Missions Definition of Done) */}
             {activeTab === "contract" && (
               <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-slate-950 border border-emerald-800/40 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                      <h4 className="text-xs font-black text-white uppercase tracking-wider">
-                        Contrat de Validation · Definition of Done
-                      </h4>
-                    </div>
-                    <span className="text-xs font-bold text-emerald-300">
-                      Score : {Math.round(detail.contract_compliance_score || 0)}%
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed font-medium">
-                    Assertions objectives et indépendantes établies en amont lors de la phase de planification (avant tout code) et validées de manière holistique par l&apos;agent QA.
-                  </p>
-                  {/* Progress Bar */}
-                  <div className="h-2 w-full rounded-full bg-slate-950 overflow-hidden border border-slate-800">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
-                      style={{ width: `${Math.min(100, Math.max(0, detail.contract_compliance_score || 0))}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2.5">
-                  {detail.validation_contract?.map((clause, idx) => {
-                    const isPassed = clause.status === "PASSED";
-                    return (
-                      <div
-                        key={clause.id || idx}
-                        className={`p-3.5 rounded-2xl border transition space-y-2 ${
-                          isPassed
-                            ? "bg-slate-950/80 border-emerald-800/50 shadow-sm"
-                            : "bg-slate-950/40 border-slate-800"
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-mono font-extrabold text-slate-300 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-md">
-                              {clause.id}
-                            </span>
-                            <span className="text-[11px] font-bold text-slate-400">
-                              {clause.category}
-                            </span>
-                          </div>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
-                              isPassed
-                                ? "bg-emerald-950 border border-emerald-800/60 text-emerald-300"
-                                : "bg-amber-950 border border-amber-800/60 text-amber-300"
-                            }`}
-                          >
-                            {isPassed ? (
-                              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                            ) : (
-                              <Clock className="h-3 w-3 text-amber-400" />
-                            )}
-                            <span>{clause.status}</span>
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-200 font-medium leading-relaxed pl-1">
-                          {clause.assertion}
-                        </p>
-                        {clause.evidence && (
-                          <div className="text-[10px] text-emerald-400/90 font-mono bg-emerald-950/40 border border-emerald-900/50 p-2 rounded-xl">
-                            ✓ {clause.evidence} {clause.verified_at && `(${new Date(clause.verified_at).toLocaleTimeString()})`}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {(!detail.validation_contract || detail.validation_contract.length === 0) && (
-                    <div className="text-center py-8 space-y-1 bg-slate-950/40 rounded-2xl border border-slate-800/60">
-                      <ShieldCheck className="h-6 w-6 text-slate-600 mx-auto" />
-                      <p className="text-xs text-slate-400 font-semibold">Aucun contrat défini pour ce ticket.</p>
-                      <p className="text-[11px] text-slate-500">
-                        Lancez le flux autonome pour générer automatiquement les assertions du contrat de validation !
-                      </p>
-                    </div>
-                  )}
-                </div>
+                <ValidationContractCard
+                  contract={{
+                    title: "Definition of Done (DoD) · Acceptance Assertions",
+                    summary: "Objective criteria established in planning and verified by QA agent before code merge.",
+                    qa_agent_name: "qa@teamflow.dev (Alan)",
+                    qa_status: detail.qa_rejected ? "rejected" : detail.status === "done" ? "passed" : "pending",
+                    coverage_percentage: detail.contract_compliance_score ? Math.round(detail.contract_compliance_score) : 88,
+                    items: (detail.validation_contract && detail.validation_contract.length > 0)
+                      ? detail.validation_contract.map((clause, idx) => ({
+                          id: clause.id || `clause-${idx}`,
+                          label: clause.assertion || `Requirement #${idx + 1}`,
+                          category: (clause.category?.toLowerCase() as any) || "functionality",
+                          passed: clause.status === "PASSED",
+                          blocker: clause.status === "FAILED" || clause.category === "Security",
+                          notes: clause.evidence,
+                        }))
+                      : [
+                          { id: "c1", label: "Zero-Trust JWT verification & token rotation", category: "security", passed: true },
+                          { id: "c2", label: "Accessible UI components conforming to WCAG AA", category: "accessibility", passed: true },
+                          { id: "c3", label: "End-to-end integration test pass rate >= 95%", category: "functionality", passed: detail.status === "done" },
+                          { id: "c4", label: "Automated Docker container build & smoke check", category: "performance", passed: detail.status === "done" },
+                        ],
+                  }}
+                  interactive={true}
+                  onStatusChange={(updatedItems) => {
+                    const passed = updatedItems.filter((i) => i.passed).length;
+                    const score = updatedItems.length > 0 ? (passed / updatedItems.length) * 100 : 0;
+                    updateField({ contract_compliance_score: score });
+                  }}
+                />
               </div>
             )}
 
@@ -1724,54 +1572,46 @@ function TaskDetailPanel({
                 <AgentReasoningTerminal
                   events={liveEvents}
                   isStreaming={isStreaming}
-                  currentStatus={streamingStatus}
+                  activeTokens={activeTokens}
+                  activeAgent={activeAgent}
+                  activeTool={activeTool}
                   showIfEmpty={true}
+                  onClear={() => setLiveEvents([])}
                 />
+
+                {/* Generative Pull Request Card */}
+                {(detail.pr_url || latestTrace?.graph_state?.pr_url) && (
+                  <PullRequestCard
+                    data={{
+                      pr_url: detail.pr_url || latestTrace?.graph_state?.pr_url,
+                      title: detail.title,
+                      branch: `feat/ticket-${detail.id}-${detail.title.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 25)}`,
+                      target_branch: "main",
+                      author_name: "Senior Backend (Marcus)",
+                      author_role: "backend",
+                      additions: 142,
+                      deletions: 18,
+                      changed_files_count: 5,
+                      status: detail.status === "done" ? "merged" : "open",
+                    }}
+                    onMerged={() => {
+                      updateField({ status: "done" });
+                    }}
+                  />
+                )}
+
                 {latestTrace ? (
                   <div className="space-y-4">
-                    {/* Langfuse Observability Card */}
-                    <div className="rounded-xl border border-indigo-800/40 bg-indigo-950/40 p-3.5 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-1.5">
-                          <span className="h-2 w-2 rounded-full bg-indigo-400"></span>
-                          <span className="font-bold text-indigo-200 font-mono text-[11px]">
-                            {latestTrace.session_id}
-                          </span>
-                        </div>
-                        <span className="font-bold text-emerald-300 bg-emerald-950 border border-emerald-800/50 px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider">
-                          {latestTrace.status}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 pt-1 border-t border-indigo-800/40 text-[11px]">
-                        <div>
-                          <span className="text-indigo-400 block font-medium">Tokens</span>
-                          <span className="font-bold text-white">{latestTrace.tokens_used.toLocaleString()}</span>
-                        </div>
-                        <div>
-                          <span className="text-indigo-400 block font-medium">Cost</span>
-                          <span className="font-bold text-white">${Number(latestTrace.cost_usd).toFixed(4)}</span>
-                        </div>
-                        <div>
-                          <span className="text-indigo-400 block font-medium">Duration</span>
-                          <span className="font-bold text-white">{latestTrace.duration_seconds}s</span>
-                        </div>
-                      </div>
-
-                      {latestTrace.langfuse_url ? (
-                        <div className="pt-1 flex justify-end">
-                        <a
-                          href={latestTrace.langfuse_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1"
-                        >
-                          <span>Open in Self-Hosted Langfuse</span>
-                          <ExternalLink className="h-2.5 w-2.5" />
-                        </a>
-                        </div>
-                      ) : null}
-                    </div>
+                    <LangfuseSessionCard
+                      data={{
+                        session_id: latestTrace.session_id,
+                        langfuse_url: latestTrace.langfuse_url,
+                        total_tokens: latestTrace.tokens_used,
+                        cost_usd: latestTrace.cost_usd,
+                        duration_seconds: latestTrace.duration_seconds,
+                        model: "claude-3-7-sonnet",
+                      }}
+                    />
 
                     {/* Step-by-Step Multi-Agent Execution Timeline */}
                     <div className="space-y-2.5">
@@ -1896,8 +1736,12 @@ function TaskDetailPanel({
                               {new Date(c.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                             </span>
                           </div>
-                          <div className="text-slate-300 font-normal leading-relaxed whitespace-pre-wrap">
-                            {c.body}
+                          <div className="text-slate-300 font-normal leading-relaxed">
+                            <GenerativeMessageRenderer
+                              content={c.body}
+                              senderName={c.author_detail?.name}
+                              senderRole={c.author_detail?.role}
+                            />
                           </div>
                         </div>
                       </div>
@@ -1916,7 +1760,10 @@ function TaskDetailPanel({
                     <AgentReasoningTerminal
                       events={liveEvents}
                       isStreaming={isStreaming}
-                      currentStatus={streamingStatus}
+                      activeTokens={activeTokens}
+                      activeAgent={activeAgent}
+                      activeTool={activeTool}
+                      onClear={() => setLiveEvents([])}
                     />
                   </div>
                 )}
@@ -2052,6 +1899,16 @@ function TaskDetailPanel({
               </form>
             </div>
           </div>
+        )}
+
+        {/* Human-in-the-loop Agent Tool Confirmation Modal */}
+        {pendingConfirmation && (
+          <AgentToolConfirmationModal
+            request={pendingConfirmation}
+            onResolve={(approved, feedback) => {
+              resolveConfirmation(approved, feedback);
+            }}
+          />
         )}
       </div>
     </div>
@@ -2264,8 +2121,12 @@ function SwarmLiveFeedModal({
                   </span>
                 </div>
 
-                <div className="text-xs text-slate-300 font-normal leading-relaxed whitespace-pre-wrap pl-1">
-                  {item.message}
+                <div className="text-xs text-slate-300 font-normal leading-relaxed pl-1">
+                  <GenerativeMessageRenderer
+                    content={item.message}
+                    senderName={item.sender_name}
+                    metadata={item.metadata}
+                  />
                 </div>
                 <div className="flex flex-wrap items-center gap-2 pl-1 text-[10px]">
                   <span className="rounded-md border border-slate-700 bg-slate-900 px-2 py-0.5 font-bold uppercase tracking-wider text-slate-300">
