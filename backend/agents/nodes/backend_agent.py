@@ -67,7 +67,7 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
         add_ticket_comment(
             ticket_id,
             "pm",
-            f"💻 Backend Agent: Implementation complete. Opened Pull Request: {pr_info['pr_url']}"
+            f"[Backend Agent] Implementation complete. Opened Pull Request: {pr_info['pr_url']}"
         )
         log_task_activity(ticket_id, "Athena (AI)", "opened_pr", {"pr_url": pr_info["pr_url"]})
 

@@ -29,6 +29,11 @@ from agents.tools.github_tool import (
     AGENT_GITHUB_TOOLS,
     TECH_LEAD_GITHUB_TOOLS,
 )
+from agents.pm_service import decompose_plan_and_create_tasks
+from agents.swarm_chain import generate_validation_contract
+from agents.state import TicketState
+from agents.nodes.backend_agent import backend_agent_node
+from agents.nodes.frontend_agent import frontend_agent_node
 
 User = get_user_model()
 
@@ -406,3 +411,145 @@ class AgentGitToolsTestCase(TestCase):
         self.assertTrue(hasattr(tool_commit_and_push, "name"))
         self.assertGreaterEqual(len(AGENT_GITHUB_TOOLS), 5)
         self.assertGreaterEqual(len(TECH_LEAD_GITHUB_TOOLS), len(AGENT_GITHUB_TOOLS) + 1)
+
+
+class PMBackendFrontendWorkflowTestCase(TestCase):
+    def setUp(self):
+        self.org = Organization.objects.create(name="Workflow Test Org")
+        self.ceo = User.objects.create_user(
+            email="ceo@teamflow.dev",
+            name="Human CEO",
+            role="ceo",
+            organization=self.org,
+            password="testpassword123",
+        )
+        self.project = Project.objects.create(
+            name="Realtime Notification Service",
+            description="Real-time notification center with SSE streaming, Django REST API, and Next.js 16 UI.",
+            organization=self.org,
+            owner=self.ceo,
+            github_repo="Asta-Builds/TeamFlow",
+        )
+
+    @patch("agents.pm_service._query_llm_for_decomposition", return_value=None)
+    def test_pm_decomposes_plan_and_creates_backend_and_frontend_tasks(self, mock_query_llm):
+        plan_text = (
+            "Build real-time user notification center:\n"
+            "- 1. Backend: Django REST API for notifications and Redis pub/sub queue\n"
+            "- 2. Frontend: Next.js 16 App Router component with real-time SSE streaming and Sonner toasts"
+        )
+        result = decompose_plan_and_create_tasks(self.project, plan_text, self.ceo)
+        self.assertIn("pm_summary", result)
+        self.assertGreaterEqual(len(result["tasks"]), 2)
+
+        # Verify created tasks in DB
+        tasks = list(Task.objects.filter(project=self.project))
+        self.assertGreaterEqual(len(tasks), 2)
+
+        backend_task = next((t for t in tasks if "backend" in t.title.lower()), tasks[0])
+        frontend_task = next((t for t in tasks if "frontend" in t.title.lower() or "interface" in t.title.lower()), tasks[1])
+
+        self.assertIsNotNone(backend_task)
+        self.assertIsNotNone(frontend_task)
+
+    @patch("agents.tools.github_tool.open_pull_request")
+    @patch("agents.tools.github_tool.create_branch")
+    def test_end_to_end_pm_backend_frontend_workflow(self, mock_create_branch, mock_open_pr):
+        mock_create_branch.return_value = {"success": True, "branch": "feat/mock"}
+        mock_open_pr.return_value = {"pr_url": "https://github.com/Asta-Builds/TeamFlow/pull/42", "is_live_pr": True}
+
+        # 1. PM Phase: Create task with upfront Validation Contract
+        task = Task.objects.create(
+            project=self.project,
+            title="Real-time SSE Notification Center",
+            description="End-to-end notification pipeline with backend event stream and frontend dynamic widget.",
+            status=Task.Status.TODO,
+            task_type=Task.Type.FEATURE,
+            priority=Task.Priority.HIGH,
+            created_by=self.ceo,
+            organization=self.org,
+        )
+        contract = generate_validation_contract(task, "Implement SSE stream and interactive client component")
+        self.assertGreaterEqual(len(contract), 5)
+        task.validation_contract = contract
+        task.save()
+
+        # 2. Backend Phase: Backend specialist builds API & models
+        backend_state: TicketState = {
+            "ticket_id": task.id,
+            "project_id": self.project.id,
+            "project_name": self.project.name,
+            "title": task.title,
+            "description": task.description,
+            "status": "todo",
+            "assigned_agent": "backend",
+            "priority": "high",
+            "task_type": "feature",
+            "pr_url": None,
+            "qa_result": None,
+            "qa_rejection_reason": None,
+            "retrieved_context": ["ADR-001: Architecture Decision Record for SSE and Celery queues."],
+            "history": [],
+            "subtasks": [],
+            "code_changes": {},
+            "errors": [],
+            "deployment_status": None,
+            "deployment_logs": None,
+            "langfuse_session_id": f"ticket-{task.id}",
+            "total_tokens": 0,
+            "total_cost_usd": 0.0,
+        }
+
+        backend_result = backend_agent_node(backend_state)
+        self.assertEqual(backend_result["status"], "in_review")
+        self.assertIn("backend/api_patch.py", backend_result["code_changes"])
+        self.assertGreater(backend_result["total_tokens"], 0)
+        self.assertEqual(backend_result["assigned_agent"], "tech_lead")
+
+        # 3. Frontend Phase: Frontend specialist builds Next.js 16 UI with SSE & Generative UI
+        frontend_state: TicketState = {
+            "ticket_id": task.id,
+            "project_id": self.project.id,
+            "project_name": self.project.name,
+            "title": task.title,
+            "description": task.description,
+            "status": "in_review",
+            "assigned_agent": "frontend",
+            "priority": "high",
+            "task_type": "feature",
+            "pr_url": backend_result["pr_url"],
+            "qa_result": None,
+            "qa_rejection_reason": None,
+            "retrieved_context": ["ADR-002: Next.js 16 App Router and React 19 Client State"],
+            "history": backend_result["history"],
+            "subtasks": [],
+            "code_changes": backend_result["code_changes"],
+            "errors": [],
+            "deployment_status": None,
+            "deployment_logs": None,
+            "langfuse_session_id": f"ticket-{task.id}",
+            "total_tokens": backend_result["total_tokens"],
+            "total_cost_usd": backend_result["total_cost_usd"],
+        }
+
+        frontend_result = frontend_agent_node(frontend_state)
+        self.assertEqual(frontend_result["status"], "in_review")
+
+        # Verify component created in code_changes
+        gen_components = [k for k in frontend_result["code_changes"].keys() if "frontend/src/components/generated/" in k]
+        self.assertGreater(len(gen_components), 0)
+        component_content = frontend_result["code_changes"][gen_components[0]]
+        self.assertIn('"use client"', component_content)
+        self.assertIn("useOptimistic", component_content)
+        self.assertIn("EventSource", component_content)
+        self.assertIn("sonner", component_content)
+        self.assertIn("lucide-react", component_content)
+
+        # Verify zero emojis policy in code and step messages
+        for step in frontend_result["history"]:
+            self.assertNotIn("🎨", step["message"])
+            self.assertNotIn("💻", step["message"])
+
+        # Verify token and cost accumulation across workflow
+        self.assertGreater(frontend_result["total_tokens"], backend_result["total_tokens"])
+        self.assertGreater(frontend_result["total_cost_usd"], backend_result["total_cost_usd"])

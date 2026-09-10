@@ -251,13 +251,13 @@ def execute_full_swarm_chain(
     )
 
     backend_comment_body = (
-        f"💻 **[Backend Specialist ➔ Frontend Specialist]**\n\n"
+        f"**[Backend Specialist -> Frontend Specialist]**\n\n"
         f"Backend implementation for **#{task.id} : {task.title}** is complete.\n\n"
         f"**Implementation Details:**\n"
-        f"- 🎋 **Branch:** `{branch_name}`\n"
-        f"- 📁 **Workspace:** `generated_projects/{workspace_rel}/`\n\n"
+        f"- **Branch:** `{branch_name}`\n"
+        f"- **Workspace:** `generated_projects/{workspace_rel}/`\n\n"
         f"{backend_code_report}\n\n"
-        f"💬 API endpoints and schemas are ready for frontend UI integration."
+        f"API endpoints and schemas are ready for frontend UI integration."
     )
     backend_comment = Comment.objects.create(task=task, author=backend_user, body=backend_comment_body)
     TaskActivity.objects.create(
@@ -332,10 +332,10 @@ def execute_full_swarm_chain(
     task.save(update_fields=["status"])
 
     frontend_comment_body = (
-        f"🎨 **[Frontend Specialist ➔ QA Specialist]**\n\n"
+        f"**[Frontend Specialist -> QA Specialist]**\n\n"
         f"Client UI views and reactive state for **#{task.id} : {task.title}** are developed and styled with Tailwind CSS & Lucide icons.\n\n"
         f"{frontend_code_report}\n\n"
-        f"💬 UI views are connected to backend endpoints. Ticket moved to **QA / Ready for Test** for validation."
+        f"UI views are connected to backend endpoints. Ticket moved to **QA / Ready for Test** for validation."
     )
     frontend_comment = Comment.objects.create(task=task, author=frontend_user, body=frontend_comment_body)
     TaskActivity.objects.create(

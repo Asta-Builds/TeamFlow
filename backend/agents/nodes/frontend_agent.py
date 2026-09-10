@@ -83,7 +83,7 @@ def frontend_agent_node(state: TicketState) -> Dict[str, Any]:
     # 5. Build React 19 Next.js 16 component code
     component_code = (
         f'"use client";\n\n'
-        f'import React, { useState, useEffect, useOptimistic, useTransition } from "react";\n'
+        f'import React, {{ useState, useEffect, useOptimistic, useTransition }} from "react";\n'
         f'import {{ toast }} from "sonner";\n'
         f'import {{ Sparkles, Terminal, CheckCircle2, AlertCircle, RefreshCw }} from "lucide-react";\n\n'
         f'interface {component_name}Props {{\n'
