@@ -23,42 +23,103 @@
 
 TeamFlow combines a high-throughput, type-safe application API with an autonomous AI engineering swarm running over a unified, shared PostgreSQL (`pgvector`) data store.
 
-```text
-                               ┌────────────────────────────────────────────────────────┐
-                               │                    👑 HUMAN CEO                        │
-                               │                (ceo@teamflow.dev)                      │
-                               └──────────────────────────┬─────────────────────────────┘
-                                                          │ Prompts, Scope, Approvals
-                                                          ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                       TEAMFLOW PLATFORM                                                │
-│                                                                                                        │
-│   ┌──────────────────────────────────────────────────┐                                                 │
-│   │             Next.js 16 App Router UI             │                                                 │
-│   │   Turbopack · Tailwind CSS v4 · Lucide · Sonner  │                                                 │
-│   │     Dashboard · Kanban · Pulse · Live Swarm      │                                                 │
-│   └───────────────┬──────────────────────────┬───────┘                                                 │
-│                   │ REST (Port 8001)         │ AI Swarm Trigger (Port 8000)                            │
-│                   ▼                          ▼                                                         │
-│   ┌──────────────────────────────┐     ┌───────────────────────────────────────────────────────────┐   │
-│   │   NestJS Core REST Service   │     │            Python / Django AI Swarm & Workers             │   │
-│   │   TypeScript · Prisma ORM    │     │   LangGraph Multi-Agent Swarm · Google Antigravity SDK    │   │
-│   │   Auth · Projects · Tasks    │     │   Celery Queue Workers · Redis Pub/Sub · Vector Store     │   │
-│   │   Pulse · Deployments · SEO  │     │   Author-Signed Git Commits in generated_projects/        │   │
-│   └───────────────┬──────────────┘     └─────────────────────────────┬─────────────────────────────┘   │
-└───────────────────┼──────────────────────────────────────────────────┼─────────────────────────────────┘
-                    │                                                  │
-                    │ Shared Data Access & RAG Vectors                 │
-                    ▼                                                  ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                   SHARED INFRASTRUCTURE & STORAGE                                      │
-│                                                                                                        │
-│   [( PostgreSQL 16 + pgvector )]           [( Redis 7 Cache & Queues )]          [( Keycloak 26.1 SSO )]│
-│   Tables shared via Prisma @@map           Pub/Sub · Celery Broker               OAuth 2.0 & OpenID    │
-│                                                                                                        │
-│   [( Langfuse v4 Observability )]          [( Isolated Workspaces )]             [( Docker Compose )]  │
-│   Traces with session_id=ticket-{id}       generated_projects/<id>_<slug>        Zero-Downtime Stack   │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph HumanLayer["👑 Human Leadership"]
+        CEO["Human CEO / Founder (ceo@teamflow.dev)"]
+    end
+
+    subgraph FrontendLayer["🌐 Frontend Application (Port 3000)"]
+        NextApp["Next.js 16 App Router (React 19, Turbopack)"]
+        ReasoningTerminal["AgentReasoningTerminal (Live Thought & Tool Stream)"]
+        GenerativeUI["Generative UI (Validation Contracts & WBS Dynamic Cards)"]
+        NextApp --- ReasoningTerminal
+        NextApp --- GenerativeUI
+    end
+
+    subgraph GatewayLayer["⚡ API Gateway & Event Distributor (Port 8001)"]
+        NestAPI["NestJS 12 REST API Gateway"]
+        SSEDistributor["SSE Event Stream Distributor (/api/agents/events/stream/)"]
+        PrismaORM["Prisma ORM Client (Type-Safe Database Mapping)"]
+        NestAPI --- SSEDistributor
+        NestAPI --- PrismaORM
+    end
+
+    subgraph AIWorkerLayer["🤖 Autonomous Agent Engine & Swarm (Port 8000)"]
+        DjangoREST["Django REST Framework + Celery Workers"]
+        AntigravityEngine["Google Antigravity SDK & LangGraph Swarm"]
+        SpecialistAgents["Specialist Swarm: Athena PM, Frontend, Backend, QA, DevOps"]
+        GitService["Git Service & Workspace Sandbox (generated_projects/)"]
+        DjangoREST --- AntigravityEngine
+        AntigravityEngine --- SpecialistAgents
+        AntigravityEngine --- GitService
+    end
+
+    subgraph StorageLayer["🗄️ Shared Infrastructure & Storage"]
+        PostgresDB[("PostgreSQL 16 + pgvector Vector Store")]
+        RedisBroker[("Redis 7 (Pub/Sub & Celery Broker)")]
+        KeycloakSSO["Keycloak 26.1 (OAuth 2.0 / OpenID Connect)"]
+        LangfuseObs["Langfuse v4 Tracing (session_id=ticket-{id})"]
+    end
+
+    CEO -->|"Directives, Scope & PR Approvals"| NextApp
+    NextApp -->|"REST Requests (Auth, Projects, Tasks, Billing)"| NestAPI
+    NextApp -->|"AI Agent Prompts & Triggers"| DjangoREST
+    SSEDistributor -.->|"Real-Time SSE Stream (<200ms latency)"| ReasoningTerminal
+
+    NestAPI <-->|"Shared Relational Tables (@@map)"| PostgresDB
+    DjangoREST <-->|"Django ORM & pgvector Embeddings"| PostgresDB
+    DjangoREST <-->|"Task Queues & State Events"| RedisBroker
+    RedisBroker -.->|"Event Ingestion (Pub/Sub)"| SSEDistributor
+
+    AntigravityEngine -->|"Trace Telemetry & Token Logs"| LangfuseObs
+    NestAPI & DjangoREST <-->|"JWT Auth Verification"| KeycloakSSO
+```
+
+---
+
+### 📡 Real-Time Streaming & Agent-to-Frontend Workflow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor CEO as Human CEO / Founder
+    participant UI as Next.js 16 Frontend
+    participant Gateway as NestJS 12 Gateway (SSE)
+    participant Redis as Redis Pub/Sub
+    participant Engine as Antigravity Agent Engine (Django)
+    participant RAG as PostgreSQL (pgvector)
+    participant Langfuse as Langfuse Tracing
+
+    CEO->>UI: Prompts agent (@pm or @frontend)
+    UI->>Engine: POST /api/agents/runs/ (Prompt, Task ID)
+    Engine->>Langfuse: Initialize trace (session_id = ticket-{id})
+    Engine->>Redis: Publish event: status = RUNNING
+    Redis-->>Gateway: Ingest event
+    Gateway-->>UI: SSE: {"type": "started", "agent": "Athena (AI)"}
+
+    Note over Engine, RAG: ReAct Loop & Vector Memory Retrieval
+    Engine->>RAG: Semantic search over ADRs and codebase embeddings
+    Engine->>Redis: Publish event: type = "thought", "Evaluating architecture..."
+    Gateway-->>UI: SSE: Stream intermediate thought delta (<200ms)
+    UI->>UI: Update AgentReasoningTerminal live beacon
+
+    Note over Engine, UI: Client-Side vs. Server-Side Tool Execution
+    Engine->>Engine: Server Tool: Scaffold component & WBS decomposition
+    Engine->>Redis: Publish event: type = "tool_call", "scaffold_generative_ui"
+    Gateway-->>UI: SSE: Stream tool invocation & Generative UI payload
+    UI->>UI: Dynamically hydrate interactive Generative UI component
+
+    alt Client Action Required
+        UI->>CEO: Render interactive client modal / Sonner toast
+        CEO->>UI: Confirm client action (e.g. approve WBS or scope)
+        UI->>Engine: Return client tool execution payload
+    end
+
+    Engine->>Engine: Server Tool: Checkout branch & open GitHub PR
+    Engine->>Redis: Publish event: type = "completed", status = IN_REVIEW
+    Gateway-->>UI: SSE: Complete stream & render PR badge
+    Engine->>Langfuse: Record trace metrics (tokens, cost, duration)
 ```
 
 ---
@@ -97,6 +158,20 @@ Aligned with the Virtual Tech Company Blueprint (`backend/agents/registry.py`):
 | **`designer`** | **Leonardo Da Vinci** | UI/UX wireframes, design tokens, WCAG AA accessibility ergonomics. |
 | **`seo`** | **Ada Lovelace** | Technical SEO audits, Core Web Vitals (FCP, LCP, CLS, TTFB), search performance. |
 | **`pm`** | **Athena** | Natural language roadmap decomposition into structured, auto-assigned backlog tickets. |
+
+```mermaid
+flowchart LR
+    CEO["👑 Human CEO<br/>Directives & Scope"] --> PM["🧠 Athena (PM)<br/>WBS & Validation Contract"]
+    PM --> TL["🎯 Sarah (Tech Lead)<br/>Architecture & RAG Query"]
+    TL --> BE["💻 Marcus (Backend)<br/>APIs & Django Models"]
+    TL --> FE["🌐 Cleopatra (Frontend)<br/>Next.js 16 & Dynamic UI"]
+    BE --> QA["🧪 Alan (QA)<br/>Contract Verification"]
+    FE --> QA
+    QA -->|Passed 100%| MRG["🛡️ Tech Lead<br/>Merge to main"]
+    QA -->|Rejected| BE
+    MRG --> OPS["🚀 Joan (DevOps)<br/>Staging Release"]
+    OPS --> SEO["🔍 Ada (SEO)<br/>Web Vitals Audit"]
+```
 
 ---
 
