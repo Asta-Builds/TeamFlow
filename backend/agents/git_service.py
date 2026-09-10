@@ -40,8 +40,8 @@ def _configured_git_identity() -> tuple[str, str]:
             email = email or getattr(settings, "GIT_AUTHOR_EMAIL", "").strip()
         except Exception:
             pass
-    name = name or "TeamFlow Autonomous Agent"
-    email = email or "agents@teamflow.dev"
+    name = name or "asta-build"
+    email = email or "abdelilahdahou10@gmail.com"
     return name, email
 
 

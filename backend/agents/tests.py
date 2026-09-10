@@ -21,6 +21,7 @@ from agents.git_service import (
     create_remote_repo,
     clone_or_pull,
     commit_and_push,
+    _configured_git_identity,
 )
 from agents.tools.github_tool import (
     tool_create_remote_repo,
@@ -411,6 +412,11 @@ class AgentGitToolsTestCase(TestCase):
         self.assertTrue(hasattr(tool_commit_and_push, "name"))
         self.assertGreaterEqual(len(AGENT_GITHUB_TOOLS), 5)
         self.assertGreaterEqual(len(TECH_LEAD_GITHUB_TOOLS), len(AGENT_GITHUB_TOOLS) + 1)
+
+    def test_configured_git_identity_defaults(self):
+        name, email = _configured_git_identity()
+        self.assertEqual(name, "asta-build")
+        self.assertEqual(email, "abdelilahdahou10@gmail.com")
 
 
 class PMBackendFrontendWorkflowTestCase(TestCase):

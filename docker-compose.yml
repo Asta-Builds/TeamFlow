@@ -64,8 +64,8 @@ services:
       LANGFUSE_UI_HOST: ${LANGFUSE_UI_HOST:-}
       LANGFUSE_PROJECT_ID: ${LANGFUSE_PROJECT_ID:-}
       AGENT_EMAIL_DOMAIN: ${AGENT_EMAIL_DOMAIN:-}
-      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-}
-      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-asta-build}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-abdelilahdahou10@gmail.com}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -104,8 +104,8 @@ services:
       LANGFUSE_UI_HOST: ${LANGFUSE_UI_HOST:-}
       LANGFUSE_PROJECT_ID: ${LANGFUSE_PROJECT_ID:-}
       AGENT_EMAIL_DOMAIN: ${AGENT_EMAIL_DOMAIN:-}
-      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-}
-      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-asta-build}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-abdelilahdahou10@gmail.com}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

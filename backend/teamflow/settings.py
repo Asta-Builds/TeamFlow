@@ -220,5 +220,5 @@ AGENT_EMAIL_DOMAIN = env("AGENT_EMAIL_DOMAIN").strip()
 if TESTING and not AGENT_EMAIL_DOMAIN:
     AGENT_EMAIL_DOMAIN = "agents.invalid"
 
-GIT_AUTHOR_NAME = env("GIT_AUTHOR_NAME", default="TeamFlow Autonomous Agent").strip()
-GIT_AUTHOR_EMAIL = env("GIT_AUTHOR_EMAIL", default="agents@teamflow.dev").strip()
+GIT_AUTHOR_NAME = env("GIT_AUTHOR_NAME", default="asta-build").strip()
+GIT_AUTHOR_EMAIL = env("GIT_AUTHOR_EMAIL", default="abdelilahdahou10@gmail.com").strip()
