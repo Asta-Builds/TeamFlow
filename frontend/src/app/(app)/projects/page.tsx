@@ -5,10 +5,21 @@ import Link from "next/link";
 import { useProjects, useCreateProjectMutation } from "@/lib/queries";
 import { useDebounce } from "@/lib/hooks";
 import { useAuth } from "@/lib/auth";
+import { apiFetch } from "@/lib/api";
+import { toast } from "sonner";
 import ProjectsLoading from "./loading";
 import type { Project, ProjectStatus } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
-import { LayoutGrid, Table, Plus, FolderKanban, X, Search } from "lucide-react";
+import {
+  LayoutGrid,
+  Table,
+  Plus,
+  FolderKanban,
+  X,
+  Search,
+  FolderGit2,
+  ExternalLink,
+} from "lucide-react";
 
 const STATUS_STYLES: Record<ProjectStatus, string> = {
   active: "bg-emerald-950/70 text-emerald-300 border-emerald-800/50",
@@ -31,6 +42,7 @@ export default function ProjectsPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<ProjectStatus>("active");
+  const [autoCreateGitHub, setAutoCreateGitHub] = useState(true);
 
   const canCreate =
     user?.role === "ceo" ||
@@ -41,7 +53,36 @@ export default function ProjectsPage() {
     e.preventDefault();
     if (!name.trim()) return;
     try {
-      await createMutation.mutateAsync({ name, description, status });
+      const created = await createMutation.mutateAsync({ name, description, status });
+      const createdId = created?.id;
+      if (autoCreateGitHub && createdId) {
+        toast.info("DevOps Agent is provisioning GitHub repository in the background...");
+        apiFetch<{ ok: boolean; repo_name?: string; html_url?: string }>(
+          `/projects/${createdId}/devops_create_repo/`,
+          { method: "POST", body: { private: false } }
+        )
+          .then((res) => {
+            if (res.ok && res.html_url) {
+              toast.success(
+                <div className="flex flex-col gap-1">
+                  <span className="font-bold text-white">DevOps Agent provisioned GitHub repo!</span>
+                  <a
+                    href={res.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-sky-400 hover:underline inline-flex items-center gap-1 font-mono"
+                  >
+                    {res.repo_name || res.html_url}
+                    <ExternalLink className="h-3 w-3 inline" />
+                  </a>
+                </div>
+              );
+            }
+          })
+          .catch((err) => {
+            console.error("DevOps auto-repo creation error:", err);
+          });
+      }
       setName("");
       setDescription("");
       setCreating(false);
@@ -192,6 +233,25 @@ export default function ProjectsPage() {
               <option value="archived">Archived</option>
             </select>
           </div>
+
+          <div className="rounded-xl border border-sky-800/40 bg-sky-950/20 p-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-200 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={autoCreateGitHub}
+                onChange={(e) => setAutoCreateGitHub(e.target.checked)}
+                className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500 h-4 w-4 cursor-pointer"
+              />
+              <span className="flex items-center gap-1.5">
+                <FolderGit2 className="h-3.5 w-3.5 text-sky-400" />
+                <span>DevOps Agent: Automatically provision & link GitHub repository</span>
+              </span>
+            </label>
+            <p className="text-[11px] text-slate-400 mt-1 ml-6">
+              Joan (DevOps AI) will create a remote repo under Asta-Builds on GitHub with CI/CD actions and link it to this project.
+            </p>
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
             <button
               type="button"
@@ -232,9 +292,28 @@ export default function ProjectsPage() {
               >
                 <div>
                   <div className="mb-2.5 flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-white tracking-tight text-base hover:text-indigo-400 transition">
-                      {p.name}
-                    </h3>
+                    <div>
+                      <h3 className="font-bold text-white tracking-tight text-base hover:text-indigo-400 transition">
+                        {p.name}
+                      </h3>
+                      {p.github_repo && (
+                        <div className="mt-1">
+                          <span
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              window.open(`https://github.com/${p.github_repo}`, "_blank", "noopener,noreferrer");
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-950/80 border border-sky-800/60 hover:border-sky-500 text-[10px] font-bold text-sky-300 hover:text-white transition font-mono cursor-pointer"
+                            title="Open GitHub repository in new tab"
+                          >
+                            <FolderGit2 className="h-3 w-3 text-sky-400" />
+                            <span>{p.github_repo}</span>
+                            <ExternalLink className="h-2.5 w-2.5 text-sky-400" />
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     <Badge className={STATUS_STYLES[p.status] || STATUS_STYLES.active}>
                       {p.status}
                     </Badge>
@@ -301,6 +380,21 @@ export default function ProjectsPage() {
                       <Link href={`/projects/${p.id}`} className="font-bold text-white hover:text-indigo-400">
                         {p.name}
                       </Link>
+                      {p.github_repo && (
+                        <div className="mt-0.5">
+                          <a
+                            href={`https://github.com/${p.github_repo}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] text-sky-400 hover:underline font-mono"
+                            title="Open GitHub repository"
+                          >
+                            <FolderGit2 className="h-3 w-3 inline" />
+                            <span>{p.github_repo}</span>
+                            <ExternalLink className="h-2.5 w-2.5 inline" />
+                          </a>
+                        </div>
+                      )}
                       <p className="text-slate-500 text-[11px] truncate max-w-xs">{p.description}</p>
                     </td>
                     <td className="px-5 py-4">

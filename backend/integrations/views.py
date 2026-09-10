@@ -1,14 +1,16 @@
+import os
 import logging
 import hashlib
 import hmac
 import time
+import requests
 from django.conf import settings
 from rest_framework import views, status, permissions
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from .models import SlackIntegration
-from .serializers import SlackIntegrationSerializer
+from .models import SlackIntegration, GitHubIntegration
+from .serializers import SlackIntegrationSerializer, GitHubIntegrationSerializer
 from .slack_service import send_slack_notification
 
 logger = logging.getLogger(__name__)
@@ -16,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 def require_workspace_admin(request):
     if not request.user.is_privileged:
-        raise PermissionDenied("Only Tech Lead, CEO or Admin can manage Slack integrations.")
+        raise PermissionDenied("Only Tech Lead, CEO or Admin can manage workspace integrations.")
 
 
 def has_valid_slack_signature(request):
@@ -133,3 +135,138 @@ class SlackEventsWebhookView(views.APIView):
         logger.info(f"Received Slack Event: {event_type}")
 
         return Response({"status": "received"}, status=status.HTTP_200_OK)
+
+
+class GitHubIntegrationView(views.APIView):
+    """
+    GET /api/integrations/github/
+    POST /api/integrations/github/connect/
+    Manages GitHub Workspace Integration settings for autonomous DevOps repo creation.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        require_workspace_admin(request)
+        integration, _ = GitHubIntegration.objects.get_or_create(
+            organization=request.user.organization
+        )
+        data = GitHubIntegrationSerializer(integration).data
+        env_token = os.environ.get("GITHUB_TOKEN", "").strip()
+        env_org = os.environ.get("GITHUB_ORG", "").strip()
+        if not data.get("github_token_configured") and env_token:
+            data["github_token_configured"] = True
+            data["github_token_preview"] = f"{env_token[:4]}...{env_token[-4:]}" if len(env_token) > 8 else "****"
+            data["is_env_configured"] = True
+        if not data.get("github_org") and env_org:
+            data["github_org"] = env_org
+        return Response(data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        require_workspace_admin(request)
+        integration, _ = GitHubIntegration.objects.get_or_create(
+            organization=request.user.organization
+        )
+        serializer = GitHubIntegrationSerializer(integration, data=request.data, partial=True)
+        if serializer.is_valid():
+            integration = serializer.save()
+            tok = integration.github_token or os.environ.get("GITHUB_TOKEN", "").strip()
+            if tok:
+                try:
+                    resp = requests.get(
+                        "https://api.github.com/user",
+                        headers={"Authorization": f"token {tok}", "Accept": "application/vnd.github.v3+json"},
+                        timeout=8
+                    )
+                    if resp.status_code == 200:
+                        u_data = resp.json()
+                        integration.account_login = u_data.get("login", "")
+                        integration.account_name = u_data.get("name") or u_data.get("login", "")
+                        integration.account_avatar_url = u_data.get("avatar_url", "")
+                        integration.account_type = u_data.get("type", "User")
+                        integration.public_repos_count = u_data.get("public_repos", 0)
+                        if not integration.github_org:
+                            integration.github_org = u_data.get("login", "")
+                        integration.save()
+                except Exception as exc:
+                    logger.warning(f"Failed to auto-fetch GitHub account details: {exc}")
+
+            return Response(GitHubIntegrationSerializer(integration).data, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GitHubTestView(views.APIView):
+    """
+    POST /api/integrations/github/test/
+    Tests connection to GitHub API and verifies credentials, returning account metadata.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        require_workspace_admin(request)
+        integration = GitHubIntegration.objects.filter(organization=request.user.organization).first()
+        token = request.data.get("github_token", "").strip()
+        if not token and integration:
+            token = integration.github_token
+        if not token:
+            token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
+
+        if not token:
+            return Response(
+                {"ok": False, "detail": "No GitHub Personal Access Token configured. Please provide a valid PAT."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        headers = {
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "TeamFlow-DevOps-Agent"
+        }
+
+        try:
+            resp = requests.get("https://api.github.com/user", headers=headers, timeout=10)
+            if resp.status_code == 200:
+                user_data = resp.json()
+                login = user_data.get("login", "")
+                name = user_data.get("name") or login
+                avatar = user_data.get("avatar_url", "")
+                acc_type = user_data.get("type", "User")
+                repos_count = user_data.get("public_repos", 0)
+
+                if integration:
+                    integration.account_login = login
+                    integration.account_name = name
+                    integration.account_avatar_url = avatar
+                    integration.account_type = acc_type
+                    integration.public_repos_count = repos_count
+                    if not integration.github_org:
+                        integration.github_org = login
+                    integration.save()
+
+                return Response({
+                    "ok": True,
+                    "message": f"Successfully connected to GitHub as @{login} ({name})!",
+                    "account": {
+                        "login": login,
+                        "name": name,
+                        "avatar_url": avatar,
+                        "type": acc_type,
+                        "public_repos": repos_count,
+                        "html_url": user_data.get("html_url", f"https://github.com/{login}"),
+                    }
+                }, status=status.HTTP_200_OK)
+            elif resp.status_code == 401:
+                return Response({
+                    "ok": False,
+                    "detail": "Bad GitHub credentials (401 Unauthorized). Check that your Personal Access Token is valid and not expired."
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            else:
+                return Response({
+                    "ok": False,
+                    "detail": f"GitHub API error: HTTP {resp.status_code} - {resp.text}"
+                }, status=status.HTTP_502_BAD_GATEWAY)
+        except Exception as exc:
+            return Response({
+                "ok": False,
+                "detail": f"Connection error reaching GitHub: {str(exc)}"
+            }, status=status.HTTP_502_BAD_GATEWAY)
+

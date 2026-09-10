@@ -70,6 +70,7 @@ export interface Project {
   name: string;
   description: string;
   status: ProjectStatus;
+  github_repo?: string;
   owner: number | null;
   owner_detail: User | null;
   members: number[];

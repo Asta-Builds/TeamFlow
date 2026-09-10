@@ -62,6 +62,10 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  FolderGit2,
+  Rocket,
+  Lock,
+  Globe,
 } from "lucide-react";
 
 interface PmGenerateTasksResponse {
@@ -144,6 +148,59 @@ export default function ProjectBoardPage() {
       toast.error(getErrorMessage(err) || "Failed to generate tasks with AI PM");
     } finally {
       setGeneratingPmTasks(false);
+    }
+  }
+
+  // DevOps Repo Modal State
+  const [showDevopsModal, setShowDevopsModal] = useState(false);
+  const [devopsRepoName, setDevopsRepoName] = useState("");
+  const [devopsRepoOrg, setDevopsRepoOrg] = useState("Asta-Builds");
+  const [devopsRepoPrivate, setDevopsRepoPrivate] = useState(false);
+  const [devopsCreatingRepo, setDevopsCreatingRepo] = useState(false);
+
+  async function handleDevopsCreateRepo(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    setDevopsCreatingRepo(true);
+    try {
+      const res = await apiFetch<{
+        ok: boolean;
+        repo_name?: string;
+        html_url?: string;
+        error?: string;
+      }>(`/projects/${projectId}/devops_create_repo/`, {
+        method: "POST",
+        body: {
+          repo_name: devopsRepoName.trim() || undefined,
+          org: devopsRepoOrg.trim() || undefined,
+          private: devopsRepoPrivate,
+          description: project?.description || undefined,
+        },
+      });
+
+      if (res.ok && res.html_url) {
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-white">DevOps Agent provisioned GitHub repo!</span>
+            <a
+              href={res.html_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-sky-400 hover:underline inline-flex items-center gap-1 font-mono"
+            >
+              {res.repo_name || res.html_url}
+              <ExternalLink className="h-3 w-3 inline" />
+            </a>
+          </div>
+        );
+        setShowDevopsModal(false);
+        load();
+      } else {
+        toast.error(res.error || "DevOps Agent failed to provision repo");
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err) || "Failed to create GitHub repository");
+    } finally {
+      setDevopsCreatingRepo(false);
     }
   }
 
@@ -248,7 +305,7 @@ export default function ProjectBoardPage() {
       {/* Top Project Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-sm">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Link href="/projects" className="text-xs text-indigo-400 hover:underline font-semibold flex items-center gap-1">
               <ArrowLeft className="h-3 w-3" />
               <span>Projects</span>
@@ -257,6 +314,19 @@ export default function ProjectBoardPage() {
             <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest bg-slate-800 px-2 py-0.5 rounded-md">
               {project.status}
             </span>
+            {project.github_repo && (
+              <a
+                href={`https://github.com/${project.github_repo}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-950/80 border border-sky-800/60 hover:border-sky-500 text-[10px] font-bold text-sky-300 hover:text-white transition font-mono"
+                title="View linked GitHub repository"
+              >
+                <FolderGit2 className="h-3 w-3 text-sky-400" />
+                <span>{project.github_repo}</span>
+                <ExternalLink className="h-2.5 w-2.5 text-sky-400" />
+              </a>
+            )}
           </div>
           <h1 className="text-2xl font-black tracking-tight text-white mt-1">
             {project.name}
@@ -265,6 +335,21 @@ export default function ProjectBoardPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setDevopsRepoName(project.name.toLowerCase().replace(/[^a-z0-9_-]/g, "-"));
+              setShowDevopsModal(true);
+            }}
+            className="rounded-xl border border-sky-700/60 bg-sky-950/60 px-3.5 py-2 text-xs font-bold text-sky-200 hover:bg-sky-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none"
+            title="DevOps Agent (Joan): Provision and link remote GitHub repository with CI/CD"
+            aria-label="DevOps GitHub Provisioning"
+            aria-haspopup="dialog"
+          >
+            <FolderGit2 className="h-3.5 w-3.5 text-sky-400" aria-hidden="true" />
+            <span>{project.github_repo ? "DevOps: Sync Repo" : "DevOps: Create Repo"}</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowFeedModal(true)}
@@ -708,6 +793,170 @@ export default function ProjectBoardPage() {
                   >
                     <Sparkles className="h-3.5 w-3.5" />
                     <span>{generatingPmTasks ? "Decomposing & Creating Tickets…" : "Generate Tickets & Team Chat"}</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* DevOps Agent GitHub Provisioning Modal */}
+      {showDevopsModal && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs">
+          <div className="w-full max-w-xl rounded-2xl bg-slate-900 p-6 shadow-2xl border border-sky-800/50 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-sky-950 border border-sky-700/60 flex items-center justify-center text-sky-400">
+                  <FolderGit2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    <span>Joan of Arc (AI) · DevOps Specialist</span>
+                    <span className="text-[10px] font-mono text-sky-400 bg-sky-950/80 border border-sky-800 px-1.5 py-0.5 rounded">
+                      devops@teamflow.dev
+                    </span>
+                  </h3>
+                  <p className="text-xs text-sky-300/80">
+                    Autonomously provisions a remote repository on GitHub, commits CI/CD workflows, and links it to TeamFlow.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDevopsModal(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleDevopsCreateRepo} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Repository Name *
+                </label>
+                <input
+                  required
+                  value={devopsRepoName}
+                  onChange={(e) => setDevopsRepoName(e.target.value)}
+                  placeholder="e.g. teamflow-billing-service"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 font-mono focus:border-sky-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Letters, numbers, hyphens, and underscores only.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  GitHub Account or Organization
+                </label>
+                <input
+                  value={devopsRepoOrg}
+                  onChange={(e) => setDevopsRepoOrg(e.target.value)}
+                  placeholder="Asta-Builds (leave empty for authenticated personal user)"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 font-mono focus:border-sky-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  DevOps Agent creates the repository under this account or organization.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Repository Visibility
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setDevopsRepoPrivate(false)}
+                    className={`rounded-xl border p-3 text-left transition cursor-pointer flex items-start gap-2.5 ${
+                      !devopsRepoPrivate
+                        ? "border-sky-500 bg-sky-950/40 text-white"
+                        : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
+                    }`}
+                  >
+                    <Globe className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-white">Public</div>
+                      <div className="text-[10px] text-slate-400">Visible to everyone on GitHub</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDevopsRepoPrivate(true)}
+                    className={`rounded-xl border p-3 text-left transition cursor-pointer flex items-start gap-2.5 ${
+                      devopsRepoPrivate
+                        ? "border-sky-500 bg-sky-950/40 text-white"
+                        : "border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700"
+                    }`}
+                  >
+                    <Lock className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-white">Private</div>
+                      <div className="text-[10px] text-slate-400">Only authorized members can view</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Automated checklist */}
+              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-1.5 text-xs text-slate-300">
+                <div className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400 mb-1">
+                  Automated DevOps Actions:
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-slate-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>Provisions remote repository on GitHub via REST API</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-slate-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>Bootstraps local repo with README.md & .gitignore</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-slate-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>Generates .github/workflows/ci.yml GitHub Actions pipeline</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-slate-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>Commits as asta-build and pushes initial scaffold to main</span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] text-slate-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                  <span>Links remote repository directly to this TeamFlow project</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+                  <ShieldCheck className="h-3.5 w-3.5 text-sky-400" />
+                  <span>Uses configured GitHub PAT token</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDevopsModal(false)}
+                    className="px-3.5 py-2 text-xs font-semibold text-slate-400 hover:text-white transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={devopsCreatingRepo}
+                    className="rounded-xl bg-sky-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-sky-600/30 hover:bg-sky-500 transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {devopsCreatingRepo ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>DevOps Provisioning Repo…</span>
+                      </>
+                    ) : (
+                      <>
+                        <Rocket className="h-3.5 w-3.5" />
+                        <span>Provision GitHub Repository</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import SlackIntegration
+from .models import SlackIntegration, GitHubIntegration
 
 
 class SlackIntegrationSerializer(serializers.ModelSerializer):
@@ -47,3 +47,56 @@ class SlackIntegrationSerializer(serializers.ModelSerializer):
         if parsed.scheme != "https" or parsed.netloc != "hooks.slack.com":
             raise serializers.ValidationError("Use a valid HTTPS Slack Incoming Webhook URL.")
         return value
+
+
+class GitHubIntegrationSerializer(serializers.ModelSerializer):
+    github_token = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    github_token_configured = serializers.SerializerMethodField()
+    github_token_preview = serializers.SerializerMethodField()
+
+    class Meta:
+        model = GitHubIntegration
+        fields = [
+            "id",
+            "organization",
+            "github_token",
+            "github_token_configured",
+            "github_token_preview",
+            "github_org",
+            "default_visibility",
+            "auto_init",
+            "include_ci_workflow",
+            "is_enabled",
+            "account_login",
+            "account_name",
+            "account_avatar_url",
+            "account_type",
+            "public_repos_count",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "id",
+            "organization",
+            "github_token_configured",
+            "github_token_preview",
+            "account_login",
+            "account_name",
+            "account_avatar_url",
+            "account_type",
+            "public_repos_count",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_github_token_configured(self, instance):
+        return bool(instance.github_token)
+
+    def get_github_token_preview(self, instance):
+        if not instance.github_token:
+            return ""
+        tok = instance.github_token.strip()
+        if len(tok) <= 8:
+            return "****"
+        return f"{tok[:4]}...{tok[-4:]}"
+

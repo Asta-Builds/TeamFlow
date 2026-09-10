@@ -124,3 +124,46 @@ class ProjectViewSet(viewsets.ModelViewSet):
         res["tasks_data"] = TaskSerializer(res["tasks"], many=True).data
         res.pop("tasks", None)
         return response.Response(res)
+
+    @decorators.action(detail=True, methods=["post"])
+    def devops_create_repo(self, request, pk=None):
+        """
+        DevOps Specialist Agent endpoint:
+        Autonomously provisions a remote GitHub repository for this project,
+        bootstraps the repository with README and CI/CD workflow,
+        pushes initial scaffold to main, and links project.github_repo.
+        """
+        project = self.get_object()
+        data = request.data
+        if isinstance(data, str):
+            import json
+            try:
+                data = json.loads(data)
+            except Exception:
+                pass
+        if not isinstance(data, dict):
+            data = {}
+
+        repo_name = data.get("repo_name", "").strip() or None
+        private = bool(data.get("private", False))
+        org = data.get("org", "").strip() or None
+        description = data.get("description", "").strip() or None
+
+        from agents.git_service import devops_create_project_repo
+
+        result = devops_create_project_repo(
+            project=project,
+            user=request.user,
+            repo_name=repo_name,
+            private=private,
+            org=org,
+            description=description,
+        )
+
+        if not result.get("ok"):
+            return response.Response(result, status=result.get("status_code", 400))
+
+        result["project_id"] = project.id
+        result["github_repo"] = project.github_repo
+        return response.Response(result, status=200)
+

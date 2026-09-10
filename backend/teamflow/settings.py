@@ -222,3 +222,5 @@ if TESTING and not AGENT_EMAIL_DOMAIN:
 
 GIT_AUTHOR_NAME = env("GIT_AUTHOR_NAME", default="asta-build").strip()
 GIT_AUTHOR_EMAIL = env("GIT_AUTHOR_EMAIL", default="abdelilahdahou10@gmail.com").strip()
+GITHUB_TOKEN = env("GITHUB_TOKEN", default="").strip()
+GITHUB_ORG = env("GITHUB_ORG", default="Asta-Builds").strip()

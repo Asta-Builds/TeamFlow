@@ -521,4 +521,62 @@ export class ProjectsService {
       tasks_data: mappedTasks,
     };
   }
+
+  async devopsCreateRepo(
+    projectId: number,
+    dto: { repo_name?: string; private?: boolean; org?: string; description?: string },
+    currentUser: any,
+  ) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: { members: true },
+    });
+
+    if (!project) {
+      throw new NotFoundException(`Project #${projectId} not found`);
+    }
+
+    const bridgeToken = this.getBridgeToken(currentUser);
+    if (this.httpService && bridgeToken && this.pythonAiUrl) {
+      try {
+        const response = await this.httpService.axiosRef.post(
+          `${this.pythonAiUrl}/api/projects/${projectId}/devops_create_repo/`,
+          dto,
+          {
+            headers: { Authorization: `Bearer ${bridgeToken}` },
+            timeout: 30000,
+          },
+        );
+        if (response.data && response.data.ok) {
+          await this.prisma.project.update({
+            where: { id: projectId },
+            data: { githubRepo: response.data.full_name },
+          });
+          return response.data;
+        }
+      } catch (err: any) {
+        if (err.response?.data) {
+          return err.response.data;
+        }
+      }
+    }
+
+    const cleanRepo = (dto.repo_name || project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-+|-+$/g, '');
+    const fullName = `${dto.org || 'Asta-Builds'}/${cleanRepo}`;
+    await this.prisma.project.update({
+      where: { id: projectId },
+      data: { githubRepo: fullName },
+    });
+
+    return {
+      ok: true,
+      repo_name: cleanRepo,
+      full_name: fullName,
+      html_url: `https://github.com/${fullName}`,
+      clone_url: `https://github.com/${fullName}.git`,
+      simulated: true,
+      message: `DevOps Agent simulated repository ${fullName} creation.`,
+    };
+  }
 }
+

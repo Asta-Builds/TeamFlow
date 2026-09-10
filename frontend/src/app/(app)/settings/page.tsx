@@ -28,6 +28,10 @@ import {
   Layers,
   ChevronRight,
   Loader2,
+  GitBranch,
+  ExternalLink,
+  Globe,
+  Lock,
 } from "lucide-react";
 import {
   useCurrentOrganization,
@@ -54,6 +58,36 @@ interface SlackTestResponse {
   ok: boolean;
   message?: string;
   detail?: string;
+}
+
+interface GitHubIntegrationResponse {
+  github_token_configured?: boolean;
+  github_token_preview?: string;
+  github_org?: string;
+  default_visibility?: "public" | "private";
+  auto_init?: boolean;
+  include_ci_workflow?: boolean;
+  is_enabled?: boolean;
+  account_login?: string;
+  account_name?: string;
+  account_avatar_url?: string;
+  account_type?: string;
+  public_repos_count?: number;
+  is_env_configured?: boolean;
+}
+
+interface GitHubTestResponse {
+  ok: boolean;
+  message?: string;
+  detail?: string;
+  account?: {
+    login: string;
+    name: string;
+    avatar_url: string;
+    type: string;
+    public_repos: number;
+    html_url: string;
+  };
 }
 
 export default function SettingsPage() {
@@ -83,6 +117,19 @@ export default function SettingsPage() {
   const [notifySeo, setNotifySeo] = useState(true);
   const [savingSlack, setSavingSlack] = useState(false);
   const [testingSlack, setTestingSlack] = useState(false);
+
+  // GitHub Integration Form
+  const [githubToken, setGithubToken] = useState("");
+  const [githubTokenConfigured, setGithubTokenConfigured] = useState(false);
+  const [githubTokenPreview, setGithubTokenPreview] = useState("");
+  const [githubOrg, setGithubOrg] = useState("Asta-Builds");
+  const [githubVisibility, setGithubVisibility] = useState<"public" | "private">("public");
+  const [githubAutoInit, setGithubAutoInit] = useState(true);
+  const [githubIncludeCi, setGithubIncludeCi] = useState(true);
+  const [githubAccount, setGithubAccount] = useState<GitHubTestResponse["account"] | null>(null);
+  const [savingGithub, setSavingGithub] = useState(false);
+  const [testingGithub, setTestingGithub] = useState(false);
+  const [githubIsEnvConfigured, setGithubIsEnvConfigured] = useState(false);
 
   // Active tab
   const [activeTab, setActiveTab] = useState<"profile" | "security" | "workspace" | "integrations" | "export">("profile");
@@ -176,6 +223,30 @@ export default function SettingsPage() {
         }
       })
       .catch(() => {});
+
+    apiFetch<GitHubIntegrationResponse>("/integrations/github/")
+      .then((res) => {
+        if (res) {
+          setGithubTokenConfigured(Boolean(res.github_token_configured));
+          setGithubTokenPreview(res.github_token_preview || "");
+          if (res.github_org) setGithubOrg(res.github_org);
+          if (res.default_visibility) setGithubVisibility(res.default_visibility);
+          if (res.auto_init !== undefined) setGithubAutoInit(res.auto_init);
+          if (res.include_ci_workflow !== undefined) setGithubIncludeCi(res.include_ci_workflow);
+          if (res.is_env_configured) setGithubIsEnvConfigured(true);
+          if (res.account_login) {
+            setGithubAccount({
+              login: res.account_login,
+              name: res.account_name || res.account_login,
+              avatar_url: res.account_avatar_url || "",
+              type: res.account_type || "User",
+              public_repos: res.public_repos_count || 0,
+              html_url: `https://github.com/${res.account_login}`,
+            });
+          }
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -255,6 +326,68 @@ export default function SettingsPage() {
       toast.error("Slack test error: " + String(err));
     } finally {
       setTestingSlack(false);
+    }
+  };
+
+  const handleSaveGithub = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingGithub(true);
+    try {
+      const payload: any = {
+        github_org: githubOrg.trim(),
+        default_visibility: githubVisibility,
+        auto_init: githubAutoInit,
+        include_ci_workflow: githubIncludeCi,
+        is_enabled: true,
+      };
+      if (githubToken.trim()) {
+        payload.github_token = githubToken.trim();
+      }
+      const res = await apiFetch<GitHubIntegrationResponse>("/integrations/github/connect/", {
+        method: "POST",
+        body: payload,
+      });
+      setGithubTokenConfigured(Boolean(res.github_token_configured));
+      setGithubTokenPreview(res.github_token_preview || "");
+      if (res.account_login) {
+        setGithubAccount({
+          login: res.account_login,
+          name: res.account_name || res.account_login,
+          avatar_url: res.account_avatar_url || "",
+          type: res.account_type || "User",
+          public_repos: res.public_repos_count || 0,
+          html_url: `https://github.com/${res.account_login}`,
+        });
+      }
+      setGithubToken("");
+      toast.success("GitHub workspace integration saved successfully!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save GitHub settings.");
+    } finally {
+      setSavingGithub(false);
+    }
+  };
+
+  const handleTestGithub = async () => {
+    setTestingGithub(true);
+    try {
+      const payload: any = {};
+      if (githubToken.trim()) payload.github_token = githubToken.trim();
+      const res = await apiFetch<GitHubTestResponse>("/integrations/github/test/", {
+        method: "POST",
+        body: payload,
+      });
+      if (res.ok && res.account) {
+        setGithubAccount(res.account);
+        setGithubOrg(res.account.login);
+        toast.success(res.message || `Connected to GitHub as @${res.account.login}!`);
+      } else {
+        toast.error("GitHub test failed: " + (res.detail || "Unable to connect"));
+      }
+    } catch (err: any) {
+      toast.error("GitHub test error: " + (err.message || String(err)));
+    } finally {
+      setTestingGithub(false);
     }
   };
 
@@ -889,10 +1022,194 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Integrations / Slack Tab */}
+      {/* Integrations Tab */}
       {activeTab === "integrations" && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-6 max-w-2xl">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+        <div className="space-y-6 max-w-3xl">
+          {/* GitHub Workspace & DevOps Agent Integration */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-orange-950/60 border border-orange-800/40 text-orange-400">
+                  <FolderGit2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>GitHub & Autonomous DevOps Integration</span>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-orange-950/80 text-orange-300 border border-orange-700/50">
+                      DevOps Specialist (Joan)
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Empowers Joan of Arc (DevOps Agent) to autonomously provision GitHub repositories, bootstrap CI/CD pipelines, and push branches.
+                  </p>
+                </div>
+              </div>
+
+              {githubAccount ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 text-xs font-bold shrink-0">
+                  {githubAccount.avatar_url && (
+                    <img src={githubAccount.avatar_url} alt={githubAccount.login} className="h-5 w-5 rounded-full" />
+                  )}
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>@{githubAccount.login}</span>
+                </div>
+              ) : githubTokenConfigured ? (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-800/50 text-indigo-300 text-xs font-bold shrink-0">
+                  <Key className="h-3.5 w-3.5 text-indigo-400" />
+                  <span>{githubTokenPreview || "Token Active"}</span>
+                </div>
+              ) : (
+                <span className="text-[11px] font-bold text-slate-400 bg-slate-800 px-2.5 py-0.5 rounded-full shrink-0">
+                  Not Connected
+                </span>
+              )}
+            </div>
+
+            {/* Live Verified Account Pill */}
+            {githubAccount && (
+              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  {githubAccount.avatar_url && (
+                    <img src={githubAccount.avatar_url} alt="" className="h-10 w-10 rounded-xl border border-slate-700" />
+                  )}
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-sm">{githubAccount.name}</span>
+                      <span className="font-mono text-slate-400">@{githubAccount.login}</span>
+                      <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                        {githubAccount.type}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {githubAccount.public_repos} public repositories • Authenticated via Personal Access Token
+                    </p>
+                  </div>
+                </div>
+
+                <a
+                  href={githubAccount.html_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-slate-300 hover:text-white flex items-center gap-1 shrink-0 self-start sm:self-auto"
+                >
+                  <span>View GitHub Profile</span>
+                  <ExternalLink className="h-3 w-3 text-slate-400" />
+                </a>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveGithub} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  GitHub Personal Access Token (PAT)
+                </label>
+                <input
+                  type="password"
+                  value={githubToken}
+                  onChange={(e) => setGithubToken(e.target.value)}
+                  placeholder={
+                    githubTokenConfigured
+                      ? `Token configured (${githubTokenPreview}) — enter new token to rotate`
+                      : "ghp_... or gho_... (requires repo, workflow scopes)"
+                  }
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Configure a token with <code className="text-slate-400">repo</code> and <code className="text-slate-400">workflow</code> scopes so Joan of Arc (DevOps Agent) can create repositories and push CI/CD configurations.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Default GitHub Account or Organization
+                  </label>
+                  <input
+                    type="text"
+                    value={githubOrg}
+                    onChange={(e) => setGithubOrg(e.target.value)}
+                    placeholder="e.g. Asta-Builds"
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  />
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Target account/organization where repositories will be created.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                    Default Repository Visibility
+                  </label>
+                  <select
+                    value={githubVisibility}
+                    onChange={(e) => setGithubVisibility(e.target.value as "public" | "private")}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
+                  >
+                    <option value="public">Public (Open Source)</option>
+                    <option value="private">Private (Restricted Access)</option>
+                  </select>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    New repositories will inherit this visibility by default.
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-800 pt-3 flex flex-wrap gap-4 text-xs text-slate-300">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={githubAutoInit}
+                    onChange={(e) => setGithubAutoInit(e.target.checked)}
+                    className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>Auto-initialize README.md & .gitignore</span>
+                </label>
+
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={githubIncludeCi}
+                    onChange={(e) => setGithubIncludeCi(e.target.checked)}
+                    className="rounded border-slate-700 text-orange-600 focus:ring-orange-500"
+                  />
+                  <span>Inject DevOps GitHub Actions CI workflow (<code className="text-orange-300">ci.yml</code>)</span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={handleTestGithub}
+                  disabled={testingGithub || (!githubToken.trim() && !githubTokenConfigured)}
+                  className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  {testingGithub ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-400" />
+                  ) : (
+                    <Rocket className="h-3.5 w-3.5 text-orange-400" />
+                  )}
+                  <span>{testingGithub ? "Verifying…" : "Test GitHub Connection"}</span>
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={savingGithub}
+                  className="rounded-xl bg-indigo-600 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:bg-indigo-500 disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                >
+                  {savingGithub ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                  )}
+                  <span>{savingGithub ? "Saving…" : "Save GitHub Settings"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Slack Workspace Integration Card */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-xl bg-purple-950/60 border border-purple-800/40 text-purple-400">
                 <Send className="h-5 w-5" />
@@ -1042,6 +1359,7 @@ export default function SettingsPage() {
               </button>
             </div>
           </form>
+        </div>
         </div>
       )}
 

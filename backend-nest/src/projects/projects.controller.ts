@@ -98,4 +98,19 @@ export class ProjectsController {
   ) {
     return this.projectsService.pmGenerateTasks(id, body?.plan || '', user);
   }
+
+  @Post([
+    ':id/devops_create_repo',
+    ':id/devops_create_repo/',
+    ':id/devops-create-repo',
+    ':id/devops-create-repo/',
+  ])
+  @ApiOperation({ summary: 'DevOps Agent provisions a remote GitHub repository' })
+  async devopsCreateRepo(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { repo_name?: string; private?: boolean; org?: string; description?: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.projectsService.devopsCreateRepo(id, body || {}, user);
+  }
 }
