@@ -63,7 +63,7 @@ export function TabsList({ className, children, ...props }: TabsListProps) {
     <div
       role="tablist"
       className={cn(
-        "inline-flex items-center gap-1 rounded-xl bg-slate-900/90 border border-slate-800 p-1 text-slate-400",
+        "inline-flex items-center gap-1 rounded-xl bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 p-1 text-slate-600 dark:text-slate-400",
         className
       )}
       {...props}
@@ -78,8 +78,8 @@ export const tabsTriggerVariants = cva(
   {
     variants: {
       active: {
-        true: "bg-slate-800 text-white shadow-xs font-bold border border-slate-700/60",
-        false: "text-slate-400 hover:text-slate-200 hover:bg-slate-800/40",
+        true: "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs font-bold border border-slate-200 dark:border-slate-700/60",
+        false: "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800/40",
       },
     },
     defaultVariants: {

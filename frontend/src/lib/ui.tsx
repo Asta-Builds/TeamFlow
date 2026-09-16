@@ -17,24 +17,24 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const ROLE_COLORS: Record<Role, string> = {
-  ceo: "bg-purple-950/60 text-purple-300 border-purple-800/50",
-  pm: "bg-violet-950/60 text-violet-300 border-violet-800/50",
-  tech_lead: "bg-indigo-950/60 text-indigo-300 border-indigo-800/50",
-  backend: "bg-blue-950/60 text-blue-300 border-blue-800/50",
-  frontend: "bg-cyan-950/60 text-cyan-300 border-cyan-800/50",
-  devops: "bg-orange-950/60 text-orange-300 border-orange-800/50",
-  qa: "bg-emerald-950/60 text-emerald-300 border-emerald-800/50",
-  designer: "bg-pink-950/60 text-pink-300 border-pink-800/50",
-  seo: "bg-teal-950/60 text-teal-300 border-teal-800/50",
-  admin: "bg-rose-950/60 text-rose-300 border-rose-800/50",
-  member: "bg-slate-900 text-slate-300 border-slate-800",
+  ceo: "bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/50",
+  pm: "bg-violet-50 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 border-violet-200 dark:border-violet-800/50",
+  tech_lead: "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50",
+  backend: "bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/50",
+  frontend: "bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800/50",
+  devops: "bg-orange-50 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800/50",
+  qa: "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50",
+  designer: "bg-pink-50 dark:bg-pink-950/60 text-pink-700 dark:text-pink-300 border-pink-200 dark:border-pink-800/50",
+  seo: "bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-800/50",
+  admin: "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/50",
+  member: "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800",
 };
 
 export const USER_STATUS_STYLES: Record<UserStatus, { label: string; dot: string; badge: string }> = {
-  active: { label: "Active", dot: "bg-emerald-500", badge: "bg-emerald-950/60 text-emerald-300 border-emerald-800/50" },
-  offline: { label: "Offline", dot: "bg-slate-500", badge: "bg-slate-900 text-slate-400 border-slate-800" },
-  pending: { label: "Pending Approval", dot: "bg-amber-400", badge: "bg-amber-950/60 text-amber-300 border-amber-800/50" },
-  disabled: { label: "Disabled", dot: "bg-rose-500", badge: "bg-rose-950/60 text-rose-300 border-rose-800/50" },
+  active: { label: "Active", dot: "bg-emerald-500", badge: "bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50" },
+  offline: { label: "Offline", dot: "bg-slate-500", badge: "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800" },
+  pending: { label: "Pending Approval", dot: "bg-amber-400", badge: "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/50" },
+  disabled: { label: "Disabled", dot: "bg-rose-500", badge: "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/50" },
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -56,26 +56,26 @@ export const TASK_COLUMNS: TaskStatus[] = [
 export const TASK_TYPE_STYLES: Record<TaskType, { label: string; icon: React.ReactNode; style: string }> = {
   feature: {
     label: "Feature",
-    icon: <Sparkles className="h-3 w-3 inline text-indigo-400" />,
-    style: "bg-indigo-950/60 text-indigo-300 border-indigo-800/50",
+    icon: <Sparkles className="h-3 w-3 inline text-indigo-500 dark:text-indigo-400" />,
+    style: "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50",
   },
   bug: {
     label: "Bug",
-    icon: <Bug className="h-3 w-3 inline text-rose-400" />,
-    style: "bg-rose-950/60 text-rose-300 border-rose-800/50",
+    icon: <Bug className="h-3 w-3 inline text-rose-500 dark:text-rose-400" />,
+    style: "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/50",
   },
   task: {
     label: "Task",
-    icon: <CheckSquare className="h-3 w-3 inline text-slate-400" />,
-    style: "bg-slate-900 text-slate-300 border-slate-800",
+    icon: <CheckSquare className="h-3 w-3 inline text-slate-500 dark:text-slate-400" />,
+    style: "bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800",
   },
 };
 
 export const PRIORITY_STYLES: Record<Priority, { label: string; style: string }> = {
-  low: { label: "Low", style: "bg-slate-900 text-slate-400 border-slate-800" },
-  medium: { label: "Medium", style: "bg-blue-950/60 text-blue-300 border-blue-800/50" },
-  high: { label: "High", style: "bg-amber-950/60 text-amber-300 border-amber-800/50 font-semibold" },
-  urgent: { label: "Critical", style: "bg-rose-950/60 text-rose-300 border-rose-800/50 font-bold" },
+  low: { label: "Low", style: "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800" },
+  medium: { label: "Medium", style: "bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/50" },
+  high: { label: "High", style: "bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/50 font-semibold" },
+  urgent: { label: "Critical", style: "bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800/50 font-bold" },
 };
 
 export const STATUS_DOT: Record<TaskStatus, string> = {
@@ -142,15 +142,15 @@ export function AgentTypeBadge({ role, isAi }: { role?: Role; isAi?: boolean }) 
   const isHuman = role === "ceo" || isAi === false;
   if (isHuman) {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-300 bg-purple-950/70 border border-purple-800/60 px-2 py-0.5 rounded-md">
-        <Crown className="h-3 w-3 inline text-purple-400" />
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/70 border border-purple-200 dark:border-purple-800/60 px-2 py-0.5 rounded-md">
+        <Crown className="h-3 w-3 inline text-purple-600 dark:text-purple-400" />
         <span>Human Founder</span>
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-300 bg-indigo-950/70 border border-indigo-800/60 px-2 py-0.5 rounded-md">
-      <Bot className="h-3 w-3 inline text-indigo-400" />
+    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/70 border border-indigo-200 dark:border-indigo-800/60 px-2 py-0.5 rounded-md">
+      <Bot className="h-3 w-3 inline text-indigo-600 dark:text-indigo-400" />
       <span>AI Agent</span>
     </span>
   );

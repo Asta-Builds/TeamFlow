@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import type { Notification } from "@/lib/types";
 import { Avatar, AgentTypeBadge } from "@/lib/ui";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   LayoutDashboard,
   Kanban,
@@ -82,7 +83,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   if (loading || isSyncing || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400 font-medium">
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 font-medium">
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-white font-extrabold shadow-lg shadow-indigo-600/30 animate-pulse">
             TF
@@ -104,9 +105,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100 selection:bg-indigo-500 selection:text-white">
-      {/* SuperDesign Dark Sidebar */}
-      <aside aria-label="Workspace Sidebar" className="hidden w-64 shrink-0 flex-col border-r border-slate-800/80 bg-slate-950 p-4 md:flex justify-between">
+    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 selection:bg-indigo-500 selection:text-white transition-colors duration-150">
+      {/* SuperDesign Sidebar (Dual Light / Dark) */}
+      <aside aria-label="Workspace Sidebar" className="hidden w-64 shrink-0 flex-col border-r border-slate-200 dark:border-slate-800/80 bg-white dark:bg-slate-950 p-4 md:flex justify-between transition-colors duration-150">
         <div className="space-y-5">
           {/* Workspace Brand Header */}
           <div className="flex items-center gap-3 px-2 py-1">
@@ -119,17 +120,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 TF
               </div>
               <div>
-                <span className="text-sm font-extrabold tracking-tight text-white block leading-none">
+                <span className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-white block leading-none">
                   TeamFlow
                 </span>
-                <span className="text-[10px] text-indigo-400 uppercase tracking-widest font-bold mt-0.5 block">
+                <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-widest font-bold mt-0.5 block">
                   Virtual Tech Co.
                 </span>
               </div>
             </Link>
 
             {user.organization_tier && (
-              <span className="ml-auto rounded-md bg-indigo-950/80 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-indigo-300 border border-indigo-700/50">
+              <span className="ml-auto rounded-md bg-indigo-50 dark:bg-indigo-950/80 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700/50">
                 {user.organization_tier}
               </span>
             )}
@@ -138,19 +139,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {/* Active Workspace Selector Card */}
           <Link
             href="/settings"
-            className="px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/70 text-xs text-slate-300 flex items-center justify-between shadow-xs hover:border-slate-700 hover:bg-slate-900 transition group cursor-pointer"
+            className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 text-xs text-slate-700 dark:text-slate-300 flex items-center justify-between shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-900 transition group cursor-pointer"
             title="Manage Workspace & Switch Tenants"
           >
             <div className="flex items-center gap-2 truncate">
-              <Building2 className="h-4 w-4 text-indigo-400 shrink-0 group-hover:text-indigo-300 transition" aria-hidden="true" />
-              <span className="font-semibold text-white truncate">{user.organization_name || "Workspace"}</span>
+              <Building2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition" aria-hidden="true" />
+              <span className="font-semibold text-slate-900 dark:text-white truncate">{user.organization_name || "Workspace"}</span>
             </div>
             <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" title="System Online" aria-label="System Online"></span>
           </Link>
 
           {/* Navigation Links */}
           <nav aria-label="Primary Navigation" className="space-y-1">
-            <div className="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+            <div className="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Workspace Platform
             </div>
             {navItems.map((item) => {
@@ -165,7 +166,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition duration-150 group cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
                     active
                       ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold"
-                      : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white"
                   }`}
                   aria-current={active ? "page" : undefined}
                 >
@@ -183,14 +184,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Sidebar Footer */}
-        <div className="space-y-2 pt-4 border-t border-slate-800/80">
+        <div className="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-800/80">
           <Link
             href="/profile"
-            className="w-full flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:border-slate-700 transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+            className="w-full flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 px-3 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700 transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
             aria-label="View My Profile"
           >
             <div className="flex items-center gap-2 truncate">
-              <span className="truncate font-bold text-white">{user.name || user.email}</span>
+              <span className="truncate font-bold text-slate-900 dark:text-white">{user.name || user.email}</span>
             </div>
             <AgentTypeBadge role={user.role} isAi={!isHuman} />
           </Link>
@@ -198,7 +199,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={logout}
-            className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
+            className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none"
             aria-label="Sign out of workspace"
           >
             <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
@@ -217,11 +218,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           className="fixed inset-0 z-50 md:hidden flex"
         >
           <div
-            className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+            className="fixed inset-0 bg-slate-950/50 dark:bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />
-          <div className="relative w-72 max-w-[85vw] h-full bg-slate-950 border-r border-slate-800 p-4 flex flex-col justify-between shadow-2xl z-10 animate-in slide-in-from-left duration-200">
+          <div className="relative w-72 max-w-[85vw] h-full bg-white dark:bg-slate-950 border-r border-slate-200 dark:border-slate-800 p-4 flex flex-col justify-between shadow-2xl z-10 animate-in slide-in-from-left duration-200 transition-colors">
             <div className="space-y-5">
               <div className="flex items-center justify-between px-2 py-1">
                 <Link
@@ -234,10 +235,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     TF
                   </div>
                   <div>
-                    <span className="text-sm font-extrabold tracking-tight text-white block leading-none">
+                    <span className="text-sm font-extrabold tracking-tight text-slate-900 dark:text-white block leading-none">
                       TeamFlow
                     </span>
-                    <span className="text-[10px] text-indigo-400 uppercase tracking-widest font-bold mt-0.5 block">
+                    <span className="text-[10px] text-indigo-600 dark:text-indigo-400 uppercase tracking-widest font-bold mt-0.5 block">
                       Virtual Tech Co.
                     </span>
                   </div>
@@ -245,7 +246,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer"
+                  className="p-1 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-900 transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer"
                   aria-label="Close navigation menu"
                 >
                   <X className="h-5 w-5" aria-hidden="true" />
@@ -256,19 +257,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <Link
                 href="/settings"
                 onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-2.5 rounded-xl border border-slate-800 bg-slate-900/70 text-xs text-slate-300 flex items-center justify-between shadow-xs hover:border-slate-700 hover:bg-slate-900 transition group cursor-pointer"
+                className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/70 text-xs text-slate-700 dark:text-slate-300 flex items-center justify-between shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-900 transition group cursor-pointer"
                 title="Manage Workspace & Switch Tenants"
               >
                 <div className="flex items-center gap-2 truncate">
-                  <Building2 className="h-4 w-4 text-indigo-400 shrink-0 group-hover:text-indigo-300 transition" aria-hidden="true" />
-                  <span className="font-semibold text-white truncate">{user.organization_name || "Workspace"}</span>
+                  <Building2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition" aria-hidden="true" />
+                  <span className="font-semibold text-slate-900 dark:text-white truncate">{user.organization_name || "Workspace"}</span>
                 </div>
                 <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" title="System Online"></span>
               </Link>
 
               {/* Navigation Links */}
               <nav aria-label="Mobile Navigation Links" className="space-y-1">
-                <div className="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+                <div className="px-2 pb-1.5 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   Workspace Platform
                 </div>
                 {navItems.map((item) => {
@@ -284,7 +285,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                       className={`flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-semibold transition duration-150 cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
                         active
                           ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 font-bold"
-                          : "text-slate-400 hover:bg-slate-900 hover:text-white"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white"
                       }`}
                       aria-current={active ? "page" : undefined}
                     >
@@ -302,14 +303,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Mobile Footer */}
-            <div className="space-y-2 pt-4 border-t border-slate-800/80">
+            <div className="space-y-2 pt-4 border-t border-slate-200 dark:border-slate-800/80">
+              <div className="flex items-center justify-between px-1 mb-2">
+                <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Thème</span>
+                <ThemeToggle variant="segmented" />
+              </div>
               <Link
                 href="/profile"
                 onClick={() => setMobileMenuOpen(false)}
-                className="w-full flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-left text-xs font-semibold text-slate-300 hover:border-slate-700 transition"
+                className="w-full flex items-center justify-between rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/60 px-3 py-2 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700 transition"
               >
                 <div className="flex items-center gap-2 truncate">
-                  <span className="truncate font-bold text-white">{user.name || user.email}</span>
+                  <span className="truncate font-bold text-slate-900 dark:text-white">{user.name || user.email}</span>
                 </div>
                 <AgentTypeBadge role={user.role} isAi={!isHuman} />
               </Link>
@@ -319,7 +324,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   setMobileMenuOpen(false);
                   logout();
                 }}
-                className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-400 hover:bg-rose-950/40 hover:text-rose-400 transition cursor-pointer"
+                className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 hover:text-rose-600 dark:hover:text-rose-400 transition cursor-pointer"
               >
                 <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
                 <span>Sign out</span>
@@ -330,15 +335,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main App Content Viewport */}
-      <div className="flex min-w-0 flex-1 flex-col bg-slate-900">
+      <div className="flex min-w-0 flex-1 flex-col bg-slate-50 dark:bg-slate-900 transition-colors duration-150">
         {/* App Header */}
-        <header role="banner" className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/80 px-4 sm:px-6 backdrop-blur-md">
+        <header role="banner" className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 dark:border-slate-800/80 bg-white/80 dark:bg-slate-950/80 px-4 sm:px-6 backdrop-blur-md transition-colors duration-150">
           {/* Left: Mobile Toggle & Breadcrumbs / Title */}
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-1.5 rounded-xl text-slate-400 hover:bg-slate-900 hover:text-white transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer"
+              className="md:hidden p-1.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none cursor-pointer"
               aria-label="Toggle Navigation Menu"
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-drawer"
@@ -350,26 +355,28 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
             </button>
 
-            <h1 className="text-sm font-extrabold text-white tracking-tight">
+            <h1 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight">
               {navItems.find((n) => pathname === n.href || pathname.startsWith(n.href + "/"))?.label ?? "TeamFlow"}
             </h1>
 
             {/* Live Swarm Status Pill */}
-            <div className="hidden lg:inline-flex items-center gap-1.5 rounded-full border border-indigo-800/40 bg-indigo-950/40 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-300">
+            <div className="hidden lg:inline-flex items-center gap-1.5 rounded-full border border-indigo-200 dark:border-indigo-800/40 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
               <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none" aria-hidden="true"></span>
               <span>LangGraph Swarm Online (9 AI Agent Seats)</span>
             </div>
           </div>
 
           {/* Right Toolbar */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Theme Toggle Button (Mode Clair / Mode Sombre) */}
+            <ThemeToggle />
 
             {/* Notification Bell */}
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowNotifMenu(!showNotifMenu)}
-                className="relative p-2 rounded-xl text-slate-400 hover:bg-slate-900 hover:text-white transition cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                className="relative p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-900 hover:text-slate-900 dark:hover:text-white transition cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                 aria-label={`Notifications, ${unreadCount} unread`}
                 aria-expanded={showNotifMenu}
                 aria-haspopup="true"
@@ -386,17 +393,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div
                   role="region"
                   aria-label="Notifications Panel"
-                  className="absolute right-0 mt-2 w-80 rounded-2xl bg-slate-900 p-3.5 shadow-2xl border border-slate-800 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                  className="absolute right-0 mt-2 w-80 rounded-2xl bg-white dark:bg-slate-900 p-3.5 shadow-2xl border border-slate-200 dark:border-slate-800 z-50 animate-in fade-in slide-in-from-top-2 duration-150 text-slate-900 dark:text-white"
                 >
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-slate-800">
+                    <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
                       Notifications ({unreadCount} unread)
                     </span>
                     {unreadCount > 0 && (
                       <button
                         type="button"
                         onClick={markAllRead}
-                        className="text-[11px] text-indigo-400 hover:underline font-semibold cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none rounded"
+                        className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold cursor-pointer focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none rounded"
                       >
                         Mark all read
                       </button>
@@ -425,12 +432,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                           }}
                           className={`p-2.5 rounded-xl text-xs cursor-pointer transition focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none ${
                             n.is_read
-                              ? "bg-slate-950/60 text-slate-400 hover:bg-slate-800/60"
-                              : "bg-indigo-950/60 text-indigo-200 font-medium border border-indigo-800/50 hover:bg-indigo-900/50"
+                              ? "bg-slate-50 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                              : "bg-indigo-50 dark:bg-indigo-950/60 text-indigo-900 dark:text-indigo-200 font-medium border border-indigo-200 dark:border-indigo-800/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                           }`}
                         >
-                          <div className="font-semibold text-white">{n.title}</div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">{n.message}</div>
+                          <div className="font-semibold text-slate-900 dark:text-white">{n.title}</div>
+                          <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{n.message}</div>
                         </div>
                       ))
                     )}
@@ -442,11 +449,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {/* Profile Pill */}
             <Link
               href="/profile"
-              className="flex items-center gap-3 pl-3 border-l border-slate-800 rounded-xl focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none group cursor-pointer"
+              className="flex items-center gap-3 pl-3 border-l border-slate-200 dark:border-slate-800 rounded-xl focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none group cursor-pointer"
               aria-label="User profile settings"
             >
               <div className="text-right hidden sm:block">
-                <div className="text-xs font-bold text-white leading-tight flex items-center justify-end gap-1.5 group-hover:text-indigo-300 transition">
+                <div className="text-xs font-bold text-slate-900 dark:text-white leading-tight flex items-center justify-end gap-1.5 group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition">
                   <span>{user.name || user.email}</span>
                 </div>
                 <div className="mt-0.5 flex items-center justify-end gap-1.5">
@@ -462,7 +469,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main
           id="main-content"
           tabIndex={-1}
-          className="flex-1 overflow-auto p-6 lg:p-8 bg-slate-900 text-slate-100 focus:outline-none"
+          className="flex-1 overflow-auto p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none transition-colors duration-150"
         >
           {children}
         </main>

@@ -5,7 +5,8 @@ import { AuthProvider } from "@/lib/auth";
 import { QueryProvider } from "@/lib/providers/query-provider";
 import { AppClerkProvider } from "@/lib/providers/clerk-provider";
 import { ClerkSyncProvider } from "@/lib/providers/clerk-sync";
-import { Toaster } from "sonner";
+import { ThemeProvider } from "@/lib/providers/theme-provider";
+import { AppToaster } from "@/components/AppToaster";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -58,36 +59,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} h-full antialiased`}>
-      <body className="min-h-full bg-slate-950 text-slate-100">
+    <html lang="en" className={`${inter.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className="min-h-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-150">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-xl focus:ring-2 focus:ring-indigo-400 font-bold text-sm focus:outline-none"
         >
           Skip to main content
         </a>
-        <AppClerkProvider>
-          <AuthProvider>
-            <ClerkSyncProvider>
-              <QueryProvider>
-                {children}
-              </QueryProvider>
-            </ClerkSyncProvider>
-            <Toaster
-              position="top-right"
-              richColors
-              theme="dark"
-              closeButton
-              toastOptions={{
-                style: {
-                  background: "#0f172a",
-                  border: "1px solid #1e293b",
-                  color: "#f8fafc",
-                },
-              }}
-            />
-          </AuthProvider>
-        </AppClerkProvider>
+        <ThemeProvider>
+          <AppClerkProvider>
+            <AuthProvider>
+              <ClerkSyncProvider>
+                <QueryProvider>
+                  {children}
+                </QueryProvider>
+              </ClerkSyncProvider>
+              <AppToaster />
+            </AuthProvider>
+          </AppClerkProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -161,13 +161,7 @@ describe("Frontend API Client & Utilities", () => {
       });
       global.fetch = fetchMock;
 
-      const payload = {
-        token: "clerk_test_jwt",
-        clerk_id: "user_2test123",
-        email: "clerk.dev@teamflow.dev",
-        name: "Clerk Dev",
-        avatar_url: "https://img.clerk.com/test.png",
-      };
+      const payload = { token: "clerk_test_jwt" };
 
       const result = await loginWithClerkSession(payload);
 

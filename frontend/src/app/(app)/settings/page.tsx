@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, setTokens } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Avatar, ROLE_COLORS, ROLE_LABELS } from "@/lib/ui";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 import {
   User,
   Shield,
@@ -32,6 +33,9 @@ import {
   ExternalLink,
   Globe,
   Lock,
+  Sun,
+  Moon,
+  Laptop,
 } from "lucide-react";
 import {
   useCurrentOrganization,
@@ -92,6 +96,7 @@ interface GitHubTestResponse {
 
 export default function SettingsPage() {
   const { user, refreshUser } = useAuth();
+  const { theme, setTheme } = useTheme();
 
   // Profile Form
   const [name, setName] = useState(user?.name || "");
@@ -270,11 +275,13 @@ export default function SettingsPage() {
     e.preventDefault();
     setSavingPassword(true);
     try {
-      await apiFetch("/auth/change-password/", {
+      const result = await apiFetch<{ access?: string; refresh?: string }>("/auth/change-password/", {
         method: "POST",
         body: { old_password: oldPassword, new_password: newPassword },
       });
-      toast.success("Password changed successfully!");
+      // Other sessions were signed out; keep this browser signed in with its new session.
+      if (result?.access) setTokens(result.access, result.refresh);
+      toast.success("Password changed. Other sessions were signed out.");
       setOldPassword("");
       setNewPassword("");
     } catch {
@@ -409,34 +416,34 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="border-b border-slate-800 pb-6">
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-6">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
           Account & Workspace Settings
         </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Manage your personal profile, authentication credentials, and workspace preferences.
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Manage your personal profile, appearance, authentication credentials, and workspace preferences.
         </p>
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-800">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800">
         <button
           onClick={() => setActiveTab("profile")}
           className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
             activeTab === "profile"
-              ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
-              : "text-slate-400 hover:text-white"
+              ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           <User className="h-3.5 w-3.5" />
-          <span>Profile</span>
+          <span>Profile & Appearance</span>
         </button>
         <button
           onClick={() => setActiveTab("security")}
           className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
             activeTab === "security"
-              ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
-              : "text-slate-400 hover:text-white"
+              ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           <Shield className="h-3.5 w-3.5" />
@@ -446,8 +453,8 @@ export default function SettingsPage() {
           onClick={() => setActiveTab("workspace")}
           className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
             activeTab === "workspace"
-              ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
-              : "text-slate-400 hover:text-white"
+              ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           <Building2 className="h-3.5 w-3.5" />
@@ -457,8 +464,8 @@ export default function SettingsPage() {
           onClick={() => setActiveTab("integrations")}
           className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
             activeTab === "integrations"
-              ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
-              : "text-slate-400 hover:text-white"
+              ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           <MessageSquare className="h-3.5 w-3.5" />
@@ -468,8 +475,8 @@ export default function SettingsPage() {
           onClick={() => setActiveTab("export")}
           className={`pb-3 px-3 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
             activeTab === "export"
-              ? "border-b-2 border-indigo-500 text-indigo-400 font-extrabold"
-              : "text-slate-400 hover:text-white"
+              ? "border-b-2 border-indigo-500 text-indigo-600 dark:text-indigo-400 font-extrabold"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           }`}
         >
           <Download className="h-3.5 w-3.5" />
@@ -479,67 +486,140 @@ export default function SettingsPage() {
 
       {/* Profile Tab */}
       {activeTab === "profile" && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm">
-          <form onSubmit={handleSaveProfile} className="space-y-5">
-            <div className="flex items-center gap-4 pb-4 border-b border-slate-800">
-              <Avatar name={user?.name || ""} email={user?.email} size={54} showStatus={true} status="active" />
-              <div>
-                <h3 className="text-sm font-bold text-white">{user?.name || user?.email}</h3>
-                <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-md border mt-1 ${ROLE_COLORS[user?.role || "member"]}`}>
-                  {ROLE_LABELS[user?.role || "member"]}
-                </span>
+        <div className="space-y-6">
+          {/* Theme & Appearance Card */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+              <Sun className="h-4 w-4 text-amber-500" />
+              <span>Apparence & Mode d'affichage (Thème)</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              Basculez entre le Mode Clair et le Mode Sombre. L'interface SuperDesign adapte instantanément ses contrastes.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setTheme("light");
+                  toast.success("Mode clair activé");
+                }}
+                className={`p-4 rounded-xl border flex flex-col items-start gap-2 text-left transition-all cursor-pointer ${
+                  theme === "light"
+                    ? "border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20 shadow-sm"
+                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Sun className="h-4 w-4 text-amber-500" />
+                  <span className="text-xs font-bold">Mode Clair</span>
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">Palette claire SuperDesign épurée</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTheme("dark");
+                  toast.success("Mode sombre activé");
+                }}
+                className={`p-4 rounded-xl border flex flex-col items-start gap-2 text-left transition-all cursor-pointer ${
+                  theme === "dark"
+                    ? "border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20 shadow-sm"
+                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Moon className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+                  <span className="text-xs font-bold">Mode Sombre</span>
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">Palette sombre SuperDesign pro</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTheme("system");
+                  toast.success("Thème système synchronisé");
+                }}
+                className={`p-4 rounded-xl border flex flex-col items-start gap-2 text-left transition-all cursor-pointer ${
+                  theme === "system"
+                    ? "border-indigo-600 bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 ring-2 ring-indigo-500/20 shadow-sm"
+                    : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-700 dark:text-slate-300 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-900"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Laptop className="h-4 w-4 text-slate-500" />
+                  <span className="text-xs font-bold">Système</span>
+                </div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400">Suit la préférence du système</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Profile Form Card */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm">
+            <form onSubmit={handleSaveProfile} className="space-y-5">
+              <div className="flex items-center gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+                <Avatar name={user?.name || ""} email={user?.email} size={54} showStatus={true} status="active" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">{user?.name || user?.email}</h3>
+                  <span className={`inline-block text-[10px] font-extrabold px-2.5 py-0.5 rounded-md border mt-1 ${ROLE_COLORS[user?.role || "member"]}`}>
+                    {ROLE_LABELS[user?.role || "member"]}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Full Name</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Your full name"
-                className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your full name"
+                  className="w-full max-w-md rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Email Address</label>
-              <input
-                disabled
-                value={user?.email || ""}
-                className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2 text-xs text-slate-500 cursor-not-allowed font-mono"
-              />
-              <span className="text-[10px] text-slate-500 mt-1 block">Email is your primary workspace login identifier.</span>
-            </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
+                <input
+                  disabled
+                  value={user?.email || ""}
+                  className="w-full max-w-md rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/60 px-3 py-2 text-xs text-slate-500 cursor-not-allowed font-mono"
+                />
+                <span className="text-[10px] text-slate-500 mt-1 block">Email is your primary workspace login identifier.</span>
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Avatar Image URL</label>
-              <input
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://example.com/photo.jpg"
-                className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Avatar Image URL</label>
+                <input
+                  value={avatarUrl}
+                  onChange={(e) => setAvatarUrl(e.target.value)}
+                  placeholder="https://example.com/photo.jpg"
+                  className="w-full max-w-md rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Bio / Mission</label>
-              <textarea
-                rows={3}
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="Brief description of your role responsibilities..."
-                className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
-              />
-            </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Bio / Mission</label>
+                <textarea
+                  rows={3}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Brief description of your role responsibilities..."
+                  className="w-full max-w-md rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={savingProfile}
-              className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-60 transition cursor-pointer"
-            >
-              {savingProfile ? "Saving..." : "Save Profile"}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={savingProfile}
+                className="rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-500 disabled:opacity-60 transition cursor-pointer"
+              >
+                {savingProfile ? "Saving..." : "Save Profile"}
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

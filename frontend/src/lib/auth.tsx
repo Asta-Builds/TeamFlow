@@ -7,7 +7,7 @@ import {
   useEffect,
   useState,
 } from "react";
-import { apiFetch, clearTokens, getToken, login as apiLogin } from "./api";
+import { apiFetch, clearTokens, getToken, login as apiLogin, logoutSession } from "./api";
 import type { User } from "./types";
 
 interface AuthState {
@@ -60,11 +60,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    clearTokens();
-    setUser(null);
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent("teamflow:logout"));
-    }
+    const finish = () => {
+      clearTokens();
+      setUser(null);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("teamflow:logout"));
+      }
+    };
+    void logoutSession().finally(finish);
   }, []);
 
   return (

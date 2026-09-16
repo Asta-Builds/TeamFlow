@@ -8,6 +8,7 @@ import {
   rollbackDeployment,
   qaValidateTask,
   getAgentClusterStatus,
+  apiErrorDetail,
 } from "./api";
 import type {
   Project,
@@ -233,11 +234,12 @@ export function useTriggerDeploymentMutation() {
       });
     },
     onSuccess: (data) => {
-      toast.success(`Déploiement #${data.id} (${data.environment}) réussi en ${data.duration_seconds || 12}s`);
+      toast.success(`Deployment #${data.id} to ${data.environment} was accepted by the provider.`);
       queryClient.invalidateQueries({ queryKey: queryKeys.deployments });
     },
     onError: (err) => {
-      toast.error(`Échec du déploiement : ${err instanceof Error ? err.message : "Erreur pipeline"}`);
+      toast.error(apiErrorDetail(err, "The deployment could not be started."));
+      queryClient.invalidateQueries({ queryKey: queryKeys.deployments });
     },
   });
 }
@@ -250,11 +252,12 @@ export function useRollbackDeploymentMutation() {
       return rollbackDeployment(deploymentId);
     },
     onSuccess: (data) => {
-      toast.success(`Rollback 1-Click #${data.id} exécuté avec succès vers ${data.target_commit || "version précédente"}`);
+      toast.success(`Rollback #${data.id} to ${data.commit_sha || "the previous release"} was accepted by the provider.`);
       queryClient.invalidateQueries({ queryKey: queryKeys.deployments });
     },
     onError: (err) => {
-      toast.error(`Échec du rollback : ${err instanceof Error ? err.message : "Erreur d'inversion"}`);
+      toast.error(apiErrorDetail(err, "The rollback could not be started."));
+      queryClient.invalidateQueries({ queryKey: queryKeys.deployments });
     },
   });
 }

@@ -33,7 +33,22 @@ export class ApiError extends Error {
   }
 }
 
-async function refreshAccess(): Promise<string | null> {
+/** Human-readable message from an API error body (NestJS `message` or DRF `detail`). */
+export function apiErrorDetail(err: unknown, fallback: string): string {
+  if (err instanceof ApiError && err.data && typeof err.data === "object") {
+    const data = err.data as { message?: unknown; detail?: unknown; error?: unknown };
+    const message = Array.isArray(data.message) ? data.message.join(", ") : data.message;
+    for (const candidate of [message, data.detail, data.error]) {
+      if (typeof candidate === "string" && candidate.trim()) return candidate;
+    }
+  }
+  return fallback;
+}
+
+// Refresh tokens are single-use, so concurrent 401s must share one refresh request.
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function performRefresh(): Promise<string | null> {
   const refresh = localStorage.getItem(REFRESH_KEY);
   if (!refresh) return null;
   const res = await fetch(`${API_BASE}/auth/refresh/`, {
@@ -45,6 +60,32 @@ async function refreshAccess(): Promise<string | null> {
   const data = await res.json();
   setTokens(data.access, data.refresh);
   return data.access as string;
+}
+
+function refreshAccess(): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = performRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+/** End the server-side session (best effort) before local tokens are cleared. */
+export async function logoutSession(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const access = getToken();
+  const refresh = localStorage.getItem(REFRESH_KEY);
+  if (!access) return;
+  try {
+    await fetch(`${API_BASE}/auth/logout/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${access}` },
+      body: JSON.stringify(refresh ? { refresh } : {}),
+    });
+  } catch {
+    // The local session is cleared regardless.
+  }
 }
 
 interface RequestOptions {
@@ -112,16 +153,11 @@ export async function loginWithKeycloakToken(token: string) {
   return data;
 }
 
-export async function loginWithClerkSession(payload: {
-  token?: string;
-  clerk_id?: string;
-  email?: string;
-  name?: string;
-  avatar_url?: string;
-}) {
+/** Exchange a Clerk session token for a TeamFlow session. The token is the only identity input. */
+export async function loginWithClerkSession(payload: { token: string }) {
   const data = await apiFetch<{ access: string; refresh: string; user?: User }>(
     "/auth/clerk/",
-    { method: "POST", body: payload, auth: false }
+    { method: "POST", body: { token: payload.token }, auth: false }
   );
   setTokens(data.access, data.refresh);
   return data;

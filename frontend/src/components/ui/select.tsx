@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 
 export const selectVariants = cva(
-  "w-full appearance-none rounded-xl border bg-slate-900/90 px-3.5 py-2.5 pr-9 text-xs text-white placeholder-slate-500 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50",
+  "w-full appearance-none rounded-xl border bg-white dark:bg-slate-900/90 px-3.5 py-2.5 pr-9 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "border-slate-800 hover:border-slate-700",
+        default: "border-slate-300 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-700",
         danger: "border-rose-500/70 focus-visible:ring-rose-500",
       },
     },

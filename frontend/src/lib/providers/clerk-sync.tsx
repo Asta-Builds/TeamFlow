@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import { useAuth as useClerkAuth, useUser as useClerkUser, useClerk } from "@clerk/nextjs";
+import { useAuth as useClerkAuth, useClerk } from "@clerk/nextjs";
+import { apiErrorDetail } from "@/lib/api";
 import { useAuth as useTeamflowAuth } from "@/lib/auth";
 import { loginWithClerkSession, getToken } from "@/lib/api";
 import { toast } from "sonner";
@@ -21,7 +22,6 @@ const CLERK_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 function ClerkAuthSyncBridge({ children }: { children: React.ReactNode }) {
   const { isLoaded: isClerkLoaded, isSignedIn, getToken: getClerkToken, userId } = useClerkAuth();
-  const { user: clerkUser } = useClerkUser();
   const { signOut } = useClerk();
   const { user: tfUser, refreshUser, loading: tfLoading } = useTeamflowAuth();
   const [isSyncing, setIsSyncing] = useState(false);
@@ -55,23 +55,11 @@ function ClerkAuthSyncBridge({ children }: { children: React.ReactNode }) {
 
         (async () => {
           try {
+            // The backend verifies this signed session token; profile fields are never sent.
             const token = await getClerkToken();
-            const email = clerkUser?.primaryEmailAddress?.emailAddress;
-            const name =
-              clerkUser?.fullName ||
-              [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(" ") ||
-              clerkUser?.username ||
-              undefined;
-            const avatarUrl = clerkUser?.imageUrl;
 
-            if (email || token) {
-              await loginWithClerkSession({
-                token: token || undefined,
-                clerk_id: userId,
-                email,
-                name,
-                avatar_url: avatarUrl,
-              });
+            if (token) {
+              await loginWithClerkSession({ token });
               hasSyncedRef.current = true;
               await refreshUser();
               toast.success("Successfully authenticated with Clerk SSO");
@@ -87,11 +75,9 @@ function ClerkAuthSyncBridge({ children }: { children: React.ReactNode }) {
                 router.replace("/dashboard");
               }
             }
-          } catch (err: any) {
+          } catch (err: unknown) {
             console.error("Clerk session exchange failed:", err);
-            toast.error(
-              err?.data?.message || err?.message || "Failed to synchronize Clerk session with workspace."
-            );
+            toast.error(apiErrorDetail(err, "Failed to synchronize Clerk session with workspace."));
           } finally {
             syncingRef.current = false;
             setIsSyncing(false);
@@ -103,7 +89,6 @@ function ClerkAuthSyncBridge({ children }: { children: React.ReactNode }) {
     isClerkLoaded,
     isSignedIn,
     userId,
-    clerkUser,
     tfUser,
     tfLoading,
     getClerkToken,
