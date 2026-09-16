@@ -19,10 +19,10 @@ import {
 } from "lucide-react";
 
 const SEVERITY_BADGES: Record<string, string> = {
-  critical: "bg-rose-950/70 text-rose-300 border-rose-800/50 font-bold",
-  high: "bg-orange-950/70 text-orange-300 border-orange-800/50 font-bold",
-  medium: "bg-amber-950/70 text-amber-300 border-amber-800/50 font-semibold",
-  low: "bg-slate-900 text-slate-400 border-slate-800",
+  critical: "bg-rose-500/10 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border-rose-500/30 dark:border-rose-800/50 font-bold",
+  high: "bg-orange-500/10 dark:bg-orange-950/70 text-orange-700 dark:text-orange-300 border-orange-500/30 dark:border-orange-800/50 font-bold",
+  medium: "bg-amber-500/10 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-500/30 dark:border-amber-800/50 font-semibold",
+  low: "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800",
 };
 
 export default function CompliancePage() {
@@ -109,12 +109,12 @@ export default function CompliancePage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
             Technical SEO & Performance Audits
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Crawl metadata, check Core Web Vitals, and generate automated fix tickets.
           </p>
         </div>
@@ -127,7 +127,7 @@ export default function CompliancePage() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://yourwebsite.com"
-              className="rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none flex-1 md:w-64"
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none flex-1 md:w-64"
             />
             <button
               type="submit"
@@ -146,32 +146,32 @@ export default function CompliancePage() {
         {audits.map((a) => (
           <div
             key={a.id}
-            className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-sm space-y-5 hover:border-slate-700 transition"
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-5 hover:border-slate-300 dark:hover:border-slate-700 transition"
           >
             {/* Top score banner */}
-            <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+            <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
               <div>
                 <a
                   href={a.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="font-bold text-white hover:text-indigo-400 transition text-base block truncate max-w-xs flex items-center gap-1"
+                  className="font-bold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition text-base block truncate max-w-xs flex items-center gap-1"
                 >
                   <span>{a.url}</span>
                   <ExternalLink className="h-3 w-3" />
                 </a>
-                <span className="text-xs text-slate-500 font-medium mt-0.5 block font-mono">
+                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5 block font-mono">
                   {new Date(a.created_at).toLocaleString()}
                 </span>
               </div>
-              <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl">
+              <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 px-3 py-1.5 rounded-xl">
                 <span
                   className={`text-2xl font-black ${
                     a.score >= 90
-                      ? "text-emerald-400"
+                      ? "text-emerald-600 dark:text-emerald-400"
                       : a.score >= 70
-                      ? "text-amber-400"
-                      : "text-rose-400"
+                      ? "text-amber-600 dark:text-amber-400"
+                      : "text-rose-600 dark:text-rose-400"
                   }`}
                 >
                   {a.score}
@@ -183,23 +183,23 @@ export default function CompliancePage() {
             </div>
 
             {/* Subscores */}
-            <div className="grid grid-cols-3 gap-3 text-center bg-slate-950/80 p-3 rounded-xl border border-slate-800">
+            <div className="grid grid-cols-3 gap-3 text-center bg-slate-50/80 dark:bg-slate-950/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
               <div>
-                <div className="text-sm font-black text-indigo-400 flex items-center justify-center gap-1">
+                <div className="text-sm font-black text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-1">
                   <Gauge className="h-3.5 w-3.5" />
                   <span>{a.performance_score ?? 94}</span>
                 </div>
                 <div className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Performance</div>
               </div>
               <div>
-                <div className="text-sm font-black text-teal-400 flex items-center justify-center gap-1">
+                <div className="text-sm font-black text-teal-600 dark:text-teal-400 flex items-center justify-center gap-1">
                   <SearchCheck className="h-3.5 w-3.5" />
                   <span>{a.seo_score ?? 92}</span>
                 </div>
                 <div className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">SEO Tags</div>
               </div>
               <div>
-                <div className="text-sm font-black text-purple-400 flex items-center justify-center gap-1">
+                <div className="text-sm font-black text-purple-600 dark:text-purple-400 flex items-center justify-center gap-1">
                   <Smartphone className="h-3.5 w-3.5" />
                   <span>{a.mobile_score ?? 95}</span>
                 </div>
@@ -209,12 +209,12 @@ export default function CompliancePage() {
 
             {/* Issues and Findings */}
             <div>
-              <h4 className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-2.5">
+              <h4 className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2.5">
                 Audit Recommendations ({a.issues?.length || 0})
               </h4>
               {(!a.issues || a.issues.length === 0) ? (
-                <p className="text-xs text-emerald-400 font-bold py-2 flex items-center gap-1.5">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold py-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                   <span>Page passed all technical SEO and metadata standards!</span>
                 </p>
               ) : (
@@ -222,10 +222,10 @@ export default function CompliancePage() {
                   {a.issues.map((issue, idx) => (
                     <div
                       key={idx}
-                      className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs flex flex-col justify-between gap-2"
+                      className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs flex flex-col justify-between gap-2"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="font-semibold text-slate-200 leading-snug">
+                        <span className="font-semibold text-slate-800 dark:text-slate-200 leading-snug">
                           {issue.message}
                         </span>
                         <Badge className={SEVERITY_BADGES[issue.severity] || SEVERITY_BADGES.medium}>
@@ -234,15 +234,15 @@ export default function CompliancePage() {
                       </div>
 
                       {issue.recommendation && (
-                        <p className="text-[11px] text-slate-400 bg-slate-900 p-2 rounded-lg border border-slate-800/80">
-                          <strong className="text-slate-300">Fix:</strong> {issue.recommendation}
+                        <p className="text-[11px] text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 p-2 rounded-lg border border-slate-200 dark:border-slate-800/80">
+                          <strong className="text-slate-800 dark:text-slate-300">Fix:</strong> {issue.recommendation}
                         </p>
                       )}
 
                       <div className="flex justify-end pt-1">
                         <button
                           onClick={() => setSelectedAuditForTask({ auditId: a.id, issueIdx: idx })}
-                          className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline cursor-pointer flex items-center gap-1"
+                          className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline cursor-pointer flex items-center gap-1"
                         >
                           <Plus className="h-3 w-3" />
                           <span>Create Fix Ticket</span>
@@ -257,8 +257,8 @@ export default function CompliancePage() {
         ))}
 
         {audits.length === 0 && (
-          <div className="col-span-2 rounded-2xl border border-dashed border-slate-800 p-12 text-center text-slate-500 font-medium bg-slate-900/50 space-y-2">
-            <SearchCheck className="h-8 w-8 text-slate-600 mx-auto" />
+          <div className="col-span-2 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-12 text-center text-slate-500 font-medium bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
+            <SearchCheck className="h-8 w-8 text-slate-400 dark:text-slate-600 mx-auto" />
             <p className="text-xs">No technical SEO audits recorded yet. Run your first crawl above.</p>
           </div>
         )}
@@ -266,24 +266,24 @@ export default function CompliancePage() {
 
       {/* Convert Issue to Ticket Modal */}
       {selectedAuditForTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 dark:bg-slate-950/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white">Create SEO Task</h3>
-              <button onClick={() => setSelectedAuditForTask(null)} className="text-slate-400 hover:text-white cursor-pointer">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Create SEO Task</h3>
+              <button onClick={() => setSelectedAuditForTask(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Select which project board to assign this fix ticket to.
             </p>
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Target Project</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Target Project</label>
                 <select
                   value={targetProjectId}
                   onChange={(e) => setTargetProjectId(Number(e.target.value))}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2 text-xs font-semibold text-white focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none cursor-pointer"
                 >
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -293,11 +293,11 @@ export default function CompliancePage() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setSelectedAuditForTask(null)}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>

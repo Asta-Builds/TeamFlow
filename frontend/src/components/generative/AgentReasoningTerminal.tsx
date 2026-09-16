@@ -96,12 +96,12 @@ export function AgentReasoningTerminal({
 
   const containerClasses = isFullscreen
     ? "fixed inset-4 z-80 flex flex-col bg-slate-950 border border-indigo-500/50 rounded-2xl shadow-2xl overflow-hidden"
-    : "rounded-2xl border border-indigo-900/40 bg-slate-950/90 shadow-xl overflow-hidden text-xs";
+    : "rounded-2xl border border-slate-800 dark:border-indigo-900/40 bg-slate-950 shadow-xl overflow-hidden text-xs";
 
   return (
     <div className={containerClasses}>
       {/* Terminal Bar */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-slate-950 via-indigo-950/60 to-slate-950 border-b border-indigo-900/40">
+      <div className="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-slate-950 via-indigo-950/60 to-slate-950 border-b border-slate-800 dark:border-indigo-900/40">
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex h-2.5 w-2.5 items-center justify-center">
             {isStreaming ? (

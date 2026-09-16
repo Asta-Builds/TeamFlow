@@ -491,10 +491,10 @@ export default function SettingsPage() {
           <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm">
             <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
               <Sun className="h-4 w-4 text-amber-500" />
-              <span>Apparence & Mode d'affichage (Thème)</span>
+              <span>Apparence & Mode d&apos;affichage (Thème)</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-              Basculez entre le Mode Clair et le Mode Sombre. L'interface SuperDesign adapte instantanément ses contrastes.
+              Basculez entre le Mode Clair et le Mode Sombre. L&apos;interface SuperDesign adapte instantanément ses contrastes.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-xl">
@@ -625,31 +625,31 @@ export default function SettingsPage() {
 
       {/* Security Tab */}
       {activeTab === "security" && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm">
           <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
-            <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-              <Key className="h-4 w-4 text-indigo-400" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-2">
+              <Key className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
               <span>Change Password</span>
             </h3>
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">Current Password</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Current Password</label>
               <input
                 type="password"
                 required
                 value={oldPassword}
                 onChange={(e) => setOldPassword(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">New Password</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">New Password</label>
               <input
                 type="password"
                 required
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
               />
             </div>
 
@@ -668,22 +668,22 @@ export default function SettingsPage() {
       {activeTab === "workspace" && (
         <div className="space-y-6">
           {/* Workspace Info & Rename Card */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-600/20 border border-indigo-200 dark:border-indigo-500/30 text-indigo-600 dark:text-indigo-400">
                   <Building2 className="h-6 w-6" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-white">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
                       {currentOrg?.name || user?.organization_name || "TeamFlow Workspace"}
                     </h3>
-                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-950 text-emerald-400 border border-emerald-800/50">
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50">
                       Active Workspace
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Tenant ID #{currentOrg?.id || user?.organization_id || "1"} • Created on{" "}
                     {currentOrg?.created_at ? new Date(currentOrg.created_at).toLocaleDateString() : "Active"}
                   </p>
@@ -693,9 +693,9 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2">
                 <Link
                   href="/billing"
-                  className="rounded-xl border border-slate-700 bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition flex items-center gap-1.5"
+                  className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white transition flex items-center gap-1.5"
                 >
-                  <CreditCard className="h-3.5 w-3.5 text-indigo-400" />
+                  <CreditCard className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
                   <span>Manage Subscription</span>
                 </Link>
               </div>
@@ -703,14 +703,14 @@ export default function SettingsPage() {
 
             <form onSubmit={handleUpdateWorkspaceName} className="mt-5 space-y-4 max-w-md">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Company / Workspace Name</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Company / Workspace Name</label>
                 <div className="flex items-center gap-2">
                   <input
                     disabled={!canManageWorkspace || updateOrgMutation.isPending}
                     value={workspaceName}
                     onChange={(e) => setWorkspaceName(e.target.value)}
                     placeholder="Enter workspace name"
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none disabled:opacity-60"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none disabled:opacity-60"
                   />
                   {canManageWorkspace && (
                     <button
@@ -739,35 +739,35 @@ export default function SettingsPage() {
           </div>
 
           {/* Live Quotas & Resource Usage Grid */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Layers className="h-4 w-4 text-indigo-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                   <span>Tenant Resources & Quotas</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Live resource consumption for <span className="text-white font-medium">{currentOrg?.name || user?.organization_name}</span>.
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Live resource consumption for <span className="text-slate-900 dark:text-white font-medium">{currentOrg?.name || user?.organization_name}</span>.
                 </p>
               </div>
-              <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-md bg-indigo-950/80 text-indigo-300 border border-indigo-700/50">
+              <span className="text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700/50">
                 {currentOrg?.subscription_tier || user?.organization_tier || "growth"} Plan
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Seats Metric */}
-              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span className="flex items-center gap-1.5 font-bold">
-                    <Users className="h-3.5 w-3.5 text-indigo-400" />
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+                  <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-300">
+                    <Users className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
                     <span>Team Seats</span>
                   </span>
-                  <span className="font-mono text-slate-300">
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
                     {currentOrg?.metrics?.members_count ?? 1} / {currentOrg?.limits?.max_seats ?? 10}
                   </span>
                 </div>
-                <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                   <div
                     className="bg-indigo-500 h-full rounded-full transition-all duration-500"
                     style={{
@@ -785,17 +785,17 @@ export default function SettingsPage() {
               </div>
 
               {/* Projects Metric */}
-              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span className="flex items-center gap-1.5 font-bold">
-                    <FolderGit2 className="h-3.5 w-3.5 text-emerald-400" />
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+                  <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-300">
+                    <FolderGit2 className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                     <span>Projects</span>
                   </span>
-                  <span className="font-mono text-slate-300">
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
                     {currentOrg?.metrics?.projects_count ?? 0} / {currentOrg?.limits?.max_projects ?? 20}
                   </span>
                 </div>
-                <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
                   <div
                     className="bg-emerald-500 h-full rounded-full transition-all duration-500"
                     style={{
@@ -813,13 +813,13 @@ export default function SettingsPage() {
               </div>
 
               {/* Tasks Metric */}
-              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span className="flex items-center gap-1.5 font-bold">
-                    <CheckSquare className="h-3.5 w-3.5 text-amber-400" />
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+                  <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-300">
+                    <CheckSquare className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
                     <span>Tasks in Flight</span>
                   </span>
-                  <span className="font-mono text-slate-300">
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
                     {currentOrg?.metrics?.open_tasks_count ?? 0} open
                   </span>
                 </div>
@@ -829,13 +829,13 @@ export default function SettingsPage() {
               </div>
 
               {/* Deployments & SEO */}
-              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-2">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span className="flex items-center gap-1.5 font-bold">
-                    <Rocket className="h-3.5 w-3.5 text-cyan-400" />
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 space-y-2">
+                <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+                  <span className="flex items-center gap-1.5 font-bold text-slate-800 dark:text-slate-300">
+                    <Rocket className="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400" />
                     <span>Deployments</span>
                   </span>
-                  <span className="font-mono text-slate-300">
+                  <span className="font-mono text-slate-700 dark:text-slate-300">
                     {currentOrg?.metrics?.deployments_count ?? 0}
                   </span>
                 </div>
@@ -846,11 +846,11 @@ export default function SettingsPage() {
             </div>
 
             {/* Plan Feature Badges */}
-            <div className="pt-2 border-t border-slate-800 flex flex-wrap gap-2 text-xs">
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-2 text-xs">
               <span className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
                 currentOrg?.limits?.ai_agent_swarm
-                  ? "bg-indigo-950/40 border-indigo-800/60 text-indigo-300"
-                  : "bg-slate-950 border-slate-800 text-slate-500"
+                  ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300"
+                  : "bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500"
               }`}>
                 <Sparkles className="h-3 w-3" />
                 <span>AI Agent Swarm: {currentOrg?.limits?.ai_agent_swarm ? "Enabled" : "Upgrade Required"}</span>
@@ -858,8 +858,8 @@ export default function SettingsPage() {
 
               <span className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
                 currentOrg?.limits?.dedicated_clerk_sso
-                  ? "bg-purple-950/40 border-purple-800/60 text-purple-300"
-                  : "bg-slate-950 border-slate-800 text-slate-500"
+                  ? "bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800/60 text-purple-700 dark:text-purple-300"
+                  : "bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500"
               }`}>
                 <Shield className="h-3 w-3" />
                 <span>SSO Identity Sync: {currentOrg?.limits?.dedicated_clerk_sso ? "Active" : "Disabled"}</span>
@@ -867,8 +867,8 @@ export default function SettingsPage() {
 
               <span className={`px-2.5 py-1 rounded-lg border flex items-center gap-1.5 ${
                 currentOrg?.limits?.unlimited_traces
-                  ? "bg-emerald-950/40 border-emerald-800/60 text-emerald-300"
-                  : "bg-slate-950 border-slate-800 text-slate-500"
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300"
+                  : "bg-slate-100 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-500"
               }`}>
                 <CheckCircle2 className="h-3 w-3" />
                 <span>Langfuse Tracing: {currentOrg?.limits?.unlimited_traces ? "Unlimited" : "Standard"}</span>
@@ -877,14 +877,15 @@ export default function SettingsPage() {
           </div>
 
           {/* Multi-Tenant Switcher (All Workspaces) */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          {/* Multi-Tenant Switcher (All Workspaces) */}
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <ArrowRightLeft className="h-4 w-4 text-indigo-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <ArrowRightLeft className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                   <span>Workspaces & Tenant Switching</span>
                 </h3>
-                <p className="text-xs text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   Switch context between different client or team workspaces without logging out.
                 </p>
               </div>
@@ -901,28 +902,28 @@ export default function SettingsPage() {
 
             {/* Create Workspace Form (Toggleable) */}
             {showCreateOrg && (
-              <form onSubmit={handleCreateOrg} className="p-4 rounded-xl border border-indigo-800/50 bg-indigo-950/20 space-y-4 animate-in fade-in duration-200">
-                <h4 className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
+              <form onSubmit={handleCreateOrg} className="p-4 rounded-xl border border-indigo-200 dark:border-indigo-800/50 bg-indigo-50/50 dark:bg-indigo-950/20 space-y-4 animate-in fade-in duration-200">
+                <h4 className="text-xs font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
                   <Plus className="h-3.5 w-3.5" />
                   <span>Create a New Multi-Tenant Workspace</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Workspace Name</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Workspace Name</label>
                     <input
                       required
                       value={newOrgName}
                       onChange={(e) => setNewOrgName(e.target.value)}
                       placeholder="e.g. Acme Studio, Beta Launch, etc."
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Subscription Tier</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Subscription Tier</label>
                     <select
                       value={newOrgTier}
                       onChange={(e) => setNewOrgTier(e.target.value)}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
                     >
                       <option value="growth">Growth Tier</option>
                       <option value="starter">Starter Tier</option>
@@ -934,7 +935,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowCreateOrg(false)}
-                    className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-slate-400 hover:text-white transition cursor-pointer"
+                    className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-1.5 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-slate-900 transition cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -951,10 +952,10 @@ export default function SettingsPage() {
             )}
 
             {/* Organizations List */}
-            <div className="divide-y divide-slate-800/80 rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
+            <div className="divide-y divide-slate-200 dark:divide-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 overflow-hidden">
               {orgsLoading ? (
                 <div className="p-6 text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                  <Loader2 className="h-4 w-4 animate-spin text-indigo-500 dark:text-indigo-400" />
                   <span>Loading available workspaces…</span>
                 </div>
               ) : orgsList.length === 0 ? (
@@ -967,20 +968,20 @@ export default function SettingsPage() {
                   return (
                     <div
                       key={org.id}
-                      className="p-3.5 flex items-center justify-between hover:bg-slate-900/50 transition gap-4"
+                      className="p-3.5 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-900/50 transition gap-4"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className={`flex h-9 w-9 items-center justify-center rounded-lg border text-xs font-black shrink-0 ${
                           isCurrent
-                            ? "bg-indigo-600/20 border-indigo-500/40 text-indigo-400"
-                            : "bg-slate-900 border-slate-800 text-slate-400"
+                            ? "bg-indigo-50 dark:bg-indigo-600/20 border-indigo-200 dark:border-indigo-500/40 text-indigo-600 dark:text-indigo-400"
+                            : "bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
                         }`}>
                           {org.name.slice(0, 2).toUpperCase()}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-white truncate">{org.name}</span>
-                            <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700/60">
+                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{org.name}</span>
+                            <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-400 border border-slate-200 dark:border-slate-700/60">
                               {org.subscription_tier}
                             </span>
                           </div>
@@ -990,7 +991,7 @@ export default function SettingsPage() {
 
                       <div>
                         {isCurrent ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-3 py-1 rounded-xl">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/40 px-3 py-1 rounded-xl">
                             <CheckCircle2 className="h-3 w-3" />
                             <span>Current</span>
                           </span>
@@ -999,9 +1000,9 @@ export default function SettingsPage() {
                             type="button"
                             onClick={() => handleSwitchOrg(org.id)}
                             disabled={switchOrgMutation.isPending}
-                            className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
                           >
-                            <ArrowRightLeft className="h-3.5 w-3.5 text-indigo-400" />
+                            <ArrowRightLeft className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
                             <span>Switch</span>
                           </button>
                         )}
@@ -1015,22 +1016,22 @@ export default function SettingsPage() {
 
           {/* Invite Team Member Form */}
           {canManageWorkspace && (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <UserPlus className="h-4 w-4 text-indigo-400" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <UserPlus className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
                     <span>Invite Team Member</span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Add human or AI teammates to <span className="text-white font-medium">{currentOrg?.name || user?.organization_name}</span>.
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Add human or AI teammates to <span className="text-slate-900 dark:text-white font-medium">{currentOrg?.name || user?.organization_name}</span>.
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setShowInviteForm(!showInviteForm)}
-                  className="rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition cursor-pointer flex items-center gap-1.5"
+                  className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white transition cursor-pointer flex items-center gap-1.5"
                 >
                   <UserPlus className="h-3.5 w-3.5" />
                   <span>{showInviteForm ? "Close Form" : "Invite"}</span>
@@ -1041,33 +1042,33 @@ export default function SettingsPage() {
                 <form onSubmit={handleInviteMember} className="space-y-4 pt-1 animate-in fade-in duration-200 max-w-xl">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Email Address</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
                       <input
                         required
                         type="email"
                         value={inviteEmail}
                         onChange={(e) => setInviteEmail(e.target.value)}
                         placeholder="colleague@company.example"
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-300 mb-1">Full Name</label>
+                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
                       <input
                         value={inviteName}
                         onChange={(e) => setInviteName(e.target.value)}
                         placeholder="e.g. Alex Morgan"
-                        className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                        className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-300 mb-1">Role / Seat Assignment</label>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Role / Seat Assignment</label>
                     <select
                       value={inviteRole}
                       onChange={(e) => setInviteRole(e.target.value)}
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
+                      className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
                     >
                       <option value="lead">Tech Lead</option>
                       <option value="backend">Senior Backend Engineer</option>
@@ -1106,40 +1107,40 @@ export default function SettingsPage() {
       {activeTab === "integrations" && (
         <div className="space-y-6 max-w-3xl">
           {/* GitHub Workspace & DevOps Agent Integration */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
               <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-xl bg-orange-950/60 border border-orange-800/40 text-orange-400">
+                <div className="p-2.5 rounded-xl bg-orange-50 dark:bg-orange-950/60 border border-orange-200 dark:border-orange-800/40 text-orange-600 dark:text-orange-400">
                   <FolderGit2 className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span>GitHub & Autonomous DevOps Integration</span>
-                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-orange-950/80 text-orange-300 border border-orange-700/50">
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-orange-50 dark:bg-orange-950/80 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700/50">
                       DevOps Specialist (Joan)
                     </span>
                   </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     Empowers Joan of Arc (DevOps Agent) to autonomously provision GitHub repositories, bootstrap CI/CD pipelines, and push branches.
                   </p>
                 </div>
               </div>
 
               {githubAccount ? (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/60 border border-emerald-800/50 text-emerald-300 text-xs font-bold shrink-0">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold shrink-0">
                   {githubAccount.avatar_url && (
                     <img src={githubAccount.avatar_url} alt={githubAccount.login} className="h-5 w-5 rounded-full" />
                   )}
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                   <span>@{githubAccount.login}</span>
                 </div>
               ) : githubTokenConfigured ? (
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-800/50 text-indigo-300 text-xs font-bold shrink-0">
-                  <Key className="h-3.5 w-3.5 text-indigo-400" />
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/50 text-indigo-700 dark:text-indigo-300 text-xs font-bold shrink-0">
+                  <Key className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
                   <span>{githubTokenPreview || "Token Active"}</span>
                 </div>
               ) : (
-                <span className="text-[11px] font-bold text-slate-400 bg-slate-800 px-2.5 py-0.5 rounded-full shrink-0">
+                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2.5 py-0.5 rounded-full shrink-0">
                   Not Connected
                 </span>
               )}
@@ -1147,16 +1148,16 @@ export default function SettingsPage() {
 
             {/* Live Verified Account Pill */}
             {githubAccount && (
-              <div className="p-4 rounded-xl border border-slate-800 bg-slate-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-3">
                   {githubAccount.avatar_url && (
-                    <img src={githubAccount.avatar_url} alt="" className="h-10 w-10 rounded-xl border border-slate-700" />
+                    <img src={githubAccount.avatar_url} alt="" className="h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-700" />
                   )}
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-sm">{githubAccount.name}</span>
-                      <span className="font-mono text-slate-400">@{githubAccount.login}</span>
-                      <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.2 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                      <span className="font-bold text-slate-900 dark:text-white text-sm">{githubAccount.name}</span>
+                      <span className="font-mono text-slate-500 dark:text-slate-400">@{githubAccount.login}</span>
+                      <span className="text-[10px] uppercase font-extrabold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                         {githubAccount.type}
                       </span>
                     </div>
@@ -1170,7 +1171,7 @@ export default function SettingsPage() {
                   href={githubAccount.html_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-slate-300 hover:text-white flex items-center gap-1 shrink-0 self-start sm:self-auto"
+                  className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-950 dark:hover:text-white flex items-center gap-1 shrink-0 self-start sm:self-auto transition"
                 >
                   <span>View GitHub Profile</span>
                   <ExternalLink className="h-3 w-3 text-slate-400" />
@@ -1180,7 +1181,7 @@ export default function SettingsPage() {
 
             <form onSubmit={handleSaveGithub} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   GitHub Personal Access Token (PAT)
                 </label>
                 <input
@@ -1192,16 +1193,16 @@ export default function SettingsPage() {
                       ? `Token configured (${githubTokenPreview}) — enter new token to rotate`
                       : "ghp_... or gho_... (requires repo, workflow scopes)"
                   }
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Configure a token with <code className="text-slate-400">repo</code> and <code className="text-slate-400">workflow</code> scopes so Joan of Arc (DevOps Agent) can create repositories and push CI/CD configurations.
+                  Configure a token with <code className="text-slate-700 dark:text-slate-400">repo</code> and <code className="text-slate-700 dark:text-slate-400">workflow</code> scopes so Joan of Arc (DevOps Agent) can create repositories and push CI/CD configurations.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Default GitHub Account or Organization
                   </label>
                   <input
@@ -1209,7 +1210,7 @@ export default function SettingsPage() {
                     value={githubOrg}
                     onChange={(e) => setGithubOrg(e.target.value)}
                     placeholder="Organization or user"
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                   />
                   <p className="text-[11px] text-slate-500 mt-0.5">
                     Target account/organization where repositories will be created.
@@ -1217,13 +1218,13 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                     Default Repository Visibility
                   </label>
                   <select
                     value={githubVisibility}
                     onChange={(e) => setGithubVisibility(e.target.value as "public" | "private")}
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
+                    className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
                   >
                     <option value="public">Public (Open Source)</option>
                     <option value="private">Private (Restricted Access)</option>
@@ -1234,13 +1235,13 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <div className="border-t border-slate-800 pt-3 flex flex-wrap gap-4 text-xs text-slate-300">
+              <div className="border-t border-slate-200 dark:border-slate-800 pt-3 flex flex-wrap gap-4 text-xs text-slate-700 dark:text-slate-300">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={githubAutoInit}
                     onChange={(e) => setGithubAutoInit(e.target.checked)}
-                    className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                    className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span>Auto-initialize README.md & .gitignore</span>
                 </label>
@@ -1250,23 +1251,23 @@ export default function SettingsPage() {
                     type="checkbox"
                     checked={githubIncludeCi}
                     onChange={(e) => setGithubIncludeCi(e.target.checked)}
-                    className="rounded border-slate-700 text-orange-600 focus:ring-orange-500"
+                    className="rounded border-slate-300 dark:border-slate-700 text-orange-600 focus:ring-orange-500"
                   />
-                  <span>Inject DevOps GitHub Actions CI workflow (<code className="text-orange-300">ci.yml</code>)</span>
+                  <span>Inject DevOps GitHub Actions CI workflow (<code className="text-orange-600 dark:text-orange-300">ci.yml</code>)</span>
                 </label>
               </div>
 
-              <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+              <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={handleTestGithub}
                   disabled={testingGithub || (!githubToken.trim() && !githubTokenConfigured)}
-                  className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                  className="rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
                 >
                   {testingGithub ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-400" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-500 dark:text-orange-400" />
                   ) : (
-                    <Rocket className="h-3.5 w-3.5 text-orange-400" />
+                    <Rocket className="h-3.5 w-3.5 text-orange-500 dark:text-orange-400" />
                   )}
                   <span>{testingGithub ? "Verifying…" : "Test GitHub Connection"}</span>
                 </button>
@@ -1288,27 +1289,27 @@ export default function SettingsPage() {
           </div>
 
           {/* Slack Workspace Integration Card */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-purple-950/60 border border-purple-800/40 text-purple-400">
+              <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/40 text-purple-600 dark:text-purple-400">
                 <Send className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Slack Workspace Integration</h3>
-                <p className="text-xs text-slate-400">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Slack Workspace Integration</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Receive live alerts in Slack channels for ticket assignments, deployments, QA gates, and SEO drops.
                 </p>
               </div>
             </div>
-            <span className="text-[11px] font-bold text-indigo-400 bg-indigo-950/60 border border-indigo-800/40 px-2.5 py-0.5 rounded-full">
+            <span className="text-[11px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/40 px-2.5 py-0.5 rounded-full">
               Incoming Webhooks & Events API
             </span>
           </div>
 
           <form onSubmit={handleSaveSlack} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Slack Incoming Webhook URL
               </label>
               <input
@@ -1316,7 +1317,7 @@ export default function SettingsPage() {
                 value={slackWebhook}
                 onChange={(e) => setSlackWebhook(e.target.value)}
                 placeholder={slackWebhookConfigured ? "Webhook configured — enter a new URL to replace it" : "https://hooks.slack.com/services/T000/B000/XXXXXX"}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-white placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none"
               />
               <p className="text-[11px] text-slate-500 mt-1">
                 {slackWebhookConfigured
@@ -1327,7 +1328,7 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Default Channel
                 </label>
                 <input
@@ -1335,11 +1336,11 @@ export default function SettingsPage() {
                   value={slackDefaultChannel}
                   onChange={(e) => setSlackDefaultChannel(e.target.value)}
                   placeholder="#general"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   DevOps / Deployments Channel
                 </label>
                 <input
@@ -1347,11 +1348,11 @@ export default function SettingsPage() {
                   value={slackDevopsChannel}
                   onChange={(e) => setSlackDevopsChannel(e.target.value)}
                   placeholder="#devops"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   QA Alerts Channel
                 </label>
                 <input
@@ -1359,11 +1360,11 @@ export default function SettingsPage() {
                   value={slackQaChannel}
                   onChange={(e) => setSlackQaChannel(e.target.value)}
                   placeholder="#qa"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   SEO & Performance Channel
                 </label>
                 <input
@@ -1371,61 +1372,61 @@ export default function SettingsPage() {
                   value={slackSeoChannel}
                   onChange={(e) => setSlackSeoChannel(e.target.value)}
                   placeholder="#seo"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
             </div>
 
-            <div className="border-t border-slate-800 pt-4 space-y-2.5">
-              <label className="block text-xs font-bold text-slate-300 mb-2">Notification Triggers</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
-                <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800">
+            <div className="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-2.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">Notification Triggers</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-700 dark:text-slate-300">
+                <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                   <input
                     type="checkbox"
                     checked={notifyTicket}
                     onChange={(e) => setNotifyTicket(e.target.checked)}
-                    className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                    className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span>Ticket Assigned</span>
                 </label>
-                <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800">
+                <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                   <input
                     type="checkbox"
                     checked={notifyDeploy}
                     onChange={(e) => setNotifyDeploy(e.target.checked)}
-                    className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                    className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span>Deployments & Releases</span>
                 </label>
-                <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800">
+                <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                   <input
                     type="checkbox"
                     checked={notifyQa}
                     onChange={(e) => setNotifyQa(e.target.checked)}
-                    className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                    className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span>QA Decision Gate Rejections</span>
                 </label>
-                <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-950 border border-slate-800">
+                <label className="flex items-center gap-2 p-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
                   <input
                     type="checkbox"
                     checked={notifySeo}
                     onChange={(e) => setNotifySeo(e.target.checked)}
-                    className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                    className="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span>SEO Score Anomalies</span>
                 </label>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-slate-800">
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
               <button
                 type="button"
                 onClick={handleTestSlack}
                 disabled={testingSlack || (!slackWebhook.trim() && !slackWebhookConfigured)}
-                className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-200 hover:bg-slate-700 hover:text-white disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
+                className="rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white disabled:opacity-50 transition cursor-pointer flex items-center gap-1.5"
               >
-                <Send className="h-3.5 w-3.5 text-indigo-400" />
+                <Send className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
                 <span>{testingSlack ? "Sending…" : "Send Test Notification"}</span>
               </button>
 
@@ -1445,12 +1446,12 @@ export default function SettingsPage() {
 
       {/* Export Tab */}
       {activeTab === "export" && (
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4 max-w-md">
-          <h3 className="text-sm font-bold text-white flex items-center gap-2">
-            <Download className="h-4 w-4 text-indigo-400" />
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm space-y-4 max-w-md">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Download className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
             <span>Export Workspace Data</span>
           </h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
+          <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
             Download your full project records, ticket logs, comments, and audit histories in standard portable formats.
           </p>
 
@@ -1464,7 +1465,7 @@ export default function SettingsPage() {
             </button>
             <button
               onClick={() => handleExportData("csv")}
-              className="rounded-xl bg-slate-800 border border-slate-700 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition cursor-pointer flex items-center gap-1.5"
+              className="rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white transition cursor-pointer flex items-center gap-1.5"
             >
               <Download className="h-3.5 w-3.5" />
               <span>Export as CSV</span>

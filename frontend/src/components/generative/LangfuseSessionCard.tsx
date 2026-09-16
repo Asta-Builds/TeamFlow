@@ -43,24 +43,24 @@ export function LangfuseSessionCard({ data }: { data: LangfuseSessionData }) {
       : "");
 
   return (
-    <div className="rounded-2xl border border-violet-900/40 bg-slate-900/90 shadow-xl overflow-hidden">
+    <div className="rounded-2xl border border-violet-200 dark:border-violet-900/40 bg-white dark:bg-slate-900/90 shadow-xl overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-3.5 bg-gradient-to-r from-slate-900 via-violet-950/40 to-slate-900 border-b border-slate-800">
+      <div className="flex items-center justify-between p-3.5 bg-violet-50/50 dark:bg-gradient-to-r dark:from-slate-900 dark:via-violet-950/40 dark:to-slate-900 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-xl bg-violet-950 border border-violet-700/60 flex items-center justify-center text-violet-400 shadow-xs">
+          <div className="h-8 w-8 rounded-xl bg-violet-500/10 border border-violet-500/30 text-violet-600 dark:bg-violet-950 dark:border-violet-700/60 dark:text-violet-400 flex items-center justify-center shadow-xs">
             <Zap className="h-4 w-4" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase tracking-wider text-white">
+              <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
                 Langfuse LLM Telemetry
               </span>
-              <span className="text-[10px] font-mono bg-violet-950/80 text-violet-300 border border-violet-800 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] font-mono bg-violet-100 dark:bg-violet-950/80 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-800 px-1.5 py-0.5 rounded">
                 Traced
               </span>
             </div>
-            <div className="text-[11px] font-mono text-slate-400 truncate max-w-xs mt-0.5">
-              session: <span className="text-violet-300 font-semibold">{data.session_id}</span>
+            <div className="text-[11px] font-mono text-slate-500 dark:text-slate-400 truncate max-w-xs mt-0.5">
+              session: <span className="text-violet-700 dark:text-violet-300 font-semibold">{data.session_id}</span>
             </div>
           </div>
         </div>
@@ -70,56 +70,56 @@ export function LangfuseSessionCard({ data }: { data: LangfuseSessionData }) {
             href={hostUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-800/50 bg-violet-950/60 hover:bg-violet-900/60 text-violet-200 text-xs font-bold transition shadow-xs"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-violet-200 dark:border-violet-800/50 bg-violet-50 dark:bg-violet-950/60 hover:bg-violet-100 dark:hover:bg-violet-900/60 text-violet-700 dark:text-violet-200 text-xs font-bold transition shadow-xs"
           >
             <span>Open in Langfuse</span>
-            <ExternalLink className="h-3 w-3 text-violet-400" />
+            <ExternalLink className="h-3 w-3 text-violet-600 dark:text-violet-400" />
           </a>
         ) : (
-          <span className="inline-flex items-center px-3 py-1.5 rounded-xl border border-slate-700 bg-slate-800/70 text-slate-400 text-xs font-bold">
+          <span className="inline-flex items-center px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 text-slate-500 dark:text-slate-400 text-xs font-bold">
             Langfuse unavailable
           </span>
         )}
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-950/70 border-b border-slate-800/80 text-xs">
-        <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-400 uppercase">
-            <Cpu className="h-3 w-3 text-indigo-400" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-50/70 dark:bg-slate-950/70 border-b border-slate-100 dark:border-slate-800/80 text-xs">
+        <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
+            <Cpu className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
             <span>Tokens</span>
           </div>
-          <div className="text-sm font-bold text-white font-mono mt-1">
+          <div className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">
             {(data.total_tokens || 1420).toLocaleString()}
           </div>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-400 uppercase">
-            <Coins className="h-3 w-3 text-emerald-400" />
+        <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
+            <Coins className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
             <span>Cost</span>
           </div>
-          <div className="text-sm font-bold text-emerald-400 font-mono mt-1">
+          <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-1">
             {formattedCost}
           </div>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-400 uppercase">
-            <Clock className="h-3 w-3 text-amber-400" />
+        <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
+            <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
             <span>Latency</span>
           </div>
-          <div className="text-sm font-bold text-white font-mono mt-1">
+          <div className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">
             {data.duration_seconds ? `${data.duration_seconds.toFixed(2)}s` : "1.42s"}
           </div>
         </div>
 
-        <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800">
-          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-400 uppercase">
-            <Activity className="h-3 w-3 text-sky-400" />
+        <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
+            <Activity className="h-3 w-3 text-sky-600 dark:text-sky-400" />
             <span>Model</span>
           </div>
-          <div className="text-xs font-bold text-slate-200 font-mono mt-1 truncate">
+          <div className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono mt-1 truncate">
             {data.model || "claude-3-7-sonnet"}
           </div>
         </div>

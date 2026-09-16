@@ -74,10 +74,10 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       {/* Top Greeting Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6 transition-colors">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               Welcome, {user?.name?.split(" ")[0] || "Team Member"}
             </h1>
             <span
@@ -86,14 +86,14 @@ export default function DashboardPage() {
               {ROLE_LABELS[user?.role || "member"]} View
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Real-time virtual workspace operations for <strong className="text-slate-200">{user?.organization_name || "Workspace"}</strong>.
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+            Real-time virtual workspace operations for <strong className="text-slate-800 dark:text-slate-200">{user?.organization_name || "Workspace"}</strong>.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-950/60 border border-indigo-700/50 text-[11px] font-bold text-indigo-300">
-            <Bot className="h-3.5 w-3.5 text-indigo-400" />
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-700/50 text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
+            <Bot className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
             <span>Google Antigravity SDK Active</span>
           </div>
           {LANGFUSE_URL ? (
@@ -101,9 +101,9 @@ export default function DashboardPage() {
               href={LANGFUSE_URL}
               target="_blank"
               rel="noreferrer"
-              className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 hover:text-white hover:border-slate-600 transition"
+              className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:border-slate-300 dark:hover:border-slate-600 transition"
             >
-              <Activity className="h-3.5 w-3.5 text-purple-400" />
+              <Activity className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
               <span>Langfuse Observability</span>
             </a>
           ) : null}
@@ -119,26 +119,26 @@ export default function DashboardPage() {
 
       {/* Role-Specific Action Center Banner */}
       {user?.role === "ceo" && (
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-slate-900 border border-purple-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50/50 to-white dark:from-purple-950/40 dark:via-indigo-950/30 dark:to-slate-900 border border-purple-200 dark:border-purple-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-purple-900/40 border border-purple-700/50 text-purple-300">
+            <div className="p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-700/50 text-purple-700 dark:text-purple-300">
               <Crown className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-purple-200">Executive Overview — CEO Portal</h3>
-              <p className="text-xs text-slate-300 mt-1">
+              <h3 className="text-sm font-bold text-purple-900 dark:text-purple-200">Executive Overview — CEO Portal</h3>
+              <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
                 All {projects.length} workspace projects active. Overall completion rate is{" "}
-                <strong className="text-white">
+                <strong className="text-slate-900 dark:text-white">
                   {tasks.length > 0 ? Math.round((tasks.filter((t) => t.status === "done").length / tasks.length) * 100) : 0}%
                 </strong>. Zero critical blocker escalations pending.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-purple-950 text-purple-300 border-purple-800/60 font-semibold">
+            <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold">
               SEO Health: {avgSeoScore}/100
             </Badge>
-            <Badge className="bg-emerald-950 text-emerald-300 border-emerald-800/60 font-semibold">
+            <Badge className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 font-semibold">
               Deployments: Healthy
             </Badge>
           </div>
@@ -146,16 +146,16 @@ export default function DashboardPage() {
       )}
 
       {user?.role === "tech_lead" && (
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-950/50 via-slate-900 to-slate-900 border border-indigo-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-50 via-slate-50 to-white dark:from-indigo-950/50 dark:via-slate-900 dark:to-slate-900 border border-indigo-200 dark:border-indigo-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-900/40 border border-indigo-700/50 text-indigo-300">
+            <div className="p-2.5 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-700/50 text-indigo-700 dark:text-indigo-300">
               <Code2 className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-indigo-200">Tech Lead Action Center</h3>
-              <p className="text-xs text-slate-300 mt-1">
-                <strong className="text-white">{inReviewTickets.length} tickets</strong> waiting for Code Review.{" "}
-                <strong className="text-white">{qaTickets.length} tickets</strong> ready for QA sign-off before release.
+              <h3 className="text-sm font-bold text-indigo-900 dark:text-indigo-200">Tech Lead Action Center</h3>
+              <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                <strong className="text-slate-900 dark:text-white">{inReviewTickets.length} tickets</strong> waiting for Code Review.{" "}
+                <strong className="text-slate-900 dark:text-white">{qaTickets.length} tickets</strong> ready for QA sign-off before release.
               </p>
             </div>
           </div>
@@ -170,15 +170,15 @@ export default function DashboardPage() {
       )}
 
       {user?.role === "qa" && (
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-slate-900 to-slate-900 border border-emerald-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-50 via-slate-50 to-white dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900 border border-emerald-200 dark:border-emerald-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-900/40 border border-emerald-700/50 text-emerald-300">
+            <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-300">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-emerald-200">QA Validation Queue</h3>
-              <p className="text-xs text-slate-300 mt-1">
-                There are <strong className="text-white">{qaTickets.length} tickets</strong> in the QA column waiting for verification & testing.
+              <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">QA Validation Queue</h3>
+              <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                There are <strong className="text-slate-900 dark:text-white">{qaTickets.length} tickets</strong> in the QA column waiting for verification & testing.
               </p>
             </div>
           </div>
@@ -193,15 +193,15 @@ export default function DashboardPage() {
       )}
 
       {user?.role === "devops" && (
-        <div className="p-5 rounded-2xl bg-gradient-to-r from-orange-950/40 via-slate-900 to-slate-900 border border-orange-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="p-5 rounded-2xl bg-gradient-to-r from-orange-50 via-slate-50 to-white dark:from-orange-950/40 dark:via-slate-900 dark:to-slate-900 border border-orange-200 dark:border-orange-800/40 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors">
           <div className="flex items-start gap-3">
-            <div className="p-2.5 rounded-xl bg-orange-900/40 border border-orange-700/50 text-orange-300">
+            <div className="p-2.5 rounded-xl bg-orange-100 dark:bg-orange-900/40 border border-orange-200 dark:border-orange-700/50 text-orange-700 dark:text-orange-300">
               <Rocket className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-orange-200">DevOps Pipeline Monitor</h3>
-              <p className="text-xs text-slate-300 mt-1">
-                Latest release: <strong className="text-white">{latestDeploy ? `${latestDeploy.project_name} (${latestDeploy.environment}) - ${latestDeploy.status.toUpperCase()}` : "No releases yet"}</strong>.
+              <h3 className="text-sm font-bold text-orange-900 dark:text-orange-200">DevOps Pipeline Monitor</h3>
+              <p className="text-xs text-slate-700 dark:text-slate-300 mt-1">
+                Latest release: <strong className="text-slate-900 dark:text-white">{latestDeploy ? `${latestDeploy.project_name} (${latestDeploy.environment}) - ${latestDeploy.status.toUpperCase()}` : "No releases yet"}</strong>.
               </p>
             </div>
           </div>
@@ -217,27 +217,27 @@ export default function DashboardPage() {
 
       {/* Multi-Agent Orchestration & RAG Cluster Overview */}
       {agentCluster && (
-        <div className="rounded-2xl border border-indigo-900/60 bg-gradient-to-r from-indigo-950/70 via-slate-900 to-slate-900 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/60 bg-gradient-to-r from-indigo-50/80 via-white to-white dark:from-indigo-950/70 dark:via-slate-900 dark:to-slate-900 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <Bot className="h-4 w-4 text-indigo-400" />
-              <h3 className="text-sm font-black text-white">
+              <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <Bot className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <h3 className="text-sm font-black text-slate-900 dark:text-white">
                 LangGraph Multi-Agent Cluster Active
               </h3>
-              <span className="text-[10px] font-bold text-indigo-300 bg-indigo-950 border border-indigo-700/60 px-2 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="text-[10px] font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-700/60 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 {agentCluster.total_agent_seats} Specialist Seats
               </span>
             </div>
-            <p className="text-xs text-slate-400 font-medium">
-              Orchestrator: <strong className="text-slate-200">Tech Lead</strong> · RAG: <strong className="text-slate-200">{agentCluster.vector_store} ({agentCluster.rag_embeddings_count} chunks)</strong> · Traces: <strong className="text-slate-200">{agentCluster.observability}</strong>
+            <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
+              Orchestrator: <strong className="text-slate-800 dark:text-slate-200">Tech Lead</strong> · RAG: <strong className="text-slate-800 dark:text-slate-200">{agentCluster.vector_store} ({agentCluster.rag_embeddings_count} chunks)</strong> · Traces: <strong className="text-slate-800 dark:text-slate-200">{agentCluster.observability}</strong>
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
               <span className="text-[11px] text-slate-500 block font-medium">Autonomous Swarms</span>
-              <span className="text-sm font-extrabold text-white">
+              <span className="text-sm font-extrabold text-slate-900 dark:text-white">
                 {agentCluster.total_swarms_executed} Run{agentCluster.total_swarms_executed === 1 ? "" : "s"}
               </span>
             </div>
@@ -266,22 +266,22 @@ export default function DashboardPage() {
       {/* 2-Column Content Grid */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
         {/* Left Column: Tickets Assigned to Me */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4">
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm space-y-4 transition-colors">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <ListTodo className="h-4 w-4 text-indigo-400" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <ListTodo className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               <span>My Assigned Tickets</span>
             </h2>
-            <span className="text-xs font-bold text-indigo-400 bg-indigo-950 px-2.5 py-0.5 rounded-full border border-indigo-800/50">
+            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/50">
               {myTickets.length} Total
             </span>
           </div>
 
           {myTickets.length === 0 ? (
-            <div className="py-12 text-center border border-dashed border-slate-800 rounded-xl bg-slate-950/50 space-y-1">
-              <CheckCircle2 className="h-6 w-6 text-emerald-400 mx-auto mb-1" />
-              <p className="text-xs font-bold text-slate-300">All caught up!</p>
-              <p className="text-[11px] text-slate-500">No open tickets assigned to you right now.</p>
+            <div className="py-12 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-950/50 space-y-1">
+              <CheckCircle2 className="h-6 w-6 text-emerald-500 dark:text-emerald-400 mx-auto mb-1" />
+              <p className="text-xs font-bold text-slate-700 dark:text-slate-300">All caught up!</p>
+              <p className="text-[11px] text-slate-500 dark:text-slate-500">No open tickets assigned to you right now.</p>
             </div>
           ) : (
             <div className="space-y-2.5">
@@ -291,17 +291,17 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={t.id}
-                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-800/90 p-3.5 bg-slate-950/60 hover:bg-slate-950 hover:border-slate-700 transition"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 dark:border-slate-800/90 p-3.5 bg-slate-50/60 dark:bg-slate-950/60 hover:bg-slate-100/60 dark:hover:bg-slate-950 hover:border-slate-300 dark:hover:border-slate-700 transition"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         {typeInfo.icon}
-                        <span className="truncate text-xs font-bold text-white">{t.title}</span>
+                        <span className="truncate text-xs font-bold text-slate-900 dark:text-white">{t.title}</span>
                       </div>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-[10px] text-slate-500 font-medium">{t.project_name || "Project"}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-500 font-medium">{t.project_name || "Project"}</span>
                         {t.due_date && (
-                          <span className="text-[10px] text-amber-400 font-medium flex items-center gap-1">
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
                             <Calendar className="h-3 w-3 inline" /> Due {t.due_date}
                           </span>
                         )}
@@ -309,7 +309,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <Badge className={priorityInfo.style}>{priorityInfo.label}</Badge>
-                      <span className="text-[10px] font-bold text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-md">
+                      <span className="text-[10px] font-bold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md">
                         {TASK_STATUS_LABELS[t.status]}
                       </span>
                     </div>
@@ -321,13 +321,13 @@ export default function DashboardPage() {
         </section>
 
         {/* Right Column: Real-Time Audit Activity Feed */}
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-sm space-y-4">
+        <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-6 shadow-sm space-y-4 transition-colors">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-              <Activity className="h-4 w-4 text-emerald-400" />
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Activity className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
               <span>Real-Time Audit Trail</span>
             </h2>
-            <span className="text-xs font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800/40 px-2 py-0.5 rounded-md">
+            <span className="text-xs font-mono text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/40 px-2 py-0.5 rounded-md">
               Live Feed
             </span>
           </div>
@@ -339,17 +339,17 @@ export default function DashboardPage() {
               activityFeed.slice(0, 8).map((a) => (
                 <div
                   key={a.id}
-                  className="p-3 rounded-xl border border-slate-800/80 bg-slate-950/50 flex items-start gap-3 text-xs"
+                  className="p-3 rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50/60 dark:bg-slate-950/50 flex items-start gap-3 text-xs"
                 >
                   <Avatar name={a.actor_name || "System"} size={28} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-white truncate">{a.actor_name || "System"}</span>
+                      <span className="font-bold text-slate-900 dark:text-white truncate">{a.actor_name || "System"}</span>
                       <span className="text-[10px] text-slate-500 font-mono">
                         {new Date(a.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                    <div className="text-slate-400 text-[11px] mt-0.5">
+                    <div className="text-slate-600 dark:text-slate-400 text-[11px] mt-0.5">
                       {a.action === "created"
                         ? `Created ticket: ${a.task_title}`
                         : a.action === "status_changed"

@@ -60,7 +60,7 @@ export function GenerativeMessageRenderer({
   return (
     <div className="space-y-3">
       {/* Primary Text Content */}
-      <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap">
+      <div className="text-xs text-slate-800 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
         {content.replace(/```json:teamflow-[\s\S]*?```/g, "").trim()}
       </div>
 

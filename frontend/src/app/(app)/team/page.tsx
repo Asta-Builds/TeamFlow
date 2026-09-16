@@ -85,17 +85,17 @@ export default function TeamPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
               Workspace Team & AI Directory
             </h1>
-            <span className="text-xs font-bold text-indigo-400 bg-indigo-950 px-2.5 py-0.5 rounded-full border border-indigo-800/50">
+            <span className="text-xs font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2.5 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800/50">
               {members.filter((m) => m.role === "ceo").length} Workspace CEO · {aiAgentsCount} Autonomous AI Agent{aiAgentsCount !== 1 ? "s" : ""}
             </span>
           </div>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Multi-tenant workspace organization managed by the executive CEO with Athena (AI Project Manager).
           </p>
         </div>
@@ -120,10 +120,10 @@ export default function TeamPage() {
           return (
             <div
               key={m.id}
-              className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm transition hover:-translate-y-0.5 ${
+              className={`flex flex-col justify-between rounded-2xl border p-5 shadow-xs transition hover:-translate-y-0.5 ${
                 isHuman
-                  ? "border-purple-800/60 bg-gradient-to-b from-purple-950/30 to-slate-900"
-                  : "border-slate-800 bg-slate-900/90 hover:border-slate-700"
+                  ? "border-purple-200 dark:border-purple-800/60 bg-gradient-to-b from-purple-50 to-white dark:from-purple-950/30 dark:to-slate-900"
+                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 hover:border-slate-300 dark:hover:border-slate-700"
               }`}
             >
               <div>
@@ -132,47 +132,47 @@ export default function TeamPage() {
                     <Avatar name={m.name} email={m.email} size={42} showStatus={true} status={m.user_status} />
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="truncate font-bold text-white text-sm">{m.name || m.email}</span>
+                        <span className="truncate font-bold text-slate-900 dark:text-white text-sm">{m.name || m.email}</span>
                       </div>
-                      <div className="truncate text-xs text-slate-400 font-mono">{m.email}</div>
+                      <div className="truncate text-xs text-slate-500 dark:text-slate-400 font-mono">{m.email}</div>
                     </div>
                   </div>
                   <AgentTypeBadge role={m.role} isAi={!isHuman} />
                 </div>
 
                 <div className="mb-3 flex items-center gap-2">
-                  <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${ROLE_COLORS[m.role] || "bg-slate-800 text-slate-300"}`}>
+                  <span className={`inline-block text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${ROLE_COLORS[m.role] || "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"}`}>
                     {ROLE_LABELS[m.role] || m.role}
                   </span>
                   {!isHuman && (
-                    <span className="text-[10px] font-mono text-slate-500 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
+                    <span className="text-[10px] font-mono text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-950 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">
                       Autonomous AI PM
                     </span>
                   )}
                 </div>
 
                 {m.bio && (
-                  <p className="text-xs text-slate-400 line-clamp-2 mb-3 leading-relaxed">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mb-3 leading-relaxed">
                     {m.bio}
                   </p>
                 )}
               </div>
 
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 rounded-full ${statusInfo.dot}`} />
-                  <span className="text-[11px] font-semibold text-slate-300">{statusInfo.label}</span>
+                  <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">{statusInfo.label}</span>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-                    <Target className="h-3 w-3 text-indigo-400" />
-                    <span><strong className="text-white">{m.open_tasks_count ?? 0}</strong> open</span>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1">
+                    <Target className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+                    <span><strong className="text-slate-900 dark:text-white">{m.open_tasks_count ?? 0}</strong> open</span>
                   </span>
                   {canManage && (
                     <button
                       onClick={() => setEditingMember(m)}
-                      className="text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline font-bold ml-1 cursor-pointer flex items-center gap-1"
+                      className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline font-bold ml-1 cursor-pointer flex items-center gap-1"
                     >
                       <Edit2 className="h-2.5 w-2.5" />
                       <span>Edit</span>
@@ -187,64 +187,64 @@ export default function TeamPage() {
 
       {/* Invite Member Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <UserPlus className="h-4 w-4 text-indigo-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 dark:bg-slate-950/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Invite Workspace Member</span>
               </h2>
-              <button onClick={() => setShowInviteModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+              <button onClick={() => setShowInviteModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <form onSubmit={handleInvite} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Full Name *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Full Name *</label>
                 <input
                   required
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="e.g. Sarah Connor"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Email Address *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email Address *</label>
                 <input
                   required
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="member@company.com"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Workspace Role *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Workspace Role *</label>
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as Role)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
                 >
                   <option value="ceo">CEO (Executive Access)</option>
                   <option value="member">Workspace Member</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Bio / Title</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Bio / Title</label>
                 <input
                   value={newBio}
                   onChange={(e) => setNewBio(e.target.value)}
                   placeholder="e.g. Lead Product Designer"
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowInviteModal(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -262,27 +262,27 @@ export default function TeamPage() {
 
       {/* Edit Role & Status Modal */}
       {editingMember && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 dark:bg-slate-950/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-white">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
                 Edit Seat: {editingMember.name}
               </h3>
-              <button onClick={() => setEditingMember(null)} className="text-slate-400 hover:text-white cursor-pointer">
+              <button onClick={() => setEditingMember(null)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <p className="text-xs text-slate-400">{editingMember.email}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">{editingMember.email}</p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Assigned Role</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Assigned Role</label>
                 <select
                   value={editingMember.role}
                   onChange={(e) =>
                     setEditingMember({ ...editingMember, role: e.target.value as Role })
                   }
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2 text-xs text-white font-semibold focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2 text-xs text-slate-900 dark:text-white font-semibold focus:outline-none cursor-pointer"
                 >
                   <option value="ceo">CEO (Human Founder)</option>
                   <option value="tech_lead">AI Tech Lead</option>
@@ -298,7 +298,7 @@ export default function TeamPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Account Status</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Account Status</label>
                 <select
                   value={editingMember.user_status || "active"}
                   onChange={(e) =>
@@ -307,7 +307,7 @@ export default function TeamPage() {
                       user_status: e.target.value as UserStatus,
                     })
                   }
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2 text-xs text-white font-semibold focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-2 text-xs text-slate-900 dark:text-white font-semibold focus:outline-none cursor-pointer"
                 >
                   <option value="active">Active</option>
                   <option value="offline">Offline</option>
@@ -316,10 +316,10 @@ export default function TeamPage() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <button
                   onClick={() => setEditingMember(null)}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>

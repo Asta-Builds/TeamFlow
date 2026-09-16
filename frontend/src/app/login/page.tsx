@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { ApiError, register } from "@/lib/api";
 import { toast } from "sonner";
 import { Lock, Sparkles, ShieldCheck } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const CLERK_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
@@ -61,38 +62,38 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen w-full lg:grid lg:grid-cols-2 bg-slate-950 text-slate-100">
+    <div className="min-h-screen w-full lg:grid lg:grid-cols-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors">
       {/* Left hero pane */}
-      <div className="relative hidden h-full flex-col justify-between bg-slate-950 p-10 lg:flex border-r border-slate-800">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/40 via-slate-950 to-slate-950 pointer-events-none" />
+      <div className="relative hidden h-full flex-col justify-between bg-slate-100 dark:bg-slate-950 p-10 lg:flex border-r border-slate-200 dark:border-slate-800 transition-colors">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/60 via-slate-100 to-slate-100 dark:from-indigo-950/40 dark:via-slate-950 dark:to-slate-950 pointer-events-none" />
 
         {/* Brand Header */}
         <div className="relative z-20 flex items-center gap-2.5 text-lg font-bold tracking-tight">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-xs font-black text-white shadow-md shadow-indigo-600/30">
             TF
           </div>
-          <span className="text-white">TeamFlow Inc.</span>
+          <span className="text-slate-900 dark:text-white">TeamFlow Inc.</span>
         </div>
 
         {/* Testimonial Quote */}
         <div className="relative z-20 max-w-md space-y-4">
           <blockquote className="space-y-2">
-            <p className="text-sm text-slate-300 font-normal leading-relaxed">
+            <p className="text-sm text-slate-700 dark:text-slate-300 font-normal leading-relaxed">
               &ldquo;TeamFlow has completely transformed how our virtual tech teams ship production software, coordinate autonomous engineering roles, and manage sprint deliverables seamlessly.&rdquo;
             </p>
-            <footer className="text-xs text-slate-400 font-medium pt-2">
-              <span className="font-bold text-white block text-sm">Sarah Jenkins</span>
+            <footer className="text-xs text-slate-500 dark:text-slate-400 font-medium pt-2">
+              <span className="font-bold text-slate-900 dark:text-white block text-sm">Sarah Jenkins</span>
               VP of Engineering at CloudScale
             </footer>
           </blockquote>
 
-          <div className="flex items-center gap-4 pt-4 text-xs text-slate-400">
+          <div className="flex items-center gap-4 pt-4 text-xs text-slate-500 dark:text-slate-400">
             <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>All systems operational</span>
             </div>
             <span>•</span>
-            <div className="flex items-center gap-1.5 text-indigo-400">
+            <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
               <Sparkles className="h-3.5 w-3.5" />
               <span>Clerk Authentication Active</span>
             </div>
@@ -107,17 +108,20 @@ export default function LoginPage() {
       </div>
 
       {/* Right form pane */}
-      <div className="flex min-h-screen flex-col items-center justify-center p-6 lg:p-12 bg-slate-900">
+      <div className="relative flex min-h-screen flex-col items-center justify-center p-6 lg:p-12 bg-white dark:bg-slate-900 transition-colors">
+        <div className="absolute top-6 right-6 z-20">
+          <ThemeToggle />
+        </div>
         <div className="w-full max-w-[360px] space-y-6">
           {/* Header */}
           <div className="flex flex-col space-y-1.5 text-center">
             <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 text-sm font-black text-white shadow-md shadow-indigo-600/30 lg:hidden">
               TF
             </div>
-            <h1 className="text-2xl font-black tracking-tight text-white">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
               {mode === "login" ? "Welcome back" : "Create an account"}
             </h1>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {mode === "login"
                 ? "Enter your email or use Clerk to continue"
                 : "Enter your workspace details to get started"}
@@ -129,15 +133,15 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={loginWithClerk}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-indigo-500/40 bg-gradient-to-r from-indigo-950/80 to-purple-950/80 px-4 text-xs font-bold text-white shadow-xs hover:border-indigo-400 hover:from-indigo-900 hover:to-purple-900 transition cursor-pointer"
+              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 dark:border-indigo-500/40 bg-indigo-50 dark:bg-gradient-to-r dark:from-indigo-950/80 dark:to-purple-950/80 px-4 text-xs font-bold text-indigo-900 dark:text-white shadow-xs hover:border-indigo-300 dark:hover:border-indigo-400 hover:bg-indigo-100 dark:hover:from-indigo-900 dark:hover:to-purple-900 transition cursor-pointer"
             >
-              <ShieldCheck className="h-4 w-4 text-indigo-400" />
+              <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               <span>{mode === "register" ? "Sign up with Clerk" : "Continue with Clerk"}</span>
             </button>
 
             <div className="relative flex items-center justify-center">
-              <div className="w-full border-t border-slate-800"></div>
-              <span className="bg-slate-900 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
+              <span className="bg-white dark:bg-slate-900 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Or continue with email
               </span>
             </div>
@@ -148,7 +152,7 @@ export default function LoginPage() {
             {mode === "register" && (
               <>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-300">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Full Name
                   </label>
                   <input
@@ -157,12 +161,12 @@ export default function LoginPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Sarah Jenkins"
-                    className="flex h-9 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1 text-xs text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+                    className="flex h-9 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-1 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-300">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Company / Organization
                   </label>
                   <input
@@ -171,14 +175,14 @@ export default function LoginPage() {
                     value={organizationName}
                     onChange={(e) => setOrganizationName(e.target.value)}
                     placeholder="Acme Corp"
-                    className="flex h-9 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1 text-xs text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+                    className="flex h-9 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-1 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>
               </>
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-300">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 Email
               </label>
               <input
@@ -187,12 +191,12 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@company.example"
-                className="flex h-9 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1 text-xs text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+                className="flex h-9 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-1 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-300">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 Password
               </label>
               <input
@@ -201,7 +205,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="flex h-9 w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-1 text-xs text-white placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
+                className="flex h-9 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-1 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
 
@@ -219,12 +223,12 @@ export default function LoginPage() {
           </form>
 
           {/* Toggle Login / Register */}
-          <div className="text-center text-xs text-slate-400">
+          <div className="text-center text-xs text-slate-500 dark:text-slate-400">
             {mode === "login" ? "Don't have an account?" : "Already have an account?"}{" "}
             <button
               type="button"
               onClick={() => setMode(mode === "login" ? "register" : "login")}
-              className="font-bold text-indigo-400 hover:underline cursor-pointer"
+              className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
             >
               {mode === "login" ? "Sign up" : "Sign in"}
             </button>

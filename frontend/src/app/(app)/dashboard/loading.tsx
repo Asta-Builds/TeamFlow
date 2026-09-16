@@ -5,9 +5,9 @@ export default function DashboardLoading() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto animate-pulse">
       {/* Header */}
-      <div className="border-b border-slate-800 pb-6 space-y-2">
-        <div className="h-8 w-64 bg-slate-800 rounded"></div>
-        <div className="h-4 w-96 bg-slate-800/60 rounded"></div>
+      <div className="border-b border-slate-200 dark:border-slate-800 pb-6 space-y-2">
+        <div className="h-8 w-64 bg-slate-200 dark:bg-slate-800 rounded"></div>
+        <div className="h-4 w-96 bg-slate-200/60 dark:bg-slate-800/60 rounded"></div>
       </div>
 
       {/* SuperStat Grid */}

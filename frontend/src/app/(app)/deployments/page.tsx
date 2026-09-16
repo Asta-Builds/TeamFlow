@@ -14,18 +14,18 @@ import { Avatar, Badge } from "@/lib/ui";
 import { Rocket, Terminal, RotateCcw, AlertTriangle, GitBranch, X } from "lucide-react";
 
 const DEPLOY_STYLES: Record<string, string> = {
-  queued: "bg-slate-900 text-slate-400 border-slate-800",
-  in_progress: "bg-amber-950/70 text-amber-300 border-amber-800/50",
-  success: "bg-emerald-950/70 text-emerald-300 border-emerald-800/50",
-  failed: "bg-rose-950/70 text-rose-300 border-rose-800/50",
-  rolled_back: "bg-purple-950/70 text-purple-300 border-purple-800/50",
-  cancelled: "bg-slate-900 text-slate-500 border-slate-800",
+  queued: "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800",
+  in_progress: "bg-amber-500/10 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-500/30 dark:border-amber-800/50",
+  success: "bg-emerald-500/10 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 dark:border-emerald-800/50",
+  failed: "bg-rose-500/10 dark:bg-rose-950/70 text-rose-700 dark:text-rose-300 border-rose-500/30 dark:border-rose-800/50",
+  rolled_back: "bg-purple-500/10 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border-purple-500/30 dark:border-purple-800/50",
+  cancelled: "bg-slate-100 dark:bg-slate-900 text-slate-500 border-slate-200 dark:border-slate-800",
 };
 
 const ENV_BADGES: Record<string, string> = {
-  dev: "bg-slate-900 text-slate-400 border-slate-800",
-  staging: "bg-blue-950/70 text-blue-300 border-blue-800/50 font-semibold",
-  production: "bg-purple-950/70 text-purple-300 border-purple-800/50 font-bold",
+  dev: "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800",
+  staging: "bg-blue-500/10 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border-blue-500/30 dark:border-blue-800/50 font-semibold",
+  production: "bg-purple-500/10 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border-purple-500/30 dark:border-purple-800/50 font-bold",
 };
 
 function fmt(dt: string | null) {
@@ -100,12 +100,12 @@ export default function DeploymentsPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
             Deployments & CI/CD Pipelines
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             Automated builds, environment status, release logs, and one-click rollbacks.
           </p>
         </div>
@@ -122,9 +122,9 @@ export default function DeploymentsPage() {
       </div>
 
       {/* Deployments Table */}
-      <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs">
         <table className="w-full text-left text-xs">
-          <thead className="border-b border-slate-800 bg-slate-950 text-[10px] uppercase font-extrabold text-slate-400 tracking-wider">
+          <thead className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-[10px] uppercase font-extrabold text-slate-500 dark:text-slate-400 tracking-wider">
             <tr>
               <th className="px-5 py-3.5">Project</th>
               <th className="px-5 py-3.5">Environment</th>
@@ -135,10 +135,10 @@ export default function DeploymentsPage() {
               <th className="px-5 py-3.5 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {deployments.map((d) => (
-              <tr key={d.id} className="hover:bg-slate-800/50 transition">
-                <td className="px-5 py-4 font-bold text-white">
+              <tr key={d.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition">
+                <td className="px-5 py-4 font-bold text-slate-900 dark:text-white">
                   {d.project_name || `Project #${d.project}`}
                 </td>
                 <td className="px-5 py-4">
@@ -152,28 +152,28 @@ export default function DeploymentsPage() {
                   </Badge>
                 </td>
                 <td className="px-5 py-4">
-                  <span className="font-semibold text-slate-200 flex items-center gap-1">
-                    <GitBranch className="h-3 w-3 text-slate-500" />
+                  <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                    <GitBranch className="h-3 w-3 text-slate-400 dark:text-slate-500" />
                     <span>{d.branch || "main"}</span>
                   </span>
-                  <span className="font-mono text-[10px] text-slate-500 font-semibold">{d.commit_sha || "—"}</span>
+                  <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 font-semibold">{d.commit_sha || "—"}</span>
                 </td>
                 <td className="px-5 py-4">
                   {d.triggered_by_detail ? (
                     <div className="flex items-center gap-2">
                       <Avatar name={d.triggered_by_detail.name} email={d.triggered_by_detail.email} size={22} />
-                      <span className="text-slate-300 font-medium">{d.triggered_by_detail.name}</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">{d.triggered_by_detail.name}</span>
                     </div>
                   ) : (
-                    <span className="text-slate-500 italic">Automated CI</span>
+                    <span className="text-slate-400 dark:text-slate-500 italic">Automated CI</span>
                   )}
                 </td>
-                <td className="px-5 py-4 text-slate-400 font-mono text-[11px]">{fmt(d.started_at)}</td>
+                <td className="px-5 py-4 text-slate-500 dark:text-slate-400 font-mono text-[11px]">{fmt(d.started_at)}</td>
                 <td className="px-5 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => setActiveLogDeployment(d)}
-                      className="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-200 transition cursor-pointer flex items-center gap-1"
+                      className="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-[11px] font-bold text-slate-700 dark:text-slate-200 transition cursor-pointer flex items-center gap-1"
                     >
                       <Terminal className="h-3 w-3" />
                       <span>Logs</span>
@@ -181,7 +181,7 @@ export default function DeploymentsPage() {
                     {canDeploy && d.status === "success" && (
                       <button
                         onClick={() => handleRollback(d.id)}
-                        className="px-3 py-1 rounded-lg bg-purple-950 hover:bg-purple-900 text-[11px] font-bold text-purple-300 border border-purple-800/60 transition cursor-pointer flex items-center gap-1"
+                        className="px-3 py-1 rounded-lg bg-purple-50 dark:bg-purple-950 hover:bg-purple-100 dark:hover:bg-purple-900 text-[11px] font-bold text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 transition cursor-pointer flex items-center gap-1"
                         title="Rollback to this state"
                       >
                         <RotateCcw className="h-3 w-3" />
@@ -194,7 +194,7 @@ export default function DeploymentsPage() {
             ))}
             {deployments.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-5 py-12 text-center text-slate-500 font-medium">
+                <td colSpan={7} className="px-5 py-12 text-center text-slate-400 dark:text-slate-500 font-medium">
                   No deployment logs recorded yet.
                 </td>
               </tr>
@@ -205,25 +205,25 @@ export default function DeploymentsPage() {
 
       {/* Trigger Deployment Modal */}
       {showTriggerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 backdrop-blur-xs p-4">
-          <div className="w-full max-w-md rounded-2xl bg-slate-900 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Rocket className="h-4 w-4 text-indigo-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 dark:bg-slate-950/70 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <h2 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Rocket className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                 <span>Trigger Deployment Pipeline</span>
               </h2>
-              <button onClick={() => setShowTriggerModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+              <button onClick={() => setShowTriggerModal(false)} className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
                 <X className="h-4 w-4" />
               </button>
             </div>
             <form onSubmit={handleTrigger} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Target Project *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Target Project *</label>
                 <select
                   required
                   value={selectedProjectId}
                   onChange={(e) => setSelectedProjectId(Number(e.target.value))}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
                 >
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -234,11 +234,11 @@ export default function DeploymentsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Environment *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Environment *</label>
                 <select
                   value={selectedEnv}
                   onChange={(e) => setSelectedEnv(e.target.value as "staging" | "production")}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none cursor-pointer"
                 >
                   <option value="staging">Staging (Automatic test gate)</option>
                   <option value="production">Production (High availability cluster)</option>
@@ -246,27 +246,27 @@ export default function DeploymentsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Git Branch *</label>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Git Branch *</label>
                 <input
                   required
                   value={selectedBranch}
                   onChange={(e) => setSelectedBranch(e.target.value)}
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
                 />
               </div>
 
               {selectedEnv === "production" && (
-                <div className="p-3 bg-amber-950/60 border border-amber-800/50 rounded-xl text-xs text-amber-300 font-medium flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+                <div className="p-3 bg-amber-500/10 dark:bg-amber-950/60 border border-amber-500/30 dark:border-amber-800/50 rounded-xl text-xs text-amber-800 dark:text-amber-300 font-medium flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                   <span>Production Policy: All sprint tickets must be verified by QA before deployment.</span>
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setShowTriggerModal(false)}
-                  className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
+                  className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -286,21 +286,21 @@ export default function DeploymentsPage() {
 
       {/* Build Logs Viewer Modal */}
       {activeLogDeployment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-slate-900 text-slate-100 p-6 shadow-2xl border border-slate-800 animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 dark:bg-slate-950/80 backdrop-blur-xs p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-6 shadow-2xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Terminal className="h-4 w-4 text-indigo-400" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Terminal className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                   <span>Build & Execution Logs</span>
                 </h3>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
                   {activeLogDeployment.project_name} ({activeLogDeployment.environment}) — {activeLogDeployment.commit_sha}
                 </span>
               </div>
               <button
                 onClick={() => setActiveLogDeployment(null)}
-                className="text-slate-400 hover:text-white cursor-pointer"
+                className="text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -311,11 +311,11 @@ export default function DeploymentsPage() {
                 "=== Build Logs ===\n[INFO] Starting deployment sequence...\n[INFO] Running tests and migrations... OK\n[INFO] Build successful."}
             </div>
 
-            <div className="mt-4 flex justify-between items-center text-xs text-slate-400 border-t border-slate-800 pt-3">
+            <div className="mt-4 flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800 pt-3">
               <span>Duration: {activeLogDeployment.duration_seconds || 42} seconds</span>
               <button
                 onClick={() => setActiveLogDeployment(null)}
-                className="rounded-xl bg-slate-800 px-4 py-1.5 text-xs font-semibold text-white hover:bg-slate-700 cursor-pointer"
+                className="rounded-xl bg-slate-100 dark:bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-700 dark:text-white hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
               >
                 Close
               </button>

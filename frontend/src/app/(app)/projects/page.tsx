@@ -24,10 +24,10 @@ import {
 } from "lucide-react";
 
 const STATUS_STYLES: Record<ProjectStatus, string> = {
-  active: "bg-emerald-950/70 text-emerald-300 border-emerald-800/50",
-  on_hold: "bg-amber-950/70 text-amber-300 border-amber-800/50",
-  completed: "bg-indigo-950/70 text-indigo-300 border-indigo-800/50",
-  archived: "bg-slate-900 text-slate-400 border-slate-800",
+  active: "bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/50",
+  on_hold: "bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/50",
+  completed: "bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50",
+  archived: "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800",
 };
 
 export default function ProjectsPage() {
@@ -113,23 +113,23 @@ export default function ProjectsPage() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Projects Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6 transition-colors">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
             Projects Portfolio
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
             Track initiatives, sprint deliverables, and team task boards.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           {/* View mode toggle */}
-          <div className="flex rounded-xl bg-slate-900 border border-slate-800 p-1">
+          <div className="flex rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1">
             <button
               onClick={() => setViewMode("grid")}
               className={`rounded-lg px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                viewMode === "grid" ? "bg-slate-800 text-white shadow-xs" : "text-slate-400 hover:text-white"
+                viewMode === "grid" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
@@ -138,7 +138,7 @@ export default function ProjectsPage() {
             <button
               onClick={() => setViewMode("table")}
               className={`rounded-lg px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                viewMode === "table" ? "bg-slate-800 text-white shadow-xs" : "text-slate-400 hover:text-white"
+                viewMode === "table" ? "bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
               }`}
             >
               <Table className="h-3.5 w-3.5" />
@@ -162,20 +162,20 @@ export default function ProjectsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
             <input
               type="text"
               placeholder="Search projects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="rounded-xl border border-slate-800 bg-slate-900 pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 shadow-xs"
+              className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 pl-9 pr-3 py-1.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-indigo-500 shadow-xs"
             />
           </div>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 shadow-xs"
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-indigo-500 shadow-xs"
           >
             <option value="all">All Project Statuses</option>
             <option value="active">Active</option>
@@ -195,40 +195,40 @@ export default function ProjectsPage() {
       {creating && (
         <form
           onSubmit={createProject}
-          className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-xl animate-in fade-in duration-150"
+          className="space-y-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-xl animate-in fade-in duration-150 transition-colors"
         >
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-white text-sm">Create New Project</h3>
-            <button type="button" onClick={() => setCreating(false)} className="text-slate-400 hover:text-white cursor-pointer">
+            <h3 className="font-bold text-slate-900 dark:text-white text-sm">Create New Project</h3>
+            <button type="button" onClick={() => setCreating(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
               <X className="h-4 w-4" />
             </button>
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1">Project Name *</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Project Name *</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Next-Gen Mobile App"
               required
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1">Description</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Description</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Goals, target deliverables, tech scope..."
               rows={2}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-300 mb-1">Status</label>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as ProjectStatus)}
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-white focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-white focus:border-indigo-500 focus:outline-none"
             >
               <option value="active">Active</option>
               <option value="on_hold">On Hold</option>
@@ -237,29 +237,29 @@ export default function ProjectsPage() {
             </select>
           </div>
 
-          <div className="rounded-xl border border-sky-800/40 bg-sky-950/20 p-3">
-            <label className="flex items-center gap-2 text-xs font-bold text-slate-200 cursor-pointer">
+          <div className="rounded-xl border border-sky-200 dark:border-sky-800/40 bg-sky-50 dark:bg-sky-950/20 p-3">
+            <label className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
               <input
                 type="checkbox"
                 checked={autoCreateGitHub}
                 onChange={(e) => setAutoCreateGitHub(e.target.checked)}
-                className="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500 h-4 w-4 cursor-pointer"
+                className="rounded border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sky-600 dark:text-sky-500 focus:ring-sky-500 h-4 w-4 cursor-pointer"
               />
               <span className="flex items-center gap-1.5">
-                <FolderGit2 className="h-3.5 w-3.5 text-sky-400" />
+                <FolderGit2 className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
                 <span>DevOps Agent: Automatically provision & link GitHub repository</span>
               </span>
             </label>
-            <p className="text-[11px] text-slate-400 mt-1 ml-6">
+            <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1 ml-6">
               DevOps will create a remote repository under the selected GitHub organization or user and link it to this project.
             </p>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
             <button
               type="button"
               onClick={() => setCreating(false)}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
+              className="rounded-xl px-4 py-2 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white cursor-pointer"
             >
               Cancel
             </button>
@@ -278,8 +278,8 @@ export default function ProjectsPage() {
           Loading projects…
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-800 p-12 text-center text-slate-500 bg-slate-900/50 space-y-2">
-          <FolderKanban className="h-8 w-8 text-slate-600 mx-auto" />
+        <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-12 text-center text-slate-500 bg-slate-50/50 dark:bg-slate-900/50 space-y-2">
+          <FolderKanban className="h-8 w-8 text-slate-400 dark:text-slate-600 mx-auto" />
           <p className="text-xs">No projects matching your criteria.</p>
         </div>
       ) : viewMode === "grid" ? (
@@ -291,12 +291,12 @@ export default function ProjectsPage() {
               <Link
                 key={p.id}
                 href={`/projects/${p.id}`}
-                className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5 shadow-sm transition hover:border-slate-700 hover:-translate-y-0.5 flex flex-col justify-between"
+                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 shadow-sm transition hover:border-slate-300 dark:hover:border-slate-700 hover:-translate-y-0.5 flex flex-col justify-between"
               >
                 <div>
                   <div className="mb-2.5 flex items-start justify-between gap-2">
                     <div>
-                      <h3 className="font-bold text-white tracking-tight text-base hover:text-indigo-400 transition">
+                      <h3 className="font-bold text-slate-900 dark:text-white tracking-tight text-base hover:text-indigo-600 dark:hover:text-indigo-400 transition">
                         {p.name}
                       </h3>
                       {p.github_repo && (
@@ -307,12 +307,12 @@ export default function ProjectsPage() {
                               e.stopPropagation();
                               window.open(`https://github.com/${p.github_repo}`, "_blank", "noopener,noreferrer");
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-950/80 border border-sky-800/60 hover:border-sky-500 text-[10px] font-bold text-sky-300 hover:text-white transition font-mono cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/80 border border-sky-200 dark:border-sky-800/60 hover:border-sky-400 dark:hover:border-sky-500 text-[10px] font-bold text-sky-700 dark:text-sky-300 hover:text-sky-900 dark:hover:text-white transition font-mono cursor-pointer"
                             title="Open GitHub repository in new tab"
                           >
-                            <FolderGit2 className="h-3 w-3 text-sky-400" />
+                            <FolderGit2 className="h-3 w-3 text-sky-600 dark:text-sky-400" />
                             <span>{p.github_repo}</span>
-                            <ExternalLink className="h-2.5 w-2.5 text-sky-400" />
+                            <ExternalLink className="h-2.5 w-2.5 text-sky-600 dark:text-sky-400" />
                           </span>
                         </div>
                       )}
@@ -321,19 +321,19 @@ export default function ProjectsPage() {
                       {p.status}
                     </Badge>
                   </div>
-                  <p className="mb-4 line-clamp-2 text-xs text-slate-400 leading-relaxed">
+                  <p className="mb-4 line-clamp-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                     {p.description || "No description provided."}
                   </p>
                 </div>
 
-                <div className="space-y-3 pt-3 border-t border-slate-800/80">
+                <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
                   {/* Progress bar */}
                   <div>
-                    <div className="flex justify-between text-[11px] font-bold text-slate-400 mb-1">
+                    <div className="flex justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1">
                       <span>Progress</span>
-                      <span className="text-indigo-400">{progress}%</span>
+                      <span className="text-indigo-600 dark:text-indigo-400">{progress}%</span>
                     </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-950">
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-950">
                       <div
                         className="h-full rounded-full bg-indigo-500 transition-all duration-300"
                         style={{ width: `${progress}%` }}
@@ -346,7 +346,7 @@ export default function ProjectsPage() {
                       {p.owner_detail && (
                         <>
                           <Avatar name={p.owner_detail.name} email={p.owner_detail.email} size={20} />
-                          <span className="text-[11px] font-semibold text-slate-300">
+                          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                             {p.owner_detail.name.split(" ")[0]}
                           </span>
                         </>
@@ -360,13 +360,13 @@ export default function ProjectsPage() {
                           e.stopPropagation();
                           router.push(`/pulse?project=${p.id}`);
                         }}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-950/50 border border-amber-800/60 hover:bg-amber-900/60 text-[10px] font-bold text-amber-300 transition cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-[10px] font-bold text-amber-700 dark:text-amber-300 transition cursor-pointer"
                         title="Open in Pulse Execution Cockpit"
                       >
-                        <Timer className="h-3 w-3 text-amber-400" />
+                        <Timer className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                         Pulse
                       </button>
-                      <Badge className="bg-indigo-950 text-indigo-300 border-indigo-800/50 font-semibold">
+                      <Badge className="bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/50 font-semibold">
                         {p.task_count ?? 0} tickets
                       </Badge>
                     </div>
@@ -378,9 +378,9 @@ export default function ProjectsPage() {
         </div>
       ) : (
         /* Table Mode */
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-sm">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden shadow-sm transition-colors">
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-950 border-b border-slate-800 text-slate-400 uppercase font-extrabold text-[10px] tracking-wider">
+            <thead className="bg-slate-50 dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase font-extrabold text-[10px] tracking-wider">
               <tr>
                 <th className="px-5 py-3.5">Project Name</th>
                 <th className="px-5 py-3.5">Status</th>
@@ -389,13 +389,13 @@ export default function ProjectsPage() {
                 <th className="px-5 py-3.5 text-right">Tickets</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredProjects.map((p) => {
                 const progress = p.progress_percentage ?? 0;
                 return (
-                  <tr key={p.id} className="hover:bg-slate-800/50 transition">
+                  <tr key={p.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition">
                     <td className="px-5 py-4">
-                      <Link href={`/projects/${p.id}`} className="font-bold text-white hover:text-indigo-400">
+                      <Link href={`/projects/${p.id}`} className="font-bold text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400">
                         {p.name}
                       </Link>
                       {p.github_repo && (
@@ -404,7 +404,7 @@ export default function ProjectsPage() {
                             href={`https://github.com/${p.github_repo}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[10px] text-sky-400 hover:underline font-mono"
+                            className="inline-flex items-center gap-1 text-[10px] text-sky-600 dark:text-sky-400 hover:underline font-mono"
                             title="Open GitHub repository"
                           >
                             <FolderGit2 className="h-3 w-3 inline" />
@@ -413,37 +413,37 @@ export default function ProjectsPage() {
                           </a>
                         </div>
                       )}
-                      <p className="text-slate-500 text-[11px] truncate max-w-xs">{p.description}</p>
+                      <p className="text-slate-500 dark:text-slate-500 text-[11px] truncate max-w-xs">{p.description}</p>
                     </td>
                     <td className="px-5 py-4">
                       <Badge className={STATUS_STYLES[p.status]}>{p.status}</Badge>
                     </td>
                     <td className="px-5 py-4 w-48">
                       <div className="flex items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-950">
+                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-950">
                           <div className="h-full rounded-full bg-indigo-500" style={{ width: `${progress}%` }}></div>
                         </div>
-                        <span className="font-bold text-indigo-400 text-[11px] w-8 text-right">{progress}%</span>
+                        <span className="font-bold text-indigo-600 dark:text-indigo-400 text-[11px] w-8 text-right">{progress}%</span>
                       </div>
                     </td>
                     <td className="px-5 py-4">
                       {p.owner_detail ? (
                         <div className="flex items-center gap-2">
                           <Avatar name={p.owner_detail.name} email={p.owner_detail.email} size={22} />
-                          <span className="font-medium text-slate-300">{p.owner_detail.name}</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">{p.owner_detail.name}</span>
                         </div>
                       ) : (
-                        <span className="text-slate-600 italic">Unassigned</span>
+                        <span className="text-slate-400 dark:text-slate-600 italic">Unassigned</span>
                       )}
                     </td>
-                    <td className="px-5 py-4 text-right font-bold text-slate-300">
+                    <td className="px-5 py-4 text-right font-bold text-slate-700 dark:text-slate-300">
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           href={`/pulse?project=${p.id}`}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-950/40 border border-amber-800/50 hover:bg-amber-900/60 text-[10px] font-bold text-amber-300 transition"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-[10px] font-bold text-amber-700 dark:text-amber-300 transition"
                           title="Open Project in Pulse Cockpit"
                         >
-                          <Timer className="h-3 w-3 text-amber-400" />
+                          <Timer className="h-3 w-3 text-amber-600 dark:text-amber-400" />
                           Pulse
                         </Link>
                         <span className="min-w-[20px] text-right">

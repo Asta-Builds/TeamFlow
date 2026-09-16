@@ -123,7 +123,7 @@ export function Avatar({
   return (
     <div className="relative inline-block shrink-0">
       <span
-        className={`inline-flex items-center justify-center rounded-full text-white font-bold bg-gradient-to-br ${gradient} shadow-xs ring-1 ring-slate-800`}
+        className={`inline-flex items-center justify-center rounded-full text-white font-bold bg-gradient-to-br ${gradient} shadow-xs ring-1 ring-slate-200 dark:ring-slate-800`}
         style={{ width: size, height: size, fontSize: Math.max(9, size * 0.38) }}
         title={name || email}
       >
@@ -131,7 +131,7 @@ export function Avatar({
       </span>
       {showStatus && (
         <span
-          className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-slate-950 ${USER_STATUS_STYLES[status]?.dot || "bg-emerald-500"}`}
+          className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-slate-950 ${USER_STATUS_STYLES[status]?.dot || "bg-emerald-500"}`}
         />
       )}
     </div>

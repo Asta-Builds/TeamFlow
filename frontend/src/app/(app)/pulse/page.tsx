@@ -54,18 +54,18 @@ const BLOCKS: Array<{
 ];
 
 const PRIORITY_CLASSES: Record<Priority, string> = {
-  low: "border-slate-700 bg-slate-800/70 text-slate-300",
-  medium: "border-blue-800/50 bg-blue-950/50 text-blue-300",
-  high: "border-amber-800/50 bg-amber-950/50 text-amber-300",
-  urgent: "border-rose-800/50 bg-rose-950/50 text-rose-300",
+  low: "border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/70 text-slate-700 dark:text-slate-300",
+  medium: "border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300",
+  high: "border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300",
+  urgent: "border-rose-200 dark:border-rose-800/50 bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300",
 };
 
 const KANBAN_STATUS_STYLES: Record<TaskStatus, { badge: string; dot: string }> = {
-  todo: { badge: "border-blue-800/60 bg-blue-950/40 text-blue-300", dot: "bg-blue-400" },
-  in_progress: { badge: "border-amber-800/60 bg-amber-950/40 text-amber-300", dot: "bg-amber-400" },
-  in_review: { badge: "border-purple-800/60 bg-purple-950/40 text-purple-300", dot: "bg-purple-400" },
-  qa: { badge: "border-emerald-800/60 bg-emerald-950/40 text-emerald-300", dot: "bg-emerald-400" },
-  done: { badge: "border-slate-800 bg-slate-900 text-slate-400", dot: "bg-slate-500" },
+  todo: { badge: "border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300", dot: "bg-blue-500 dark:bg-blue-400" },
+  in_progress: { badge: "border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300", dot: "bg-amber-500 dark:bg-amber-400" },
+  in_review: { badge: "border-purple-200 dark:border-purple-800/60 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300", dot: "bg-purple-500 dark:bg-purple-400" },
+  qa: { badge: "border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300", dot: "bg-emerald-500 dark:bg-emerald-400" },
+  done: { badge: "border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400", dot: "bg-slate-400 dark:bg-slate-500" },
 };
 
 function localDate(value = new Date()) {
@@ -286,16 +286,16 @@ export default function PulsePage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-8">
-      <header className="flex flex-col justify-between gap-4 border-b border-slate-800 pb-6 lg:flex-row lg:items-end">
+      <header className="flex flex-col justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6 lg:flex-row lg:items-end">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-indigo-400">
+          <div className="mb-2 flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-indigo-600 dark:text-indigo-400">
             <TimerReset className="h-3.5 w-3.5" />
             Personal execution layer
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white sm:text-3xl">
             {formatSelectedDate(selectedDate)}
           </h1>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             Turn the workspace plan into a deliberately focused day.
           </p>
         </div>
@@ -304,25 +304,25 @@ export default function PulsePage() {
             type="button"
             aria-label="Previous day"
             onClick={() => setSelectedDate((value) => shiftDate(value, -1))}
-            className="rounded-xl border border-slate-800 bg-slate-900 p-2 text-slate-400 transition hover:border-slate-700 hover:text-white"
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 text-slate-500 dark:text-slate-400 transition hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-900 dark:hover:text-white cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <label className="relative flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-300">
-            <CalendarDays className="h-3.5 w-3.5 text-indigo-400" />
+          <label className="relative flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+            <CalendarDays className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
             <span className="sr-only">Execution date</span>
             <input
               aria-label="Execution date"
               type="date"
               value={selectedDate}
               onChange={(event) => setSelectedDate(event.target.value)}
-              className="w-[116px] bg-transparent text-xs text-slate-200 outline-none [color-scheme:dark]"
+              className="w-[116px] bg-transparent text-xs text-slate-800 dark:text-slate-200 outline-none"
             />
           </label>
           <button
             type="button"
             onClick={() => setSelectedDate(localDate())}
-            className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 transition hover:border-slate-700 hover:text-white"
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 transition hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-900 dark:hover:text-white cursor-pointer"
           >
             Today
           </button>
@@ -330,7 +330,7 @@ export default function PulsePage() {
             type="button"
             aria-label="Next day"
             onClick={() => setSelectedDate((value) => shiftDate(value, 1))}
-            className="rounded-xl border border-slate-800 bg-slate-900 p-2 text-slate-400 transition hover:border-slate-700 hover:text-white"
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2 text-slate-500 dark:text-slate-400 transition hover:border-slate-300 dark:hover:border-slate-700 hover:text-slate-900 dark:hover:text-white cursor-pointer"
           >
             <ArrowRight className="h-4 w-4" />
           </button>
@@ -338,33 +338,33 @@ export default function PulsePage() {
       </header>
 
       {loading ? (
-        <div className="flex h-72 items-center justify-center text-xs font-bold uppercase tracking-widest text-slate-500">
+        <div className="flex h-72 items-center justify-center text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
           Loading execution plan…
         </div>
       ) : !dashboard ? (
-        <div className="rounded-2xl border border-rose-900/60 bg-rose-950/20 p-6 text-sm text-rose-200">
+        <div className="rounded-2xl border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/20 p-6 text-sm text-rose-700 dark:text-rose-200">
           Pulse could not load this execution day. Refresh the page to try again.
         </div>
       ) : (
         <>
           {/* Project & Kanban Scope Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/90 p-3.5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-3.5 shadow-xs">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-700/50 bg-indigo-950/80 text-indigo-400">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-200 dark:border-indigo-700/50 bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400">
                 <Kanban className="h-4 w-4" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Project & Kanban Scope
                   </span>
                   {selectedProjectId && (
-                    <span className="rounded-full border border-indigo-700/60 bg-indigo-950 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-300">
+                    <span className="rounded-full border border-indigo-200 dark:border-indigo-700/60 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
                       Filtered
                     </span>
                   )}
                 </div>
-                <p className="text-xs font-bold text-white">
+                <p className="text-xs font-bold text-slate-900 dark:text-white">
                   {selectedProjectId && dashboard?.available_projects
                     ? dashboard.available_projects.find((p) => p.id === selectedProjectId)?.name || "Selected Project"
                     : "All Workspace Projects (Global View)"}
@@ -387,7 +387,7 @@ export default function PulsePage() {
                       window.history.replaceState(null, "", url.toString());
                     }
                   }}
-                  className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-slate-200 outline-none focus:border-indigo-500"
+                  className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-1.5 text-xs font-semibold text-slate-800 dark:text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
                 >
                   <option value="">All Projects (Workspace)</option>
                   {dashboard?.available_projects?.map((p) => (
@@ -402,12 +402,12 @@ export default function PulsePage() {
                 <>
                   <Link
                     href={`/projects/${selectedProjectId}`}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-700/60 bg-indigo-950/80 px-3 py-1.5 text-xs font-bold text-indigo-200 hover:bg-indigo-900/60 transition"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-700/60 bg-indigo-50 dark:bg-indigo-950/80 px-3 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-200 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition"
                     title="Jump directly to this project's 5-stage Kanban board"
                   >
-                    <Kanban className="h-3.5 w-3.5 text-indigo-400" />
+                    <Kanban className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                     <span>Open Kanban Board</span>
-                    <ArrowUpRight className="h-3 w-3 text-indigo-300" />
+                    <ArrowUpRight className="h-3 w-3 text-indigo-600 dark:text-indigo-300" />
                   </Link>
                   <button
                     type="button"
@@ -419,7 +419,7 @@ export default function PulsePage() {
                         window.history.replaceState(null, "", url.toString());
                       }
                     }}
-                    className="rounded-xl border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-white transition"
+                    className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition cursor-pointer"
                     title="Reset to all projects"
                   >
                     Clear Filter
@@ -430,20 +430,20 @@ export default function PulsePage() {
           </div>
 
           <section className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4">
-              <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Execution plan</span><SquareCheckBig className="h-4 w-4 text-indigo-400" /></div>
-              <p className="mt-2 text-2xl font-black tracking-tight text-white">{dashboard.summary.completed}/{dashboard.summary.planned}</p>
-              <p className="mt-1 text-[11px] font-medium text-slate-400">{dashboard.summary.completion_percentage}% of planned tasks complete</p>
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-4 shadow-xs">
+              <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Execution plan</span><SquareCheckBig className="h-4 w-4 text-indigo-600 dark:text-indigo-400" /></div>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{dashboard.summary.completed}/{dashboard.summary.planned}</p>
+              <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">{dashboard.summary.completion_percentage}% of planned tasks complete</p>
             </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4">
-              <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Focus time</span><Clock3 className="h-4 w-4 text-emerald-400" /></div>
-              <p className="mt-2 text-2xl font-black tracking-tight text-white">{formatFocusTotal(dashboard.summary.focused_seconds)}</p>
-              <p className="mt-1 text-[11px] font-medium text-slate-400">Tracked in completed and active sessions</p>
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-4 shadow-xs">
+              <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Focus time</span><Clock3 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /></div>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{formatFocusTotal(dashboard.summary.focused_seconds)}</p>
+              <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">Tracked in completed and active sessions</p>
             </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4">
-              <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Ready to plan</span><Plus className="h-4 w-4 text-amber-400" /></div>
-              <p className="mt-2 text-2xl font-black tracking-tight text-white">{dashboard.candidate_tasks.length}</p>
-              <p className="mt-1 text-[11px] font-medium text-slate-400">Visible open tasks that fit this day</p>
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-4 shadow-xs">
+              <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">Ready to plan</span><Plus className="h-4 w-4 text-amber-600 dark:text-amber-400" /></div>
+              <p className="mt-2 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{dashboard.candidate_tasks.length}</p>
+              <p className="mt-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">Visible open tasks that fit this day</p>
             </div>
           </section>
 
@@ -454,13 +454,13 @@ export default function PulsePage() {
                 const isActive = activeBlock === block.id;
                 return (
                   <section key={block.id} className="space-y-3">
-                    <div className="flex items-end justify-between gap-4 border-b border-slate-800/80 pb-3">
+                    <div className="flex items-end justify-between gap-4 border-b border-slate-200 dark:border-slate-800/80 pb-3">
                       <div className="flex items-center gap-3">
-                        <span className={`flex h-7 w-7 items-center justify-center rounded-lg border text-[11px] font-black ${isActive ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "border-slate-800 bg-slate-900 text-slate-400"}`}>
+                        <span className={`flex h-7 w-7 items-center justify-center rounded-lg border text-[11px] font-black ${isActive ? "border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400"}`}>
                           {block.id.slice(0, 1).toUpperCase()}
                         </span>
                         <div>
-                          <h2 className={`text-xs font-extrabold uppercase tracking-widest ${isActive ? "text-indigo-300" : "text-slate-400"}`}>{block.label}</h2>
+                          <h2 className={`text-xs font-extrabold uppercase tracking-widest ${isActive ? "text-indigo-600 dark:text-indigo-300" : "text-slate-600 dark:text-slate-400"}`}>{block.label}</h2>
                           <p className="mt-0.5 text-[11px] text-slate-500">{block.range} · {block.description}</p>
                         </div>
                       </div>
@@ -472,18 +472,18 @@ export default function PulsePage() {
                         const complete = item.task_status === "done";
                         const inFocus = session?.plan_item === item.id;
                         const statusStyle = KANBAN_STATUS_STYLES[item.task_status] || {
-                          badge: "border-slate-800 bg-slate-900 text-slate-400",
-                          dot: "bg-slate-500",
+                          badge: "border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400",
+                          dot: "bg-slate-400 dark:bg-slate-500",
                         };
 
                         return (
-                          <div key={item.id} className={`group flex items-center gap-3 rounded-xl border p-3 transition ${inFocus ? "border-indigo-700/70 bg-indigo-950/30" : "border-slate-800 bg-slate-900/70 hover:border-slate-700"}`}>
+                          <div key={item.id} className={`group flex items-center gap-3 rounded-xl border p-3 transition ${inFocus ? "border-indigo-200 dark:border-indigo-700/70 bg-indigo-50/50 dark:bg-indigo-950/30" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 hover:border-slate-300 dark:hover:border-slate-700"}`}>
                             <button
                               type="button"
                               aria-label={complete ? `${item.task_title} is complete` : `Mark ${item.task_title} complete`}
                               disabled={complete || !item.can_complete_task || working}
                               onClick={() => void completeTask(item)}
-                              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${complete ? "border-emerald-700 bg-emerald-500 text-slate-950" : item.can_complete_task ? "border-slate-600 text-transparent hover:border-indigo-400 hover:bg-indigo-500/10" : "cursor-not-allowed border-slate-800 text-transparent"}`}
+                              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition cursor-pointer ${complete ? "border-emerald-600 bg-emerald-500 text-white" : item.can_complete_task ? "border-slate-300 dark:border-slate-600 text-transparent hover:border-indigo-400 hover:bg-indigo-500/10" : "cursor-not-allowed border-slate-200 dark:border-slate-800 text-transparent"}`}
                             >
                               <Check className="h-3.5 w-3.5 stroke-[3]" />
                             </button>
@@ -491,19 +491,19 @@ export default function PulsePage() {
                               <div className="flex flex-wrap items-center gap-2">
                                 <Link
                                   href={`/projects/${item.project_id}?task=${item.task}`}
-                                  className={`truncate text-xs font-bold transition hover:text-indigo-300 ${complete ? "text-slate-500 line-through" : "text-white"}`}
+                                  className={`truncate text-xs font-bold transition hover:text-indigo-600 dark:hover:text-indigo-300 ${complete ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-white"}`}
                                   title="View on Kanban Board"
                                 >
                                   {item.task_title}
                                 </Link>
-                                {inFocus && <span className="rounded-full border border-indigo-700/50 bg-indigo-950 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-300">In focus</span>}
+                                {inFocus && <span className="rounded-full border border-indigo-200 dark:border-indigo-700/50 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">In focus</span>}
                               </div>
                               <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-medium text-slate-500">
                                 <span className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-bold ${statusStyle.badge}`}>
                                   <span className={`h-1.5 w-1.5 rounded-full ${statusStyle.dot}`} />
                                   {TASK_STATUS_LABELS[item.task_status] || item.task_status}
                                 </span>
-                                <Link href={`/projects/${item.project_id}`} className="hover:text-indigo-300 transition underline-offset-2 hover:underline">
+                                <Link href={`/projects/${item.project_id}`} className="hover:text-indigo-600 dark:hover:text-indigo-300 transition underline-offset-2 hover:underline">
                                   {item.project_name}
                                 </Link>
                                 <span>·</span>
@@ -515,23 +515,23 @@ export default function PulsePage() {
                             <div className="flex items-center gap-2">
                               <Link
                                 href={`/projects/${item.project_id}?task=${item.task}`}
-                                className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-950/80 px-2 py-1 text-[10px] font-bold text-slate-400 hover:border-indigo-600 hover:text-indigo-200 transition"
+                                className="hidden sm:inline-flex items-center gap-1 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/80 px-2 py-1 text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:border-indigo-400 hover:text-indigo-600 dark:hover:border-indigo-600 dark:hover:text-indigo-200 transition"
                                 title={`Open #${item.task} directly on ${item.project_name} Kanban board`}
                               >
-                                <Kanban className="h-3 w-3 text-indigo-400" />
+                                <Kanban className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                                 <span>Kanban</span>
-                                <ArrowUpRight className="h-2.5 w-2.5 text-slate-500" />
+                                <ArrowUpRight className="h-2.5 w-2.5 text-slate-400 dark:text-slate-500" />
                               </Link>
                               <span className={`hidden rounded-md border px-2 py-0.5 text-[10px] font-bold md:inline-flex ${PRIORITY_CLASSES[item.task_priority]}`}>{item.task_priority}</span>
-                              <button type="button" aria-label={`Remove ${item.task_title} from the day`} disabled={working} onClick={() => void removePlanItem(item)} className="rounded-lg p-1.5 text-slate-600 opacity-0 transition hover:bg-rose-950/50 hover:text-rose-300 group-hover:opacity-100 focus:opacity-100">
+                              <button type="button" aria-label={`Remove ${item.task_title} from the day`} disabled={working} onClick={() => void removePlanItem(item)} className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 dark:hover:bg-rose-950/50 hover:text-rose-600 dark:hover:text-rose-300 opacity-0 transition group-hover:opacity-100 focus:opacity-100 cursor-pointer">
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
                             </div>
                           </div>
                         );
                       })}
-                      {items.length === 0 && <p className="rounded-xl border border-dashed border-slate-800 bg-slate-900/40 px-3 py-4 text-center text-[11px] text-slate-500">No tasks in this segment yet.</p>}
-                      <button type="button" onClick={() => setAddingTo(block.id)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-800 px-3 py-2.5 text-[11px] font-bold text-slate-500 transition hover:border-indigo-700/70 hover:bg-indigo-950/20 hover:text-indigo-300">
+                      {items.length === 0 && <p className="rounded-xl border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 px-3 py-4 text-center text-[11px] text-slate-500">No tasks in this segment yet.</p>}
+                      <button type="button" onClick={() => setAddingTo(block.id)} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 px-3 py-2.5 text-[11px] font-bold text-slate-500 transition hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:border-indigo-700/70 dark:hover:bg-indigo-950/20 hover:text-indigo-600 dark:hover:text-indigo-300 cursor-pointer">
                         <Plus className="h-3.5 w-3.5" /> Add task to {block.id}
                       </button>
                     </div>
@@ -540,13 +540,13 @@ export default function PulsePage() {
               })}
 
               {addingTo && (
-                <div className="rounded-2xl border border-indigo-800/60 bg-slate-900 p-5 shadow-xl shadow-slate-950/40">
+                <div className="rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-white dark:bg-slate-900 p-5 shadow-xl shadow-slate-950/5 dark:shadow-slate-950/40">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="text-sm font-bold text-white">Plan a visible task</h3>
-                      <p className="mt-1 text-xs text-slate-400">Add it to the {addingTo} segment for {formatSelectedDate(selectedDate)}.</p>
+                      <h3 className="text-sm font-bold text-slate-900 dark:text-white">Plan a visible task</h3>
+                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Add it to the {addingTo} segment for {formatSelectedDate(selectedDate)}.</p>
                     </div>
-                    <button type="button" onClick={() => setAddingTo(null)} className="text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
+                    <button type="button" onClick={() => setAddingTo(null)} className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer">Cancel</button>
                   </div>
                   {dashboard.candidate_tasks.length ? (
                     <div className="mt-4 flex flex-col gap-3 sm:flex-row">
@@ -554,7 +554,7 @@ export default function PulsePage() {
                         aria-label="Task to add to Pulse"
                         value={selectedTaskId ?? ""}
                         onChange={(event) => setSelectedTaskId(Number(event.target.value))}
-                        className="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-500"
+                        className="min-w-0 flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none focus:border-indigo-500 cursor-pointer"
                       >
                         <option value="" disabled>Select a task</option>
                         {dashboard.candidate_tasks.map((task) => (
@@ -567,18 +567,18 @@ export default function PulsePage() {
                         type="button"
                         disabled={!selectedTaskId || savingPlan}
                         onClick={() => void addToPlan()}
-                        className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
                       >
                         {savingPlan ? "Adding…" : "Add to plan"}
                       </button>
                     </div>
                   ) : (
-                    <div className="mt-4 flex flex-col gap-2 rounded-xl border border-dashed border-slate-800 p-4 text-xs text-slate-400">
+                    <div className="mt-4 flex flex-col gap-2 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 p-4 text-xs text-slate-500 dark:text-slate-400">
                       <p>No open, visible tasks are ready to add.</p>
                       {selectedProjectId && (
                         <Link
                           href={`/projects/${selectedProjectId}`}
-                          className="inline-flex items-center gap-1 font-bold text-indigo-400 hover:underline"
+                          className="inline-flex items-center gap-1 font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                         >
                           <Kanban className="h-3 w-3" /> Go create or assign tickets on the Kanban board
                         </Link>
@@ -590,41 +590,41 @@ export default function PulsePage() {
             </section>
 
             <aside className="space-y-5 xl:sticky xl:top-20 xl:self-start">
-              <section className={`overflow-hidden rounded-2xl border p-5 ${session ? "border-indigo-800/70 bg-indigo-950/30" : "border-slate-800 bg-slate-900/90"}`}>
-                <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-300">Focus session</span><span className={`flex h-2 w-2 rounded-full ${session?.status === "active" ? "bg-emerald-400 animate-pulse" : "bg-slate-600"}`} /></div>
-                <p className="mt-5 font-mono text-4xl font-black tracking-tight text-white tabular-nums">{formatDuration(elapsed)}</p>
+              <section className={`overflow-hidden rounded-2xl border p-5 ${session ? "border-indigo-200 dark:border-indigo-800/70 bg-indigo-50/40 dark:bg-indigo-950/30" : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-xs"}`}>
+                <div className="flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-600 dark:text-indigo-300">Focus session</span><span className={`flex h-2 w-2 rounded-full ${session?.status === "active" ? "bg-emerald-500 dark:bg-emerald-400 animate-pulse" : "bg-slate-400 dark:bg-slate-600"}`} /></div>
+                <p className="mt-5 font-mono text-4xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums">{formatDuration(elapsed)}</p>
                 <div className="mt-3 min-h-10">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs font-bold text-slate-200 truncate">{session?.task_title || "Ready when you are"}</p>
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{session?.task_title || "Ready when you are"}</p>
                     {session?.task_id && session?.project_id && (
                       <Link
                         href={`/projects/${session.project_id}?task=${session.task_id}`}
-                        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-indigo-700/60 bg-indigo-950/60 px-2 py-0.5 text-[10px] font-bold text-indigo-300 hover:text-white transition"
+                        className="shrink-0 inline-flex items-center gap-1 rounded-md border border-indigo-200 dark:border-indigo-700/60 bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 text-[10px] font-bold text-indigo-700 dark:text-indigo-300 hover:text-indigo-900 dark:hover:text-white transition"
                         title="Open task in Kanban board"
                       >
-                        <Kanban className="h-3 w-3 text-indigo-400" />
+                        <Kanban className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                         <span>Kanban</span>
                       </Link>
                     )}
                   </div>
-                  <p className="mt-0.5 text-[11px] text-slate-400">{session?.project_name || "Start with the next task in your execution plan."}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{session?.project_name || "Start with the next task in your execution plan."}</p>
                 </div>
                 <div className="mt-5 grid grid-cols-2 gap-2">
-                  <button type="button" disabled={working} onClick={() => void controlFocus()} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60">
+                  <button type="button" disabled={working} onClick={() => void controlFocus()} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer">
                     {session?.status === "active" ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />} {session?.status === "active" ? "Pause" : session ? "Resume" : "Start"}
                   </button>
-                  <button type="button" disabled={!session || working} onClick={() => void finishFocus()} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-300 transition hover:border-emerald-700 hover:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"><CheckCircle2 className="h-3.5 w-3.5" /> Finish</button>
+                  <button type="button" disabled={!session || working} onClick={() => void finishFocus()} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 transition hover:border-emerald-600 hover:text-emerald-700 dark:hover:text-emerald-300 disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"><CheckCircle2 className="h-3.5 w-3.5" /> Finish</button>
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5">
-                <div className="flex items-center justify-between"><div className="flex items-center gap-2"><LockKeyhole className="h-3.5 w-3.5 text-slate-500" /><h2 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Private scratchpad</h2></div><span className="text-[10px] font-semibold text-slate-600">Only you</span></div>
-                <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={7} placeholder="Capture decisions, distractions, or the next step…" className="mt-3 w-full resize-none rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs leading-relaxed text-slate-200 outline-none placeholder:text-slate-600 focus:border-indigo-500" />
-                <button type="button" disabled={savingNote} onClick={() => void saveNote()} className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-300 transition hover:border-indigo-700 hover:text-white disabled:opacity-60"><Save className="h-3.5 w-3.5" />{savingNote ? "Saving…" : "Save scratchpad"}</button>
+              <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 shadow-xs">
+                <div className="flex items-center justify-between"><div className="flex items-center gap-2"><LockKeyhole className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" /><h2 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Private scratchpad</h2></div><span className="text-[10px] font-semibold text-slate-500 dark:text-slate-600">Only you</span></div>
+                <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={7} placeholder="Capture decisions, distractions, or the next step…" className="mt-3 w-full resize-none rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-xs leading-relaxed text-slate-900 dark:text-slate-200 outline-none placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-indigo-500" />
+                <button type="button" disabled={savingNote} onClick={() => void saveNote()} className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 transition hover:border-indigo-500 hover:text-indigo-600 dark:hover:text-white disabled:opacity-60 cursor-pointer"><Save className="h-3.5 w-3.5" />{savingNote ? "Saving…" : "Save scratchpad"}</button>
               </section>
 
-              <section className="rounded-2xl border border-slate-800 bg-slate-900/90 p-5">
-                <div className="flex items-center justify-between"><h2 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Seven-day follow-through</h2><span className="text-[10px] font-bold text-emerald-400">{dashboard.summary.completion_percentage}% today</span></div>
+              <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 p-5 shadow-xs">
+                <div className="flex items-center justify-between"><h2 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Seven-day follow-through</h2><span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{dashboard.summary.completion_percentage}% today</span></div>
                 <div className="mt-5 flex h-20 items-end justify-between gap-1.5">
                   {dashboard.weekly_progress.map((day) => {
                     const percentage = day.total ? Math.max(12, Math.round((day.completed / day.total) * 100)) : 6;
