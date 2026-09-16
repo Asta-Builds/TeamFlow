@@ -226,7 +226,7 @@ docker compose up --build -d
 | **Django Backend API** | [http://localhost:8000/api/docs/](http://localhost:8000/api/docs/) | Python AI Swarm, LangGraph nodes & Celery worker |
 | **Keycloak SSO** | [http://localhost:8080](http://localhost:8080) | Identity Provider & OAuth 2.0 / OpenID Connect |
 | **Langfuse Observability** | [http://localhost:3001](http://localhost:3001) | Agent execution traces & LLM observability |
-| **PostgreSQL (pgvector)** | `localhost:5432` | Shared relational database with vector embeddings |
+| **PostgreSQL (pgvector)** | `localhost:5532` | Shared relational database with vector embeddings (host port mapped from internal `:5432`, configurable via `POSTGRES_PORT`) |
 | **Redis Cache** | `localhost:6379` | Cache, message queue, and Celery broker |
 
 ---
@@ -236,7 +236,8 @@ docker compose up --build -d
 - 🏛️ [**Architecture & Multi-Agent Swarm**](./docs/ARCHITECTURE.md) : Detailed breakdown of LangGraph nodes, pgvector RAG store, Git lifecycle, and Kanban quality gates.
 - ⚡ [**NestJS Migration Blueprint**](./docs/NESTJS_MIGRATION.md) : Strangler Fig pattern, Prisma schema mapping, module architecture, and switching frontend APIs.
 - 📋 [**Spécification Fonctionnelle Détaillée**](./docs/SPECIFICATION_FONCTIONNELLE.md) : Functional requirements and feature matrices.
-- 🚀 [**Hosting & Production Deployment**](./docs/HOSTING_AND_DEPLOYMENT.md) : Step-by-step production hosting with NVIDIA GPU pass-through, Nginx SSL, Keycloak SSO, and 1-click cloud deploy (Render, Railway, K8s).
+- 🚀 [**Hosting & Production Deployment**](./docs/HOSTING_AND_DEPLOYMENT.md) : Production compose stack, TLS reverse proxy, CI/CD image publishing.
+- ✅ [**Pre-production Runbook**](./docs/PREPROD_RUNBOOK.md) : Configuration checklist, routing, provider contracts, smoke test (`scripts/smoke_preprod.py`), and open items.
 - 📡 [**API & Swarm Workflow Reference**](./docs/API_AND_AGENT_WORKFLOW.md) : Complete REST API documentation and inter-agent communication specifications.
 - 🧭 [**Blueprint Implementation Status**](./docs/BLUEPRINT_IMPLEMENTATION.md) : Tracking alignment with the Virtual Tech Company Blueprint.
 
