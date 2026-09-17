@@ -12,11 +12,24 @@ import { CreateSeoAuditDto } from './dto/create-seo-audit.dto.js';
 import { CreateSeoTaskDto } from './dto/create-seo-task.dto.js';
 import {
   assertAuditableUrl,
+  assertRedirectTarget,
   privateTargetsAllowed,
   publicOnlyLookup,
 } from '../common/outbound-url.js';
 
 const MAX_AUDIT_BYTES = 5 * 1024 * 1024;
+
+const SCORE_RULES = {
+  responseTimeMs: [[300, 98], [600, 92], [1200, 80], [2500, 65]],
+  slowScore: 45,
+  httpPenalty: 20,
+  minPerformance: 30,
+  severityPenalty: { critical: 20, high: 12, medium: 6, low: 3 },
+  minSeo: 20,
+  viewportScore: 96,
+  noViewportScore: 55,
+  weights: { performance: 0.4, seo: 0.4, mobile: 0.2 }
+};
 
 export interface SeoIssue {
   severity: 'critical' | 'high' | 'medium' | 'low';
@@ -122,21 +135,25 @@ export class SeoService {
       });
     }
 
-    let loadTimeMs = 350;
+    let loadTimeMs = 0;
     let html = '';
     let robotsTxtPresent = false;
     let sitemapPresent = false;
 
     // Local development only: reach the frontend container when auditing localhost.
     let probeUrl = parsedUrl.toString();
-    if (
-      privateTargetsAllowed() &&
-      (process.env.DATABASE_URL?.includes('@db:') ||
-        process.env.PYTHON_AI_SERVICE_URL?.includes('backend'))
-    ) {
-      probeUrl = probeUrl
-        .replace('localhost:3000', 'frontend:3000')
-        .replace('127.0.0.1:3000', 'frontend:3000');
+    if (privateTargetsAllowed() && process.env.SEO_LOCAL_TARGET_REWRITES) {
+      const rewrites = process.env.SEO_LOCAL_TARGET_REWRITES.split(',');
+      for (const rw of rewrites) {
+        const [from, to] = rw.split('=');
+        if (from && to) {
+          const fromHost = from.trim();
+          if (parsedUrl.host === fromHost) {
+            parsedUrl.host = to.trim();
+            probeUrl = parsedUrl.toString();
+          }
+        }
+      }
     }
 
     const startTime = Date.now();
@@ -145,6 +162,7 @@ export class SeoService {
         timeout: 10000,
         maxRedirects: 5,
         lookup: publicOnlyLookup,
+        beforeRedirect: assertRedirectTarget,
         maxContentLength: MAX_AUDIT_BYTES,
         responseType: 'text',
         headers: {
@@ -174,6 +192,7 @@ export class SeoService {
         timeout: 3000,
         maxRedirects: 3,
         lookup: publicOnlyLookup,
+        beforeRedirect: assertRedirectTarget,
       });
       if (rResp.status >= 200 && rResp.status < 400) robotsTxtPresent = true;
     } catch {
@@ -186,6 +205,7 @@ export class SeoService {
         timeout: 3000,
         maxRedirects: 3,
         lookup: publicOnlyLookup,
+        beforeRedirect: assertRedirectTarget,
       });
       if (sResp.status >= 200 && sResp.status < 400) sitemapPresent = true;
     } catch {
@@ -318,43 +338,34 @@ export class SeoService {
     }
 
     // Scoring algorithms
-    let perfScore =
-      loadTimeMs < 300
-        ? 98
-        : loadTimeMs < 600
-          ? 92
-          : loadTimeMs < 1200
-            ? 80
-            : loadTimeMs < 2500
-              ? 65
-              : 45;
-    if (!isHttps) perfScore = Math.max(30, perfScore - 20);
+    let perfScore = SCORE_RULES.slowScore;
+    for (const [limit, score] of SCORE_RULES.responseTimeMs) {
+      if (loadTimeMs < limit) {
+        perfScore = score;
+        break;
+      }
+    }
+    if (!isHttps) perfScore = Math.max(SCORE_RULES.minPerformance, perfScore - SCORE_RULES.httpPenalty);
 
     let seoScore = 100;
     for (const issue of issues) {
-      if (issue.severity === 'critical') seoScore -= 20;
-      else if (issue.severity === 'high') seoScore -= 12;
-      else if (issue.severity === 'medium') seoScore -= 6;
-      else if (issue.severity === 'low') seoScore -= 3;
+      seoScore -= SCORE_RULES.severityPenalty[issue.severity as keyof typeof SCORE_RULES.severityPenalty] || 0;
     }
-    seoScore = Math.max(20, Math.min(100, seoScore));
+    seoScore = Math.max(SCORE_RULES.minSeo, Math.min(100, seoScore));
 
     const mobileScore = /<meta\s+[^>]*name=["']viewport["']/i.test(html)
-      ? 96
-      : 55;
+      ? SCORE_RULES.viewportScore
+      : SCORE_RULES.noViewportScore;
     const overallScore = Math.round(
-      (perfScore * 0.4 + seoScore * 0.4 + mobileScore * 0.2),
+      (perfScore * SCORE_RULES.weights.performance + seoScore * SCORE_RULES.weights.seo + mobileScore * SCORE_RULES.weights.mobile),
     );
 
     const metrics = {
-      fcp_ms: Math.round(loadTimeMs * 0.65),
-      lcp_ms: Math.round(loadTimeMs * 1.3),
-      cls: 0.02,
-      fid_ms: 18,
-      ttfb_ms: Math.round(loadTimeMs * 0.35),
+      response_time_ms: loadTimeMs,
       canonical_detected: /<link\s+[^>]*rel=["']canonical["']/i.test(html),
       robots_txt_present: robotsTxtPresent,
       sitemap_present: sitemapPresent,
+      measured_with: 'http_fetch',
     };
 
     const audit = await this.prisma.sEOAudit.create({

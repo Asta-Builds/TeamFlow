@@ -1,9 +1,14 @@
 import time
+from django.conf import settings
 from typing import Dict, Any
 from agents.state import TicketState
 from agents.tools.github_tool import merge_pull_request
 from agents.tools.app_tool import trigger_app_deployment, update_ticket_status, add_ticket_comment, log_task_activity
 from agents.events import emit_state_event
+
+from agents.registry import get_agent_spec
+from agents.users import get_agent_user_for_task
+from tasks.models import Task
 
 
 def devops_agent_node(state: TicketState) -> Dict[str, Any]:
@@ -14,11 +19,19 @@ def devops_agent_node(state: TicketState) -> Dict[str, Any]:
     - Closes ticket upon deployment verification
     """
     ticket_id = state.get("ticket_id")
-    project_id = state.get("project_id", 1)
-    pr_url = state.get("pr_url", "")
+    project_id = state.get("project_id")
+    title = state.get("title", "")
     history = list(state.get("history", []))
-    total_tokens = state.get("total_tokens", 0) + 390
-    total_cost = state.get("total_cost_usd", 0.0) + 0.0039
+    total_tokens = state.get("total_tokens", 0)
+    total_cost = state.get("total_cost_usd", 0.0)
+
+    agent_key = "devops"
+    agent_spec = get_agent_spec(agent_key)
+    author_name = agent_spec["name"]
+    agent_role = agent_spec["role"]
+
+    task_obj = Task.objects.get(id=ticket_id) if ticket_id else None
+    agent_user = get_agent_user_for_task(task_obj, agent_key) if task_obj else None
 
     emit_state_event(
         state,
@@ -70,9 +83,9 @@ def devops_agent_node(state: TicketState) -> Dict[str, Any]:
     # 3. Only a merged ticket is marked done; the release outcome is reported as-is.
     if ticket_id:
         if merged:
-            update_ticket_status(ticket_id, "done", actor_email="devops")
+            update_ticket_status(ticket_id, "done", actor_email=agent_user.email if agent_user else getattr(settings, "GIT_AUTHOR_EMAIL", ""))
         devops_comment = (
-            f"**Joan of Arc (AI) - DevOps Engineer**\n\n"
+            f"**{author_name} - {agent_role}**\n\n"
             f"**Release step:**\n\n"
             f"- **Merge:** {merge_line}\n"
             f"- **Deployment:** {release_line}\n"
@@ -81,20 +94,18 @@ def devops_agent_node(state: TicketState) -> Dict[str, Any]:
         add_ticket_comment(ticket_id, "devops", devops_comment)
         log_task_activity(
             ticket_id,
-            "Joan of Arc (AI)",
+            author_name,
             "release_requested",
             {"environment": "staging", "merged": merged, "deployment_status": deployment_status},
         )
 
     step_log = {
         "node": "devops",
-        "agent_role": "DevOps Engineer",
+        "agent_role": agent_role,
         "action": "release_step",
         "message": f"{merge_line} {release_line}",
         "deployment_status": deployment_status,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "tokens": 390,
-        "cost_usd": 0.0039,
     }
     history.append(step_log)
     emit_state_event(

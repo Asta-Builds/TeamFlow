@@ -11,10 +11,9 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
-  Server,
-  FolderGit2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { apiErrorDetail } from "@/lib/api";
 
 export interface PipelineStage {
   name: string;
@@ -34,42 +33,35 @@ export interface DeploymentCardData {
   can_rollback?: boolean;
 }
 
-const DEFAULT_STAGES: PipelineStage[] = [
-  { name: "Lint & TypeScript Validation", status: "success", duration_seconds: 12 },
-  { name: "Unit & Integration Tests", status: "success", duration_seconds: 18 },
-  { name: "Docker Container Image Scaffolding", status: "success", duration_seconds: 42 },
-  { name: "Healthcheck & Smoke Verification", status: "success", duration_seconds: 6 },
-];
-
 export function DeploymentStatusCard({
   data,
   onRollback,
 }: {
   data: DeploymentCardData;
-  onRollback?: () => void;
+  onRollback?: () => Promise<void>;
 }) {
-  const [stages] = useState<PipelineStage[]>(data.stages || DEFAULT_STAGES);
+  const [stages] = useState<PipelineStage[]>(data.stages || []);
   const [isRollingBack, setIsRollingBack] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
   const handleRollback = async () => {
+    if (!onRollback) return;
     setIsRollingBack(true);
     try {
-      toast.info("Joan of Arc (DevOps AI) initiating 1-click rollback to previous healthy revision...");
-      setTimeout(() => {
-        setIsRollingBack(false);
-        toast.success("Rollback succeeded! Cluster re-routed to stable container revision.");
-        if (onRollback) onRollback();
-      }, 1500);
-    } catch {
+      await onRollback();
+      toast.success("Rollback requested");
+    } catch (err) {
+      toast.error(apiErrorDetail(err, "Rollback failed"));
+    } finally {
       setIsRollingBack(false);
-      toast.error("Rollback failed");
     }
   };
 
   const isSuccess = data.status === "deployed";
   const isDeploying = data.status === "deploying";
   const isFailed = data.status === "failed";
+
+  const hasStages = stages && stages.length > 0;
 
   return (
     <div className="rounded-2xl border border-sky-200 dark:border-sky-900/40 bg-white dark:bg-slate-900/90 shadow-xl overflow-hidden">
@@ -132,7 +124,7 @@ export function DeploymentStatusCard({
               <ExternalLink className="h-3 w-3" />
             </a>
           )}
-          {data.can_rollback !== false && (
+          {onRollback && data.can_rollback !== false && (
             <button
               type="button"
               onClick={handleRollback}
@@ -143,18 +135,20 @@ export function DeploymentStatusCard({
               <span>Rollback</span>
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white transition cursor-pointer"
-          >
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
+          {hasStages && (
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white transition cursor-pointer"
+            >
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Expanded Pipeline Stages */}
-      {isExpanded && (
+      {isExpanded && hasStages && (
         <div className="p-3 bg-slate-50 dark:bg-slate-950/90 space-y-2 border-t border-slate-200 dark:border-slate-800">
           <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
             Pipeline Stages:

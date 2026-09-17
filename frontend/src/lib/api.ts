@@ -178,6 +178,10 @@ export async function register(payload: {
 
 // --- Billing Helpers ---
 
+export async function getBillingPlans() {
+  return apiFetch<{ plans: import("./types").BillingPlan[] }>("/billing/plans/");
+}
+
 export async function createCheckoutSession(tier: string, successUrl: string, cancelUrl: string) {
   return apiFetch<{ id: string; url: string; mock: boolean }>(
     "/billing/create-checkout-session/",

@@ -60,18 +60,15 @@ export function isReservedAgentEmail(email: string): boolean {
 /** Placeholder accounts created for invitations to emails without an account. */
 export const INVITED_PASSWORD_PREFIX = '!invited_';
 
-export function isUnclaimedInvitee(user: {
-  password: string;
-  clerkId: string | null;
-  agentKey: string;
-  organizationId: number | null;
-}): boolean {
-  return (
-    user.password.startsWith(INVITED_PASSWORD_PREFIX) &&
-    !user.clerkId &&
-    !user.agentKey &&
-    user.organizationId === null
-  );
+export function hasUsablePassword(password: string | null | undefined): boolean {
+  if (!password) return false;
+  if (password.startsWith('!')) return false;
+  return true;
+}
+
+/** Only a linked Clerk identity proves ownership of the email address. */
+export function hasVerifiedEmail(user: { clerkId?: string | null }): boolean {
+  return Boolean(user.clerkId);
 }
 
 export function personalWorkspaceName(name: string | null | undefined, email: string): string {

@@ -1,18 +1,25 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Injectable, UnauthorizedException, Optional } from '@nestjs/common';
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { ClerkService } from '../auth/clerk.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { ACTIVE_SEATS, withActiveSeat } from '../common/workspace.js';
+import { ACTIVE_SEATS, withActiveSeat, hasUsablePassword } from '../common/workspace.js';
+import { RefreshTokenStore } from '../auth/refresh-token.store.js';
+import { randomUUID } from 'node:crypto';
 
 export const MCP_READ_SCOPE = 'teamflow.read';
 export const MCP_WRITE_SCOPE = 'teamflow.write';
 
 @Injectable()
 export class McpPrincipalService {
+  private readonly tokenStore: RefreshTokenStore;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly clerkService: ClerkService,
-  ) {}
+    @Optional() tokenStore?: RefreshTokenStore,
+  ) {
+    this.tokenStore = tokenStore ?? new RefreshTokenStore(prisma);
+  }
 
   async resolve(authInfo: AuthInfo | undefined, requiresWrite: boolean) {
     if (!authInfo) {
@@ -43,6 +50,8 @@ export class McpPrincipalService {
     if (linkedUser) return this.requireActiveWorkspace(linkedUser);
 
     const clerkProfile = await this.clerkService.getUserProfile(clerkId);
+    let revokedUserId: number | undefined;
+
     const linkedByEmail = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
         where: { email: clerkProfile.email },
@@ -57,12 +66,25 @@ export class McpPrincipalService {
           'This TeamFlow account is linked to a different Clerk identity.',
         );
       }
+
+      const revokePassword = !user.clerkId && hasUsablePassword(user.password);
+      if (revokePassword) {
+        revokedUserId = user.id;
+      }
+
       return tx.user.update({
         where: { id: user.id },
-        data: { clerkId },
+        data: {
+          clerkId,
+          ...(revokePassword ? { password: `!sso_clerk_${randomUUID()}` } : {}),
+        },
         include: { memberships: ACTIVE_SEATS },
       });
     });
+
+    if (revokedUserId) {
+      await this.tokenStore.endAllSessions(revokedUserId);
+    }
 
     return this.requireActiveWorkspace(linkedByEmail);
   }

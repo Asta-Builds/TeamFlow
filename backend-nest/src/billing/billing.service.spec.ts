@@ -92,4 +92,23 @@ describe('BillingService', () => {
       'A privileged workspace account is required',
     );
   });
+  it('returns plans with optional price labels', () => {
+    vi.stubEnv('BILLING_PRICE_LABEL_STARTER', 'Free');
+    vi.stubEnv('BILLING_PRICE_LABEL_GROWTH', '$49/mo');
+    
+    const res = service.getPlans();
+    expect(res.plans).toHaveLength(3);
+    
+    const starter = res.plans.find((p) => p.tier === 'starter');
+    expect(starter?.price_label).toBe('Free');
+    expect(starter?.checkout_available).toBe(false);
+    
+    const growth = res.plans.find((p) => p.tier === 'growth');
+    expect(growth?.price_label).toBe('$49/mo');
+    expect(growth?.checkout_available).toBe(true);
+    
+    const enterprise = res.plans.find((p) => p.tier === 'enterprise');
+    expect(enterprise?.price_label).toBeNull();
+    expect(enterprise?.checkout_available).toBe(true);
+  });
 });

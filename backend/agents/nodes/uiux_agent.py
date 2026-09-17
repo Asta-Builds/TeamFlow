@@ -4,6 +4,10 @@ from agents.state import TicketState
 from agents.tools.app_tool import add_ticket_comment, log_task_activity
 from agents.events import emit_state_event
 
+from agents.registry import get_agent_spec
+from agents.users import get_agent_user_for_task
+from tasks.models import Task
+
 
 def uiux_agent_node(state: TicketState) -> Dict[str, Any]:
     """
@@ -13,8 +17,16 @@ def uiux_agent_node(state: TicketState) -> Dict[str, Any]:
     ticket_id = state.get("ticket_id")
     title = state.get("title", "")
     history = list(state.get("history", []))
-    total_tokens = state.get("total_tokens", 0) + 410
-    total_cost = state.get("total_cost_usd", 0.0) + 0.0041
+    total_tokens = state.get("total_tokens", 0)
+    total_cost = state.get("total_cost_usd", 0.0)
+
+    agent_key = "designer"
+    agent_spec = get_agent_spec(agent_key)
+    author_name = agent_spec["name"]
+    agent_role = agent_spec["role"]
+
+    task_obj = Task.objects.get(id=ticket_id) if ticket_id else None
+    agent_user = get_agent_user_for_task(task_obj, agent_key) if task_obj else None
     emit_state_event(
         state,
         event_type="progress",
@@ -26,12 +38,10 @@ def uiux_agent_node(state: TicketState) -> Dict[str, Any]:
 
     step_log = {
         "node": "designer",
-        "agent_role": "UI/UX Designer",
+        "agent_role": agent_role,
         "action": "design_spec_generated",
-        "message": f"UI/UX Designer drafted wireframes, responsive spacing tokens, and color contrast checks for: {title}.",
+        "message": f"{author_name} drafted wireframes, responsive spacing tokens, and color contrast checks for: {title}.",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "tokens": 410,
-        "cost_usd": 0.0041,
     }
     history.append(step_log)
     emit_state_event(
@@ -47,10 +57,10 @@ def uiux_agent_node(state: TicketState) -> Dict[str, Any]:
     if ticket_id:
         add_ticket_comment(
             ticket_id,
-            "design",
-            f"**Leonardo Da Vinci (AI) - UI/UX Designer**\n\n**Design handoff to Frontend:**\n\nRecorded the design step for `{title}`. The frontend engineer picks up component implementation next."
+            agent_key,
+            f"**{author_name} - {agent_role}**\n\n**Design handoff to Frontend:**\n\nRecorded the design step for `{title}`. The frontend engineer picks up component implementation next."
         )
-        log_task_activity(ticket_id, "Leonardo Da Vinci (AI)", "created_design_spec", {"title": title})
+        log_task_activity(ticket_id, author_name, "created_design_spec", {"title": title})
 
     return {
         "assigned_agent": "frontend",

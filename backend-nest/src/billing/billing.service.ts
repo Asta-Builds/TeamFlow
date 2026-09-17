@@ -9,6 +9,7 @@ import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { randomUUID } from 'node:crypto';
 import { bridgePost } from '../common/python-bridge.js';
+import { PLANS } from './plans.js';
 
 /**
  * Stripe checkout and the customer portal are served by the Django service
@@ -71,9 +72,35 @@ export class BillingService {
     }
   }
 
+
+
   private validateTier(tier: string) {
-    if (!['starter', 'growth', 'scale', 'enterprise'].includes(tier))
+    if (!['starter', 'growth', 'enterprise'].includes(tier))
       throw new BadRequestException('Invalid subscription tier');
+  }
+
+  getPlans() {
+    return {
+      plans: PLANS.map((plan) => {
+        let price_label: string | null = null;
+        if (plan.tier === 'starter') price_label = process.env.BILLING_PRICE_LABEL_STARTER || null;
+        else if (plan.tier === 'growth') price_label = process.env.BILLING_PRICE_LABEL_GROWTH || null;
+        else if (plan.tier === 'enterprise') price_label = process.env.BILLING_PRICE_LABEL_ENTERPRISE || null;
+        
+        let checkout_available = false;
+        if (plan.tier !== 'starter') {
+          checkout_available = this.mockBillingAllowed() || !!this.httpService;
+        }
+
+        return {
+          tier: plan.tier,
+          name: plan.name,
+          limits: plan.limits,
+          price_label,
+          checkout_available,
+        };
+      })
+    };
   }
 
   private requireRedirectUrl(url: string | undefined, field: string): string {

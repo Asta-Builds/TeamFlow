@@ -46,7 +46,7 @@ class GitHubIntegration(models.Model):
     GitHub Integration settings per Organization.
     Stores GitHub Personal Access Token (PAT), Default Organization/Owner,
     Default Repository Visibility, and cached account metadata.
-    Used by DevOps Specialist Agent (Joan of Arc) to autonomously provision and manage Git repositories.
+    Used by the DevOps agent to provision and manage Git repositories.
     """
     class Visibility(models.TextChoices):
         PUBLIC = "public", "Public"

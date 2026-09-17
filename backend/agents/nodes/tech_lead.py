@@ -6,6 +6,10 @@ from agents.tools.slack_tool import post_slack_message
 from agents.tools.app_tool import add_ticket_comment, log_task_activity
 from agents.events import emit_state_event
 
+from agents.registry import get_agent_spec
+from agents.users import get_agent_user_for_task
+from tasks.models import Task
+
 
 def tech_lead_node(state: TicketState) -> Dict[str, Any]:
     """
@@ -21,8 +25,16 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
     task_type = state.get("task_type", "feature")
     history = list(state.get("history", []))
     subtasks = list(state.get("subtasks", []))
-    total_tokens = state.get("total_tokens", 0) + 420
-    total_cost = state.get("total_cost_usd", 0.0) + 0.0042
+    total_tokens = state.get("total_tokens", 0)
+    total_cost = state.get("total_cost_usd", 0.0)
+
+    agent_key = "tech_lead"
+    agent_spec = get_agent_spec(agent_key)
+    author_name = agent_spec["name"]
+    agent_role = agent_spec["role"]
+
+    task_obj = Task.objects.get(id=ticket_id) if ticket_id else None
+    agent_user = get_agent_user_for_task(task_obj, agent_key) if task_obj else None
 
     emit_state_event(
         state,
@@ -51,26 +63,24 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
         pr_target = state.get("pr_url") or state.get("branch_name") or f"ticket #{ticket_id}"
         step_log = {
             "node": "tech_lead",
-            "agent_role": "Tech Lead",
+            "agent_role": agent_role,
             "action": "pr_review",
-            "message": f"Tech Lead recorded the review handoff for {pr_target} and routed it to the QA gate.",
+            "message": f"{author_name} recorded the review handoff for {pr_target} and routed it to the QA gate.",
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-            "tokens": 280,
-            "cost_usd": 0.0028,
         }
         history.append(step_log)
         
         # Log to TeamFlow DB
         if ticket_id:
             review_comment = (
-                f"**Sarah Jenkins (AI) - Tech Lead & System Architect**\n\n"
+                f"**{author_name} - {agent_role}**\n\n"
                 f"**Review handoff to @qa:**\n\n"
                 f"- **Change:** `{pr_target}`\n"
                 f"- **Review:** No automated code review runs at this step; a human reviewer should check the diff before release.\n"
                 f"- **Next:** Routing to @qa for the automated checks."
             )
-            add_ticket_comment(ticket_id, "lead", review_comment)
-            log_task_activity(ticket_id, "Sarah Jenkins (AI)", "reviewed_pr", {"pr_url": pr_target})
+            add_ticket_comment(ticket_id, agent_key, review_comment)
+            log_task_activity(ticket_id, author_name, "reviewed_pr", {"pr_url": pr_target})
         emit_state_event(
             state,
             event_type="handoff",
@@ -86,8 +96,8 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
             "assigned_agent": "qa",
             "history": history,
             "retrieved_context": retrieved,
-            "total_tokens": total_tokens + 280,
-            "total_cost_usd": total_cost + 0.0028,
+            "total_tokens": total_tokens,
+            "total_cost_usd": total_cost,
         }
 
     # Initial decomposition
@@ -106,12 +116,10 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
 
     step_log = {
         "node": "tech_lead",
-        "agent_role": "Tech Lead",
+        "agent_role": agent_role,
         "action": "orchestration_dispatch",
-        "message": f"Tech Lead analyzed ticket and retrieved {len(retrieved)} RAG architecture chunks. Dispatched subtasks to: {', '.join(s['role'] for s in new_subtasks)}.",
+        "message": f"{author_name} analyzed ticket and retrieved {len(retrieved)} RAG architecture chunks. Dispatched subtasks to: {', '.join(s['role'] for s in new_subtasks)}.",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "tokens": 420,
-        "cost_usd": 0.0042,
     }
     history.append(step_log)
 
@@ -119,14 +127,14 @@ def tech_lead_node(state: TicketState) -> Dict[str, Any]:
         dispatch_target = new_subtasks[0]["role"]
         target_tag = f"@{dispatch_target}_core" if dispatch_target == "backend" else f"@{dispatch_target}_app" if dispatch_target == "frontend" else f"@{dispatch_target}"
         planning_comment = (
-            f"**Sarah Jenkins (AI) - Tech Lead & System Architect**\n\n"
+            f"**{author_name} - {agent_role}**\n\n"
             f"**Sprint Planning & Task Breakdown:**\n\n"
             f"- **Initiative:** Ticket #{ticket_id} (`{title}`) decomposed with {len(retrieved)} architectural RAG context chunks.\n"
             f"- **Sprint Directives:** Strict workspace isolation, AST verification pre-commit, and unit test coverage.\n"
             f"- **Assigned Specialist:** {target_tag} assigned for sprint implementation.\n"
             f"- **Subtasks:** {', '.join(s['role'] for s in new_subtasks)}"
         )
-        add_ticket_comment(ticket_id, "lead", planning_comment)
+        add_ticket_comment(ticket_id, agent_key, planning_comment)
 
     emit_state_event(
         state,

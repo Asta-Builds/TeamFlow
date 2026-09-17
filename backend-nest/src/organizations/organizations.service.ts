@@ -11,6 +11,7 @@ import { AuthService } from '../auth/auth.service.js';
 import { CreateOrganizationDto } from './dto/create-organization.dto.js';
 import { UpdateOrganizationDto } from './dto/update-organization.dto.js';
 import { InviteMemberDto } from './dto/invite-member.dto.js';
+import { limitsForTier } from '../billing/plans.js';
 import { randomUUID } from 'node:crypto';
 import {
   INVITED_PASSWORD_PREFIX,
@@ -25,6 +26,7 @@ import {
   isWorkspaceOwner,
   removeMember,
   unsupportedRole,
+  hasVerifiedEmail,
 } from '../common/workspace.js';
 
 function serializeOrganization(org: Organization) {
@@ -50,48 +52,6 @@ export class OrganizationsService {
       user.isSuperuser ||
       ['ceo', 'tech_lead', 'admin'].includes(user.role)
     );
-  }
-
-  private getTierLimits(tier: string) {
-    switch (tier) {
-      case 'enterprise':
-        return {
-          max_projects: 100,
-          max_seats: 50,
-          ai_agent_swarm: true,
-          unlimited_traces: true,
-          dedicated_clerk_sso: true,
-          sla_support: true,
-        };
-      case 'scale':
-        return {
-          max_projects: 50,
-          max_seats: 25,
-          ai_agent_swarm: true,
-          unlimited_traces: true,
-          dedicated_clerk_sso: true,
-          sla_support: false,
-        };
-      case 'growth':
-        return {
-          max_projects: 20,
-          max_seats: 10,
-          ai_agent_swarm: true,
-          unlimited_traces: false,
-          dedicated_clerk_sso: true,
-          sla_support: false,
-        };
-      case 'starter':
-      default:
-        return {
-          max_projects: 3,
-          max_seats: 3,
-          ai_agent_swarm: false,
-          unlimited_traces: false,
-          dedicated_clerk_sso: false,
-          sla_support: false,
-        };
-    }
   }
 
   /** Return fresh tokens and the serialized user after a workspace change. */
@@ -144,7 +104,7 @@ export class OrganizationsService {
         deployments_count: deploymentsCount,
         seo_audits_count: seoAuditsCount,
       },
-      limits: this.getTierLimits(org.subscriptionTier),
+      limits: limitsForTier(org.subscriptionTier),
     };
   }
 
@@ -250,6 +210,9 @@ export class OrganizationsService {
     // name is not revealed to anyone else.
     if (!seat && !isPlatformStaff(user)) {
       throw new ForbiddenException('You do not have access to this workspace');
+    }
+    if (seat && seat.status === 'invited' && !hasVerifiedEmail(user)) {
+      throw new ForbiddenException('Sign in with Clerk using this email address to accept the invitation');
     }
     const targetOrg =
       seat?.organization ??

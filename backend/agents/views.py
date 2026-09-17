@@ -147,20 +147,28 @@ class AgentStatusView(views.APIView):
         organization = request.user.organization
         if organization is None:
             raise PermissionDenied("An organization is required for agent operations.")
-        model_available = is_ollama_available() or bool(os.getenv("OPENAI_API_KEY"))
+            
+        from .llm import model_available
+        is_model_ready = model_available()
+        
         event_bus_available = is_event_bus_available()
         worker_available = event_bus_available and is_worker_available()
         traces = AgentExecutionTrace.objects.filter(task__organization=organization)
-        agents_list = active_agent_status(engine_available=model_available)
+        agents_list = active_agent_status(engine_available=is_model_ready)
+        
+        obs_key = getattr(settings, "LANGFUSE_PUBLIC_KEY", "") or os.environ.get("LANGFUSE_PUBLIC_KEY", "")
+        obs_status = "Langfuse" if obs_key else "None"
+        mem_status = "Redis" if event_bus_available else "In-Memory"
+
         return Response(
             {
                 "orchestration_framework": "Google Antigravity SDK compatibility layer & LangGraph",
-                "model_engine_status": "ready" if model_available else "offline",
+                "model_engine_status": "ready" if is_model_ready else "offline",
                 "worker_queue_status": "ready" if worker_available else "offline",
                 "event_bus_status": "ready" if event_bus_available else "offline",
                 "vector_store": "PostgreSQL + pgvector",
-                "observability": "Langfuse",
-                "memory_queue": "Redis",
+                "observability": obs_status,
+                "memory_queue": mem_status,
                 "total_agent_seats": len(agents_list),
                 "active_agents": agents_list,
                 "rag_embeddings_count": CodebaseEmbedding.objects.filter(organization=organization).count(),

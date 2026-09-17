@@ -282,4 +282,15 @@ GITHUB_TOKEN = env("GITHUB_TOKEN", default="").strip()
 # Whether workspaces without their own GitHub integration may use the operator's GITHUB_TOKEN.
 # Keep this off for a multi-tenant deployment.
 AGENT_ALLOW_PLATFORM_GITHUB_TOKEN = env.bool("AGENT_ALLOW_PLATFORM_GITHUB_TOKEN", default=DEBUG)
+# External services used by agents. Defaults target the public GitHub API; set
+# these for GitHub Enterprise or to point agents at other model providers.
+GITHUB_API_URL = env("GITHUB_API_URL", default="https://api.github.com").rstrip("/")
+GITHUB_WEB_URL = env("GITHUB_WEB_URL", default="https://github.com").rstrip("/")
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="").strip()
+GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-2.0-flash").strip()
+OPENAI_API_KEY = env("OPENAI_API_KEY", default="").strip()
+OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini").strip()
+# Local Ollama is used only when OLLAMA_BASE_URL is set.
+OLLAMA_BASE_URL = env("OLLAMA_BASE_URL", default="").strip().rstrip("/")
+OLLAMA_MODEL = env("OLLAMA_MODEL", default="qwen2.5-coder:7b").strip()
 GITHUB_ORG = env("GITHUB_ORG", default="").strip()

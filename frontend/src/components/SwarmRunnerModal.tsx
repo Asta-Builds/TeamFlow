@@ -3,296 +3,179 @@
 import React, { useState } from "react";
 import { Modal, Button, Badge } from "@/components/ui";
 import { toast } from "sonner";
-import {
-  Sparkles,
-  Code2,
-  GitPullRequest,
-  ShieldCheck,
-  Rocket,
-  CheckCircle2,
-  Loader2,
-  Clock,
-  Terminal,
-} from "lucide-react";
-
-interface SwarmStage {
-  id: string;
-  agent: string;
-  role: string;
-  icon: React.ComponentType<{ className?: string }>;
-  status: "pending" | "running" | "completed";
-  detail: string;
-  tokens: number;
-}
-
-const INITIAL_STAGES: SwarmStage[] = [
-  {
-    id: "initiation",
-    agent: "Athena (AI)",
-    role: "AI PM · Initiation",
-    icon: Code2,
-    status: "pending",
-    detail: "Querying pgvector RAG memory & formulating project charter...",
-    tokens: 380,
-  },
-  {
-    id: "planning",
-    agent: "Athena (AI)",
-    role: "AI PM · Planning",
-    icon: GitPullRequest,
-    status: "pending",
-    detail: "Synthesizing Work Breakdown Structure (WBS) & risk mitigation matrix...",
-    tokens: 520,
-  },
-  {
-    id: "execution",
-    agent: "Athena (AI)",
-    role: "AI PM · Execution",
-    icon: Sparkles,
-    status: "pending",
-    detail: "Scaffolding specifications, data contracts & acceptance criteria...",
-    tokens: 610,
-  },
-  {
-    id: "monitoring",
-    agent: "Athena (AI)",
-    role: "AI PM · Monitoring",
-    icon: Rocket,
-    status: "pending",
-    detail: "Enforcing scope governance, burn rate limits & anti-creep boundaries...",
-    tokens: 440,
-  },
-  {
-    id: "closing",
-    agent: "Athena (AI)",
-    role: "AI PM · Closing",
-    icon: ShieldCheck,
-    status: "pending",
-    detail: "Validating Definition of Done, AST compliance & Langfuse session trace...",
-    tokens: 410,
-  },
-];
+import { Sparkles } from "lucide-react";
+import { useTasks } from "@/lib/queries";
+import { executeSwarmChain, apiErrorDetail } from "@/lib/api";
+import { useAgentStream } from "@/lib/useAgentStream";
+import { AgentReasoningTerminal } from "./generative/AgentReasoningTerminal";
+import type { AgentExecutionTrace } from "@/lib/types";
 
 export interface SwarmRunnerModalProps {
   isOpen: boolean;
   onClose: () => void;
-  defaultPrompt?: string;
-  onSwarmCompleted?: (taskId?: number) => void;
+  onSwarmCompleted?: (taskId: number) => void;
 }
 
 export function SwarmRunnerModal({
   isOpen,
   onClose,
-  defaultPrompt = "Implement Zero-Trust JWT Rotation & Accessible Navigation",
   onSwarmCompleted,
 }: SwarmRunnerModalProps) {
-  const [prompt, setPrompt] = useState(defaultPrompt);
+  const [instruction, setInstruction] = useState("");
+  const [selectedTaskId, setSelectedTaskId] = useState<number | "">("");
   const [isRunning, setIsRunning] = useState(false);
-  const [stages, setStages] = useState<SwarmStage[]>(INITIAL_STAGES);
-  const [logs, setLogs] = useState<Array<{ time: string; message: string; agent: string }>>([]);
-  const [ticketId, setTicketId] = useState<number>(() => Math.floor(100 + Math.random() * 900));
+  const [resultTrace, setResultTrace] = useState<AgentExecutionTrace | { error: string } | null>(null);
+
+  const { data: tasks } = useTasks();
+  const availableTasks = tasks?.filter((t) => t.status !== "done") || [];
+
+  const {
+    events,
+    isStreaming,
+    activeTokens,
+    activeAgent,
+    activeTool,
+    clearEvents
+  } = useAgentStream({
+    taskId: selectedTaskId ? Number(selectedTaskId) : undefined,
+    autoConnect: isRunning
+  });
 
   const handleClose = () => {
     if (isRunning) return;
-    setStages(INITIAL_STAGES);
-    setLogs([]);
+    setInstruction("");
+    setSelectedTaskId("");
+    setResultTrace(null);
+    clearEvents();
     onClose();
   };
 
   const runSwarm = async () => {
-    if (!prompt.trim()) {
-      toast.error("Please provide a swarm task scope or prompt.");
+    if (!selectedTaskId) {
+      toast.error("Please select a ticket.");
       return;
     }
 
     setIsRunning(true);
-    setStages(INITIAL_STAGES.map((s) => ({ ...s, status: "pending" })));
-    const assignedTicket = ticketId || Math.floor(100 + Math.random() * 900);
-    setTicketId(assignedTicket);
-    const sessionId = `ticket-${assignedTicket}`;
+    setResultTrace(null);
+    clearEvents();
 
-    toast.info(`Swarm initiated for ticket #${assignedTicket}`, {
-      description: "Tech Lead orchestrating LangGraph multi-agent execution pipeline.",
-    });
-
-    const addLog = (agent: string, message: string) => {
-      const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      setLogs((prev) => [{ time, message, agent }, ...prev]);
-    };
-
-    addLog("CEO (Founder)", `Dispatched task: "${prompt}" (Trace: ${sessionId})`);
-
-    for (let i = 0; i < INITIAL_STAGES.length; i++) {
-      setStages((prev) =>
-        prev.map((stage, idx) => {
-          if (idx === i) return { ...stage, status: "running" };
-          if (idx < i) return { ...stage, status: "completed" };
-          return { ...stage, status: "pending" };
-        })
-      );
-
-      const stage = INITIAL_STAGES[i];
-      addLog(stage.role, stage.detail);
-
-      // Simulate realistic agent pipeline step execution
-      await new Promise((r) => setTimeout(r, 1400));
-
-      setStages((prev) =>
-        prev.map((s, idx) => (idx === i ? { ...s, status: "completed" } : s))
-      );
+    try {
+      const res = await executeSwarmChain(Number(selectedTaskId), instruction);
+      setResultTrace(res.trace);
+      toast.success(res.message || "Agent swarm completed successfully!");
+      if (onSwarmCompleted) onSwarmCompleted(Number(selectedTaskId));
+    } catch (err) {
+      const msg = apiErrorDetail(err, "The agent swarm could not start");
+      toast.error(msg);
+      setResultTrace({ error: msg });
+    } finally {
+      setIsRunning(false);
     }
-
-    setIsRunning(false);
-    toast.success(`Autonomous Swarm execution completed for ticket #${assignedTicket}!`, {
-      description: "All 5 stages passed. Staging deployment verified.",
-    });
-
-    addLog("System", `All gates passed. 100% traces recorded to Langfuse (session: ${sessionId}).`);
-    if (onSwarmCompleted) onSwarmCompleted(assignedTicket);
   };
-
-  const totalTokens = stages
-    .filter((s) => s.status === "completed")
-    .reduce((acc, s) => acc + s.tokens, 0);
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={handleClose}
-      title="Athena (AI) · Project Delivery & WBS Engine"
-      description="Orchestrate full project delivery through 5 autonomous phases led by Athena (AI Project Manager) grounded in pgvector RAG."
+      title="Run the agent swarm"
+      description="Pick a ticket and let the agent team work on it. Progress below comes from the live event stream."
       maxWidth="3xl"
     >
       <div className="space-y-6">
-        {/* Scope Input */}
         <div>
-          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="swarm-prompt">
-            Feature Scope / Initiative Directive
+          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="swarm-ticket">
+            Ticket
           </label>
-          <div className="flex gap-2">
-            <input
-              id="swarm-prompt"
-              type="text"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
+          <select
+            id="swarm-ticket"
+            value={selectedTaskId}
+            onChange={(e) => setSelectedTaskId(e.target.value ? Number(e.target.value) : "")}
+            disabled={isRunning}
+            className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+          >
+            <option value="">Select a ticket...</option>
+            {availableTasks.length === 0 ? (
+              <option disabled value="none">No open tickets found.</option>
+            ) : (
+              availableTasks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  #{t.id} — {t.title} — {t.project_name || t.project || "Unknown Project"}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5" htmlFor="swarm-instruction">
+            Instruction (Optional)
+          </label>
+          <div className="flex gap-2 items-start">
+            <textarea
+              id="swarm-instruction"
+              value={instruction}
+              onChange={(e) => setInstruction(e.target.value)}
               disabled={isRunning}
-              placeholder="e.g. Architect Zero-Trust JWT rotation and WCAG AA contrast..."
-              className="flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+              placeholder="Any specific instructions for the agent swarm..."
+              rows={2}
+              className="flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60 resize-none"
             />
             <Button
               variant="default"
               size="md"
               onClick={runSwarm}
               isLoading={isRunning}
-              disabled={isRunning || !prompt.trim()}
+              disabled={isRunning || !selectedTaskId}
             >
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>{isRunning ? "Executing Swarm…" : "Execute Swarm"}</span>
+              <span>{isRunning ? "Running…" : "Run swarm"}</span>
             </Button>
           </div>
         </div>
 
-        {/* 5-Stage Visual Workflow Chain */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-500 dark:text-slate-400">
-            <span>Specialist Execution Chain</span>
-            {ticketId && (
-              <span className="font-mono text-[11px] text-indigo-600 dark:text-indigo-400">
-                Session: ticket-{ticketId}
-              </span>
+        {resultTrace && "error" in resultTrace && (
+          <div className="p-3 text-xs text-rose-500 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50 rounded-xl">
+            {resultTrace.error}
+          </div>
+        )}
+
+        {(events.length > 0 || isRunning) && (
+          <div className="mt-4">
+            <AgentReasoningTerminal
+              events={events}
+              isStreaming={isStreaming}
+              activeTokens={activeTokens}
+              activeAgent={activeAgent}
+              activeTool={activeTool}
+              title="Live agent activity"
+              showIfEmpty={true}
+            />
+          </div>
+        )}
+
+        {resultTrace && !("error" in resultTrace) && (
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-4 space-y-2 text-xs">
+            <div className="font-bold text-slate-900 dark:text-white">Execution Trace</div>
+            <div className="grid grid-cols-2 gap-2 text-slate-600 dark:text-slate-400">
+              <div>Status: <span className="font-medium text-slate-900 dark:text-white">{resultTrace.status}</span></div>
+              <div>Tokens used: <span className="font-medium text-slate-900 dark:text-white">{resultTrace.tokens_used}</span></div>
+              <div>Duration: <span className="font-medium text-slate-900 dark:text-white">{resultTrace.duration_seconds}s</span></div>
+              <div>Cost: <span className="font-medium text-slate-900 dark:text-white">${resultTrace.cost_usd}</span></div>
+            </div>
+            {resultTrace.langfuse_url && (
+              <div className="pt-2">
+                <a href={resultTrace.langfuse_url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                  View full trace on Langfuse
+                </a>
+              </div>
             )}
           </div>
+        )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
-            {stages.map((stage, idx) => {
-              const Icon = stage.icon;
-              const isCompleted = stage.status === "completed";
-              const isCurrent = stage.status === "running";
-
-              return (
-                <div
-                  key={stage.id}
-                  className={`rounded-xl border p-3 flex flex-col justify-between transition-all duration-200 ${
-                    isCurrent
-                      ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40 shadow-md shadow-indigo-600/20 ring-1 ring-indigo-500"
-                      : isCompleted
-                      ? "border-emerald-200 dark:border-emerald-800/60 bg-emerald-50/50 dark:bg-emerald-950/20"
-                      : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/60 opacity-60"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-2xs">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    {isCompleted ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    ) : isCurrent ? (
-                      <Loader2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400 animate-spin motion-reduce:animate-none" />
-                    ) : (
-                      <Clock className="h-4 w-4 text-slate-400 dark:text-slate-600" />
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="text-[11px] font-bold text-slate-900 dark:text-white truncate">{stage.role}</div>
-                    <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{stage.agent}</div>
-                  </div>
-
-                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-[10px] font-mono text-slate-400 dark:text-slate-500">
-                    <span>Stage {idx + 1}</span>
-                    <span>{stage.tokens} tok</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Real-time Streaming Logs & Observability Console */}
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-950 p-4 space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
-              <Terminal className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Live Agent Communication & Handoff Logs</span>
-            </div>
-            <div className="flex items-center gap-3 text-[11px] font-mono">
-              <span className="text-slate-400">
-                Tokens: <strong className="text-white">{totalTokens}</strong>
-              </span>
-              <span className="text-emerald-400 flex items-center gap-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse motion-reduce:animate-none"></span>
-                Langfuse Active
-              </span>
-            </div>
-          </div>
-
-          <div
-            role="log"
-            aria-live="polite"
-            className="max-h-48 overflow-y-auto space-y-2 font-mono text-xs text-slate-300 pr-1"
-          >
-            {logs.length === 0 ? (
-              <p className="text-slate-600 text-[11px] py-4 text-center">
-                Click &quot;Execute Swarm&quot; to initiate multi-agent orchestration.
-              </p>
-            ) : (
-              logs.map((log, lIdx) => (
-                <div key={lIdx} className="flex items-start gap-2.5 text-[11px]">
-                  <span className="text-slate-500 shrink-0">{log.time}</span>
-                  <span className="font-bold text-indigo-400 shrink-0">[{log.agent}]</span>
-                  <span className="text-slate-300 break-words">{log.message}</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Modal Actions */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-2">
-            <Badge variant="indigo">LangGraph 0.2</Badge>
-            <Badge variant="success">pgvector RAG</Badge>
-            <Badge variant="outline">Langfuse Traced</Badge>
+            <Badge variant="indigo">LangGraph</Badge>
           </div>
 
           <div className="flex items-center gap-2">

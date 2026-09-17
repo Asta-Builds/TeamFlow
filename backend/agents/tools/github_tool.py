@@ -5,12 +5,14 @@ Provides both direct callable Python functions and LangChain `@tool` wrappers.
 """
 
 import os
+import urllib.parse
 import re
 import time
 import logging
 from typing import Dict, Any, Optional, List, Tuple
 
 import requests
+from django.conf import settings
 from langchain_core.tools import tool
 
 from agents.git_service import (
@@ -167,7 +169,7 @@ def post_pr_comment(pr_url: str, comment: str) -> Dict[str, Any]:
     repo, number = parsed
     try:
         resp = requests.post(
-            f"https://api.github.com/repos/{repo}/issues/{number}/comments",
+            f"{settings.GITHUB_API_URL}/repos/{repo}/issues/{number}/comments",
             json={"body": comment},
             headers=_github_headers(token),
             timeout=10,
@@ -199,12 +201,12 @@ def check_ci_status(pr_url: str) -> Dict[str, Any]:
     repo, number = parsed
     headers = _github_headers(token)
     try:
-        pr = requests.get(f"https://api.github.com/repos/{repo}/pulls/{number}", headers=headers, timeout=10)
+        pr = requests.get(f"{settings.GITHUB_API_URL}/repos/{repo}/pulls/{number}", headers=headers, timeout=10)
         if pr.status_code != 200:
             return {**unknown, "reason": f"GitHub returned HTTP {pr.status_code} for the pull request"}
         sha = pr.json().get("head", {}).get("sha", "")
         runs = requests.get(
-            f"https://api.github.com/repos/{repo}/commits/{sha}/check-runs",
+            f"{settings.GITHUB_API_URL}/repos/{repo}/commits/{sha}/check-runs",
             headers=headers,
             timeout=10,
         )
@@ -251,7 +253,7 @@ def merge_pull_request(
     actual_source = source_branch
     actual_pr_number = pr_number
 
-    if "github.com" in actual_repo and not source_branch:
+    if urllib.parse.urlsplit(settings.GITHUB_WEB_URL).netloc in actual_repo and not source_branch:
         if "/tree/" in actual_repo:
             actual_repo, actual_source = actual_repo.split("/tree/")
         elif "/pull/" in actual_repo:

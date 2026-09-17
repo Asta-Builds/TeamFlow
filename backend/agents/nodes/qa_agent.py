@@ -7,6 +7,10 @@ from agents.tools.app_tool import set_ticket_qa_decision, log_task_activity, add
 from agents.tools.github_tool import post_pr_comment
 from agents.events import emit_state_event
 
+from agents.registry import get_agent_spec
+from agents.users import get_agent_user_for_task
+from tasks.models import Task
+
 
 def verify_code_artifacts(files_modified: List[str], project_workspace: str = "") -> Tuple[bool, str, Dict[str, Any]]:
     """Perform real static, syntax, and invariant analysis on modified artifacts."""
@@ -54,12 +58,18 @@ def qa_agent_node(state: TicketState) -> Dict[str, Any]:
     """
     ticket_id = state.get("ticket_id")
     title = state.get("title", "")
-    pr_url = state.get("pr_url", "")
-    files_modified = state.get("files_modified", [])
-    project_workspace = state.get("workspace_path", "")
     history = list(state.get("history", []))
-    total_tokens = state.get("total_tokens", 0) + 480
-    total_cost = state.get("total_cost_usd", 0.0) + 0.0048
+    pr_url = state.get("pr_url")
+    total_tokens = state.get("total_tokens", 0)
+    total_cost = state.get("total_cost_usd", 0.0)
+
+    agent_key = "qa"
+    agent_spec = get_agent_spec(agent_key)
+    author_name = agent_spec["name"]
+    agent_role = agent_spec["role"]
+
+    task_obj = Task.objects.get(id=ticket_id) if ticket_id else None
+    agent_user = get_agent_user_for_task(task_obj, agent_key) if task_obj else None
 
     emit_state_event(
         state,
@@ -70,6 +80,8 @@ def qa_agent_node(state: TicketState) -> Dict[str, Any]:
         remaining_work=["record QA evidence", "release handoff"],
     )
 
+    files_modified = list(state.get("files_modified", []))
+    project_workspace = state.get("workspace_path", "")
     passed, error_reason, metrics = verify_code_artifacts(files_modified, project_workspace)
 
     retry_count = sum(1 for h in history if h.get("node") == "qa")
@@ -85,15 +97,15 @@ def qa_agent_node(state: TicketState) -> Dict[str, Any]:
         if ticket_id:
             set_ticket_qa_decision(ticket_id, qa_passed=True, reason="")
             qa_comment = (
-                f"**Alan Turing (AI) - QA Specialist**\n\n"
-                f"**Sprint Quality Gate Sign-Off for @devops & @tech_lead:**\n\n"
+                f"**{author_name} - {agent_role}**\n\n"
+                f"**Quality gate sign-off for @devops & @tech_lead:**\n\n"
                 f"- **Validation Gate:** PASSED ({checked_count} file(s) checked).\n"
                 f"- **Checks Performed:** Python syntax verification of the changed files.\n"
                 f"- **Next:** Handing off to DevOps for the merge and release step.\n"
                 f"- **PR:** {pr_url or 'none'}"
             )
             add_ticket_comment(ticket_id, "qa", qa_comment)
-            log_task_activity(ticket_id, "Alan Turing (AI)", "qa_validated", {"checked_count": checked_count, "decision": "passed"})
+            log_task_activity(ticket_id, author_name, "qa_validated", {"checked_count": checked_count, "decision": "passed"})
     else:
         qa_result = "failed"
         rejection_reason = error_reason or "Artifact validation failed: Invariant or syntax check error."
@@ -103,8 +115,8 @@ def qa_agent_node(state: TicketState) -> Dict[str, Any]:
         if ticket_id:
             set_ticket_qa_decision(ticket_id, qa_passed=False, reason=rejection_reason)
             qa_comment = (
-                f"**Alan Turing (AI) - QA Specialist**\n\n"
-                f"**Sprint Quality Gate REJECTION for @backend_core & @tech_lead:**\n\n"
+                f"**{author_name} - {agent_role}**\n\n"
+                f"**Quality gate rejection for @backend_core & @tech_lead:**\n\n"
                 f"- **Validation Gate:** FAILED.\n"
                 f"- **Reason / Defect:** {rejection_reason}\n"
                 f"- **Action Required:** @backend_core please inspect the syntax and schema invariant failures, fix in your feature branch, and re-commit for validation.\n"
@@ -112,18 +124,16 @@ def qa_agent_node(state: TicketState) -> Dict[str, Any]:
                 f"- **PR:** {pr_url}"
             )
             add_ticket_comment(ticket_id, "qa", qa_comment)
-            log_task_activity(ticket_id, "Alan Turing (AI)", "qa_rejected", {"reason": rejection_reason, "decision": "failed"})
+            log_task_activity(ticket_id, author_name, "qa_rejected", {"reason": rejection_reason, "decision": "failed"})
 
     step_log = {
         "node": "qa",
-        "agent_role": "QA Engineer",
+        "agent_role": agent_role,
         "action": "qa_validation" if qa_passed else "qa_rejection",
         "qa_result": qa_result,
         "rejection_reason": rejection_reason,
         "message": message,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "tokens": 480,
-        "cost_usd": 0.0048,
         "metrics": metrics,
     }
     history.append(step_log)

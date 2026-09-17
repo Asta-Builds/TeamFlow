@@ -44,9 +44,20 @@ export const queryKeys = {
   activityFeed: ["activity-feed"] as const,
   currentOrganization: ["organization", "current"] as const,
   organizations: ["organizations", "list"] as const,
+  billingPlans: ["billing-plans"] as const,
 };
 
 // --- Read Queries ---
+
+export function useBillingPlans() {
+  return useQuery({
+    queryKey: queryKeys.billingPlans,
+    queryFn: async () => {
+      const data = await apiFetch<{ plans: import("./types").BillingPlan[] }>("/billing/plans/");
+      return data.plans;
+    },
+  });
+}
 
 export function useProjects() {
   return useQuery({

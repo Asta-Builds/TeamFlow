@@ -1,23 +1,22 @@
 """
 Ollama Local LLM Service for TeamFlow.
-Runs high-speed local inference on NVIDIA GeForce RTX 3060 via Ollama API.
+Runs high-speed local inference via Ollama API.
 """
 
-import os
 import logging
 import requests
-from typing import Optional, List, Dict, Any
+from typing import Optional
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
-
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5-coder:7b")
 
 
 def is_ollama_available() -> bool:
     """Checks if Ollama is reachable."""
+    if not settings.OLLAMA_BASE_URL:
+        return False
     try:
-        res = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=2)
+        res = requests.get(f"{settings.OLLAMA_BASE_URL}/api/tags", timeout=2)
         return res.status_code == 200
     except Exception:
         return False
@@ -30,10 +29,12 @@ def query_ollama(
     timeout: int = 120,
 ) -> Optional[str]:
     """
-    Queries local Ollama instance running on NVIDIA RTX 3060.
+    Queries local Ollama instance.
     Returns generated response text or None if unreachable.
     """
-    target_model = model or OLLAMA_MODEL
+    if not settings.OLLAMA_BASE_URL:
+        return None
+    target_model = model or settings.OLLAMA_MODEL
     try:
         payload = {
             "model": target_model,
@@ -46,7 +47,7 @@ def query_ollama(
             }
         }
         res = requests.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
+            f"{settings.OLLAMA_BASE_URL}/api/generate",
             json=payload,
             timeout=timeout
         )

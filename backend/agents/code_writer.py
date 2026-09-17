@@ -273,3 +273,47 @@ def parse_and_apply_code_changes(
         summary_parts.append("- Pull Request: none opened")
 
     return "\n".join(summary_parts)
+
+
+def parse_file_blocks(llm_output: str) -> list:
+    import re
+    lines = llm_output.split("\n")
+    file_blocks = []
+    current_file = None
+    current_code = []
+    in_code_block = False
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        path_match = re.match(r'^(?:FILE|CODE):\s*(.+)$', line.strip(), re.IGNORECASE)
+        if path_match and not in_code_block:
+            path_val = path_match.group(1).strip().strip('`').strip()
+            if current_file and current_code:
+                file_blocks.append((current_file, "\n".join(current_code)))
+            current_file = path_val
+            current_code = []
+            in_code_block = False
+            i += 1
+            continue
+            
+        if current_file:
+            if not in_code_block:
+                if "CODE:" in line.upper() or line.strip().startswith("```"):
+                    in_code_block = True
+                    i += 1
+                    continue
+            else:
+                if line.strip() == "---" or (line.strip() == "```" and len(current_code) > 0):
+                    file_blocks.append((current_file, "\n".join(current_code)))
+                    current_file = None
+                    current_code = []
+                    in_code_block = False
+                else:
+                    current_code.append(line)
+        i += 1
+        
+    if current_file and current_code:
+        file_blocks.append((current_file, "\n".join(current_code)))
+
+    return file_blocks
+

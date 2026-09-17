@@ -186,7 +186,7 @@ describe('OrganizationsService', () => {
   });
 
   describe('switchOrganization()', () => {
-    const user = { id: 1, organizationId: 5, role: 'ceo', email: 'someone@acme.com' };
+    const user = { id: 1, organizationId: 5, role: 'ceo', email: 'someone@acme.com', clerkId: 'user_verified' };
 
     it.each(['ceo', 'admin', 'tech_lead', 'member'])(
       'prevents a %s without a seat from switching into another workspace',
@@ -233,6 +233,20 @@ describe('OrganizationsService', () => {
       expect(prismaMock.user.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { organizationId: 10, role: 'admin' } }),
       );
+    });
+
+    it('refuses to accept an invitation without a verified email', async () => {
+      prismaMock.membership.findUnique.mockResolvedValue({
+        id: 7,
+        organizationId: 10,
+        role: 'admin',
+        status: 'invited',
+        organization: acme,
+      });
+      await expect(service.switchOrganization({ ...user, clerkId: null }, 10)).rejects.toThrow('Sign in with Clerk');
+      expect(prismaMock.membership.update).not.toHaveBeenCalled();
+      expect(prismaMock.user.update).not.toHaveBeenCalled();
+      expect(authServiceMock.generateTokens).not.toHaveBeenCalled();
     });
 
     it('lets platform staff switch workspaces', async () => {

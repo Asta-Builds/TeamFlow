@@ -8,8 +8,6 @@ import {
   Clock,
   ExternalLink,
   Zap,
-  Terminal,
-  ChevronRight,
 } from "lucide-react";
 
 export interface LangfuseSessionData {
@@ -30,7 +28,7 @@ export function LangfuseSessionCard({ data }: { data: LangfuseSessionData }) {
       ? `$${data.cost_usd.toFixed(4)}`
       : data.cost_usd
       ? String(data.cost_usd)
-      : "$0.0018";
+      : null;
 
   const langfuseHost = process.env.NEXT_PUBLIC_LANGFUSE_URL?.replace(/\/$/, "");
   const langfuseProjectId = process.env.NEXT_PUBLIC_LANGFUSE_PROJECT_ID;
@@ -83,46 +81,54 @@ export function LangfuseSessionCard({ data }: { data: LangfuseSessionData }) {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-slate-50/70 dark:bg-slate-950/70 border-b border-slate-100 dark:border-slate-800/80 text-xs">
-        <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
-            <Cpu className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
-            <span>Tokens</span>
+      <div className="flex flex-wrap gap-2 p-3 bg-slate-50/70 dark:bg-slate-950/70 border-b border-slate-100 dark:border-slate-800/80 text-xs">
+        {data.total_tokens !== undefined && (
+          <div className="flex-1 min-w-[120px] p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
+              <Cpu className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
+              <span>Tokens</span>
+            </div>
+            <div className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">
+              {data.total_tokens.toLocaleString()}
+            </div>
           </div>
-          <div className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">
-            {(data.total_tokens || 1420).toLocaleString()}
-          </div>
-        </div>
+        )}
 
-        <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
-            <Coins className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
-            <span>Cost</span>
+        {formattedCost && (
+          <div className="flex-1 min-w-[120px] p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
+              <Coins className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+              <span>Cost</span>
+            </div>
+            <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-1">
+              {formattedCost}
+            </div>
           </div>
-          <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono mt-1">
-            {formattedCost}
-          </div>
-        </div>
+        )}
 
-        <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
-            <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
-            <span>Latency</span>
+        {data.duration_seconds !== undefined && (
+          <div className="flex-1 min-w-[120px] p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
+              <Clock className="h-3 w-3 text-amber-600 dark:text-amber-400" />
+              <span>Latency</span>
+            </div>
+            <div className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">
+              {data.duration_seconds.toFixed(2)}s
+            </div>
           </div>
-          <div className="text-sm font-bold text-slate-900 dark:text-white font-mono mt-1">
-            {data.duration_seconds ? `${data.duration_seconds.toFixed(2)}s` : "1.42s"}
-          </div>
-        </div>
+        )}
 
-        <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
-            <Activity className="h-3 w-3 text-sky-600 dark:text-sky-400" />
-            <span>Model</span>
+        {data.model && (
+          <div className="flex-1 min-w-[120px] p-2.5 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-1 text-[10px] font-mono text-slate-500 dark:text-slate-400 uppercase">
+              <Activity className="h-3 w-3 text-sky-600 dark:text-sky-400" />
+              <span>Model</span>
+            </div>
+            <div className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono mt-1 truncate">
+              {data.model}
+            </div>
           </div>
-          <div className="text-xs font-bold text-slate-700 dark:text-slate-200 font-mono mt-1 truncate">
-            {data.model || "claude-3-7-sonnet"}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

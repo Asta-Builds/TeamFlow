@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   assertAuditableUrl,
+  assertRedirectTarget,
   isPublicAddress,
   publicOnlyLookup,
 } from './outbound-url.js';
@@ -76,5 +77,30 @@ describe('outbound URL guard', () => {
     process.env.NODE_ENV = 'production';
     expect(() => assertAuditableUrl('http://localhost:3000/')).toThrow();
     await expect(lookup('localhost')).rejects.toThrow(/non-public/);
+  });
+
+  it('validates redirect targets before following', () => {
+    delete process.env.OUTBOUND_ALLOW_PRIVATE_HOSTS;
+    for (const target of [
+      { protocol: 'http:', hostname: '169.254.169.254' },
+      { protocol: 'http:', hostname: '10.0.0.5', port: '8000' },
+      { protocol: 'https:', hostname: '::1' },
+      { protocol: 'file:', hostname: 'example.com' },
+    ]) {
+      expect(() => assertRedirectTarget(target)).toThrow();
+    }
+
+    for (const target of [
+      { protocol: 'https:', hostname: 'example.com' },
+      { protocol: 'https:', hostname: 'example.com', port: 443 },
+    ]) {
+      expect(() => assertRedirectTarget(target)).not.toThrow();
+    }
+  });
+
+  it('allows private redirect targets in development', () => {
+    process.env.OUTBOUND_ALLOW_PRIVATE_HOSTS = 'true';
+    process.env.NODE_ENV = 'development';
+    expect(() => assertRedirectTarget({ protocol: 'http:', hostname: '127.0.0.1', port: '3000' })).not.toThrow();
   });
 });

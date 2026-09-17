@@ -1127,11 +1127,11 @@ export default function SettingsPage() {
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <span>GitHub & Autonomous DevOps Integration</span>
                     <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-orange-50 dark:bg-orange-950/80 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700/50">
-                      DevOps Specialist (Joan)
+                      DevOps agent
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    Empowers Joan of Arc (DevOps Agent) to autonomously provision GitHub repositories, bootstrap CI/CD pipelines, and push branches.
+                    Empowers the DevOps agent to autonomously provision GitHub repositories, bootstrap CI/CD pipelines, and push branches.
                   </p>
                 </div>
               </div>
@@ -1206,7 +1206,7 @@ export default function SettingsPage() {
                   className="w-full rounded-xl border border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:border-indigo-500 focus:outline-none"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
-                  Configure a token with <code className="text-slate-700 dark:text-slate-400">repo</code> and <code className="text-slate-700 dark:text-slate-400">workflow</code> scopes so Joan of Arc (DevOps Agent) can create repositories and push CI/CD configurations.
+                  Configure a token with <code className="text-slate-700 dark:text-slate-400">repo</code> and <code className="text-slate-700 dark:text-slate-400">workflow</code> scopes so the DevOps agent can create repositories and push CI/CD configurations.
                 </p>
               </div>
 

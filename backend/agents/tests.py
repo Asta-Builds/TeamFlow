@@ -167,24 +167,43 @@ class MultiAgentTestCase(TestCase):
         self.assertTrue(results)
         self.assertNotIn("private/secret.md", {item["file_path"] for item in results})
 
-    def test_multi_agent_swarm_execution(self):
-        """Test end-to-end execution of the LangGraph multi-agent swarm on a ticket."""
+    @patch("agents.nodes.frontend_agent.generate_text")
+    @patch("agents.nodes.backend_agent.generate_text")
+    def test_multi_agent_swarm_execution(self, mock_backend_llm, mock_frontend_llm):
+        """The swarm runs a ticket to done when a model generates the code."""
+        mock_backend_llm.return_value = "FILE: api/views.py\nCODE:\nclass View:\n    pass\n---\n"
+        mock_frontend_llm.return_value = "FILE: frontend/src/components/generated/widget.tsx\nCODE:\nexport default function Widget() { return null; }\n---\n"
         ingest_sample_knowledge_base(project=self.project)
         result = execute_ticket_swarm(self.task)
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["status"], "completed")
         self.assertIn("ticket-", result["session_id"])
-        
+
         # Verify trace created
         trace = AgentExecutionTrace.objects.get(pk=result["trace_id"])
         self.assertEqual(trace.task, self.task)
         self.assertGreater(len(trace.steps), 0)
-        self.assertGreater(trace.tokens_used, 0)
+        # No provider reports usage, so nothing is invented.
+        self.assertEqual(trace.tokens_used, 0)
 
         # Verify task was updated to done
         self.task.refresh_from_db()
         self.assertEqual(self.task.status, Task.Status.DONE)
+
+    @patch("agents.nodes.frontend_agent.generate_text", return_value=None)
+    @patch("agents.nodes.backend_agent.generate_text", return_value=None)
+    def test_multi_agent_swarm_writes_nothing_without_a_model(self, _backend_llm, _frontend_llm):
+        """With no model configured the swarm stops instead of inventing work."""
+        ingest_sample_knowledge_base(project=self.project)
+        result = execute_ticket_swarm(self.task)
+
+        trace = AgentExecutionTrace.objects.get(pk=result["trace_id"])
+        self.assertEqual(trace.tokens_used, 0)
+        self.assertFalse(trace.graph_state.get("code_changes"))
+
+        self.task.refresh_from_db()
+        self.assertNotEqual(self.task.status, Task.Status.DONE)
 
     @patch("agents.queue.execute_graph_run.delay")
     def test_agent_dispatch_api_endpoint(self, delay):
@@ -205,8 +224,8 @@ class MultiAgentTestCase(TestCase):
 
     @patch("agents.views.is_worker_available", return_value=False)
     @patch("agents.views.is_event_bus_available", return_value=False)
-    @patch("agents.views.is_ollama_available", return_value=False)
-    def test_agent_status_api_endpoint(self, _ollama, _redis, _worker):
+    @patch("agents.llm.model_available", return_value=False)
+    def test_agent_status_api_endpoint(self, _model, _redis, _worker):
         """Test GET /api/agents/status/"""
         response = self.client.get("/api/agents/status/")
         self.assertEqual(response.status_code, 200)
@@ -222,12 +241,20 @@ class MultiAgentTestCase(TestCase):
 
     @patch("agents.views.is_worker_available", return_value=False)
     @patch("agents.views.is_event_bus_available", return_value=True)
-    @patch("agents.views.is_ollama_available", return_value=True)
-    def test_agent_status_does_not_treat_redis_as_a_worker(self, _ollama, _redis, _worker):
+    @patch("agents.llm.model_available", return_value=True)
+    def test_agent_status_does_not_treat_redis_as_a_worker(self, _model, _redis, _worker):
         response = self.client.get("/api/agents/status/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["event_bus_status"], "ready")
         self.assertEqual(response.data["worker_queue_status"], "offline")
+        self.assertEqual(response.data["model_engine_status"], "ready")
+
+    @override_settings(GEMINI_API_KEY="mock-gemini-key", OPENAI_API_KEY="", OLLAMA_BASE_URL="")
+    @patch("agents.ollama_service.is_ollama_available", return_value=False)
+    def test_agent_status_reports_ready_with_gemini_key_only(self, _ollama):
+        response = self.client.get("/api/agents/status/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["model_engine_status"], "ready")
 
     @patch("agents.queue.execute_graph_run.delay")
     def test_agent_dispatch_cannot_access_another_tenant_task(self, delay):
@@ -336,8 +363,10 @@ class MultiAgentTestCase(TestCase):
 
 class AgentGitToolsTestCase(TestCase):
     def test_platform_token_is_not_shared_with_tenants_by_default(self):
+        # The setting defaults to DEBUG, so pin it: tenants must not get the token.
         with patch.dict(os.environ, {"GITHUB_TOKEN": "ghp_platformToken1234567890"}):
-            self.assertEqual(git_service.platform_github_token(), "")
+            with override_settings(AGENT_ALLOW_PLATFORM_GITHUB_TOKEN=False):
+                self.assertEqual(git_service.platform_github_token(), "")
             with override_settings(AGENT_ALLOW_PLATFORM_GITHUB_TOKEN=True, GITHUB_TOKEN=""):
                 self.assertEqual(git_service.platform_github_token(), "ghp_platformToken1234567890")
 
@@ -354,13 +383,13 @@ class AgentGitToolsTestCase(TestCase):
             self.assertNotIn("ghp_secretToken12345", sanitized)
             self.assertIn("***", sanitized)
 
-    def test_create_remote_repo_simulated_without_token(self):
-        with patch.dict("os.environ", {"GITHUB_TOKEN": "", "GH_TOKEN": ""}, clear=True):
-            res = create_remote_repo("my-new-microservice", description="Test repo")
-            self.assertTrue(res["success"])
-            self.assertTrue(res.get("simulated", False))
-            self.assertEqual(res["repo_name"], "my-new-microservice")
-            self.assertIn("github.com", res["clone_url"])
+    @patch("agents.git_service.platform_github_token", return_value="")
+    def test_create_remote_repo_fails_without_token(self, mock_token):
+        res = create_remote_repo("my-new-microservice", description="Test repo")
+        self.assertFalse(res["success"])
+        self.assertEqual(res["status_code"], 503)
+        self.assertIn("GitHub is not connected", res["error"])
+        self.assertNotIn("simulated", res)
 
     @override_settings(AGENT_ALLOW_PLATFORM_GITHUB_TOKEN=True)
     @patch("requests.post")
@@ -378,7 +407,7 @@ class AgentGitToolsTestCase(TestCase):
         with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_mocktoken"}):
             res = create_remote_repo("payment-service", description="Payments API")
             self.assertTrue(res["success"])
-            self.assertFalse(res.get("simulated", True))
+            self.assertNotIn("simulated", res)
             self.assertEqual(res["repo_name"], "payment-service")
             self.assertEqual(res["html_url"], "https://github.com/TeamFlow-Dev/payment-service")
             mock_post.assert_called_once()
@@ -486,8 +515,9 @@ class PMBackendFrontendWorkflowTestCase(TestCase):
             github_repo="",
         )
 
-    @patch("agents.pm_service._query_llm_for_decomposition", return_value=None)
-    def test_pm_decomposes_plan_and_creates_backend_and_frontend_tasks(self, mock_query_llm):
+    @patch("agents.pm_service.require_text")
+    def test_pm_decomposes_plan_and_creates_backend_and_frontend_tasks(self, mock_require_text):
+        mock_require_text.return_value = '{"pm_summary": "Ready to build.", "tickets": [{"title": "Backend API", "type": "feature", "priority": "high", "description": "Backend implementation details", "dialogue": "Let us start with the backend."}, {"title": "Frontend Interface", "type": "feature", "priority": "high", "description": "Frontend UI implementation details", "dialogue": "Next is the frontend."}]}'
         plan_text = (
             "Build real-time user notification center:\n"
             "- 1. Backend: Django REST API for notifications and Redis pub/sub queue\n"
@@ -507,9 +537,30 @@ class PMBackendFrontendWorkflowTestCase(TestCase):
         self.assertIsNotNone(backend_task)
         self.assertIsNotNone(frontend_task)
 
+    @override_settings(GEMINI_API_KEY="", OPENAI_API_KEY="", OLLAMA_BASE_URL="")
+    @patch("agents.ollama_service.is_ollama_available", return_value=False)
+    def test_pm_service_raises_when_no_model(self, _ollama):
+        from agents.llm import ModelUnavailable
+        task_count = Task.objects.count()
+        with self.assertRaises(ModelUnavailable):
+            decompose_plan_and_create_tasks(self.project, "Plan", self.ceo)
+        self.assertEqual(Task.objects.count(), task_count)
+
+    @override_settings(GEMINI_API_KEY="", OPENAI_API_KEY="", OLLAMA_BASE_URL="")
+    @patch("agents.ollama_service.is_ollama_available", return_value=False)
+    def test_llm_require_text_raises_when_no_provider(self, _ollama):
+        from agents.llm import require_text, ModelUnavailable
+        with self.assertRaises(ModelUnavailable):
+            require_text("System", "User")
+
+    @patch("agents.nodes.frontend_agent.generate_text")
+    @patch("agents.nodes.backend_agent.generate_text")
     @patch("agents.tools.github_tool.open_pull_request")
     @patch("agents.tools.github_tool.create_branch")
-    def test_end_to_end_pm_backend_frontend_workflow(self, mock_create_branch, mock_open_pr):
+    def test_end_to_end_pm_backend_frontend_workflow(self, mock_create_branch, mock_open_pr, mock_back_llm, mock_front_llm):
+        mock_back_llm.return_value = "FILE: api/views.py\nCODE:\nclass View:\n pass\n---\n"
+        mock_front_llm.return_value = "FILE: frontend/src/components/generated/widget.tsx\nCODE:\nexport default function Widget() { return <div></div>; }\n---\n"
+
         mock_create_branch.return_value = {"success": True, "branch": "feat/mock"}
         mock_open_pr.return_value = {"pr_url": "https://github.com/example-org/example-repo/pull/42", "is_live_pr": True}
 
@@ -566,7 +617,7 @@ class PMBackendFrontendWorkflowTestCase(TestCase):
             git_service.is_isolated_workspace(backend_result["workspace_path"]),
             backend_result["workspace_path"],
         )
-        self.assertGreater(backend_result["total_tokens"], 0)
+        self.assertEqual(backend_result.get("total_tokens", 0), 0)
         self.assertEqual(backend_result["assigned_agent"], "tech_lead")
 
         # 3. Frontend Phase: Frontend specialist builds Next.js 16 UI with SSE & Generative UI
@@ -598,15 +649,15 @@ class PMBackendFrontendWorkflowTestCase(TestCase):
         frontend_result = frontend_agent_node(frontend_state)
         self.assertEqual(frontend_result["status"], "in_review")
 
-        # Verify component created in code_changes
-        gen_components = [k for k in frontend_result["code_changes"].keys() if "frontend/src/components/generated/" in k]
-        self.assertGreater(len(gen_components), 0)
-        component_content = frontend_result["code_changes"][gen_components[0]]
-        self.assertIn('"use client"', component_content)
-        self.assertIn("useOptimistic", component_content)
-        self.assertIn("EventSource", component_content)
-        self.assertIn("sonner", component_content)
-        self.assertIn("lucide-react", component_content)
+        # Only what the model returned is written; nothing is scaffolded locally.
+        self.assertEqual(
+            [path for path in frontend_result["code_changes"] if path.startswith("frontend/")],
+            ["frontend/src/components/generated/widget.tsx"],
+        )
+        self.assertIn(
+            "export default function Widget",
+            frontend_result["code_changes"]["frontend/src/components/generated/widget.tsx"],
+        )
 
         # Verify zero emojis policy in code and step messages
         for step in frontend_result["history"]:
@@ -614,9 +665,73 @@ class PMBackendFrontendWorkflowTestCase(TestCase):
             self.assertNotIn("💻", step["message"])
 
         # Verify token and cost accumulation across workflow
-        self.assertGreater(frontend_result["total_tokens"], backend_result["total_tokens"])
-        self.assertGreater(frontend_result["total_cost_usd"], backend_result["total_cost_usd"])
+        self.assertEqual(frontend_result.get("total_tokens", 0), 0)
+        self.assertEqual(frontend_result.get("total_cost_usd", 0.0), 0.0)
 
+
+
+    @patch("agents.nodes.backend_agent.generate_text")
+    def test_backend_agent_no_model_configured_writes_no_files(self, mock_llm):
+        mock_llm.return_value = None
+        task = Task.objects.create(
+            project=self.project,
+            title="Demo",
+            description="",
+            status=Task.Status.TODO,
+            task_type=Task.Type.FEATURE,
+            priority=Task.Priority.HIGH,
+            created_by=self.ceo,
+            organization=self.org,
+        )
+        backend_state = {
+            "ticket_id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "history": [],
+            "total_tokens": 0,
+            "total_cost_usd": 0.0,
+            "workspace_path": tempfile.mkdtemp(prefix="teamflow-node-test-"),
+        }
+        from agents.nodes.backend_agent import backend_agent_node
+        res = backend_agent_node(backend_state)
+        self.assertEqual(res["status"], "in_review")
+        self.assertEqual(len(res.get("code_changes", {})), 0)
+        self.assertEqual(res["history"][-1]["action"], "implementation_blocked")
+        self.assertNotIn("tokens", res["history"][-1])
+        self.assertNotIn("cost_usd", res["history"][-1])
+
+    @patch("agents.nodes.backend_agent.generate_text")
+    def test_mocked_generate_text_writes_one_file(self, mock_llm):
+        mock_llm.return_value = "FILE: api/hello.py\nCODE:\nprint('hi')\n---\n"
+        task = Task.objects.create(
+            project=self.project,
+            title="Demo 2",
+            description="",
+            status=Task.Status.TODO,
+            task_type=Task.Type.FEATURE,
+            priority=Task.Priority.HIGH,
+            created_by=self.ceo,
+            organization=self.org,
+        )
+        backend_state = {
+            "ticket_id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "history": [],
+            "total_tokens": 0,
+            "total_cost_usd": 0.0,
+            "workspace_path": tempfile.mkdtemp(prefix="teamflow-node-test-"),
+        }
+        workspace = backend_state["workspace_path"]
+
+        from agents.nodes.backend_agent import backend_agent_node
+        res = backend_agent_node(backend_state)
+        self.assertEqual(res["status"], "in_review")
+        self.assertIn("api/hello.py", res["code_changes"])
+        written = os.path.join(workspace, "api", "hello.py")
+        self.assertTrue(os.path.exists(written))
+        with open(written, encoding="utf-8") as fh:
+            self.assertIn("print('hi')", fh.read())
 
 class AgentWorkspaceIsolationTestCase(TestCase):
     """Agent git operations must stay inside generated project workspaces."""
@@ -759,3 +874,4 @@ class CodeWriterPathSafetyTestCase(TestCase):
             self.assertIsNone(safe_workspace_path(workspace, unsafe), unsafe)
         resolved = safe_workspace_path(workspace, "./api/views.py")
         self.assertEqual(resolved, os.path.join(os.path.realpath(workspace), "api", "views.py"))
+

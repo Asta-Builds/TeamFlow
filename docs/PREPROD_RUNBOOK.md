@@ -44,21 +44,30 @@ Copy `.env.production.example` to `.env.production` and fill in every value.
 4. **Agents.** Set `AGENT_EMAIL_DOMAIN`, `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`,
    and `AGENT_PROTECTED_REPOS` to the TeamFlow repository (for example
    `Asta-Builds/TeamFlow`). Agents refuse to pull, push, clone or merge those.
-5. **GitHub.** For a multi-tenant install keep
+5. **Model provider.** Agents need at least one of `GEMINI_API_KEY`,
+   `OPENAI_API_KEY` or `OLLAMA_BASE_URL`; `GEMINI_MODEL`, `OPENAI_MODEL` and
+   `OLLAMA_MODEL` override the defaults. Without a provider, agent runs, plan
+   decomposition and prompt replies return 503 and write nothing: no code, no
+   commits and no invented answers.
+6. **GitHub.** For a multi-tenant install keep
    `AGENT_ALLOW_PLATFORM_GITHUB_TOKEN=false`; each workspace connects its own
-   token in Settings. Enable it only for a single-tenant install.
-6. **Deployments.** Configure `DEPLOY_HOOK_URL_<ENV>`, `DEPLOY_HOOK_SECRET` and
+   token in Settings. Enable it only for a single-tenant install. Set
+   `GITHUB_API_URL` and `GITHUB_WEB_URL` only for GitHub Enterprise.
+7. **Deployments.** Configure `DEPLOY_HOOK_URL_<ENV>`, `DEPLOY_HOOK_SECRET` and
    `DEPLOY_CALLBACK_BASE_URL` (see section 5). Without a hook, deployment and
    rollback requests return 503 and nothing is recorded.
-7. **Billing.** Set the Stripe keys and prices, and register
+8. **Billing.** Set the Stripe keys and prices, and register
    `https://<host>/api/billing/webhook/` in Stripe. Without Stripe, checkout and
-   the billing portal return 503. Mock billing is always off in production.
-8. **Reverse proxy.** Terminate TLS, redirect HTTP to HTTPS, and forward
+   the billing portal return 503. Mock billing is always off in production. The
+   prices shown on the billing page come from `BILLING_PRICE_LABEL_STARTER`,
+   `BILLING_PRICE_LABEL_GROWTH` and `BILLING_PRICE_LABEL_ENTERPRISE`; plan limits
+   come from the API, so the page and the enforced limits cannot disagree.
+9. **Reverse proxy.** Terminate TLS, redirect HTTP to HTTPS, and forward
    `X-Forwarded-For` and `X-Forwarded-Proto`. nginx trusts `X-Forwarded-For` only
    from private networks (`nginx/nginx.conf`); adjust `set_real_ip_from` if your
    proxy lives elsewhere.
-9. **Backups.** Schedule `pg_dump` of the `db` service and snapshot the
-   `generated_projects` volume.
+10. **Backups.** Schedule `pg_dump` of the `db` service and snapshot the
+    `generated_projects` volume.
 
 ## 3. Deploy
 
@@ -151,7 +160,8 @@ Unsigned callbacks get 401; callbacks after a final status get 409.
 
 - **Sessions.** Access tokens last one hour and carry a session id. Refresh tokens
   are single-use and rotated; replaying one ends every session of that user.
-  Logout ends the current session. A password change ends all other sessions.
+  Logout ends the current session. A password change (or linking a verified
+  Clerk identity) ends all other sessions.
   Sessions are stored in Django's token blacklist tables as SHA-256 fingerprints.
   Existing sessions from earlier releases are rejected, so users sign in again once.
 - **Clerk.** A Clerk session token is required and verified against the
@@ -175,15 +185,23 @@ Unsigned callbacks get 401; callbacks after a final status get 409.
   workspace always keeps one CEO. Invitations never move anyone: the person sees
   them in the app after signing in and accepts or declines. An invitation to an
   email without an account creates a placeholder that the person claims by
-  signing up with that email. Removing someone (or leaving) ends their project
-  access in that workspace and moves them to another of their workspaces. Admins
-  cannot edit CEO or Admin accounts, and nobody but the person (or platform staff)
-  edits the profile of someone who also belongs to other workspaces.
+  signing in with Clerk using that email (password sign-up is refused). Accepting
+  an invitation always requires a verified Clerk identity. Removing someone (or
+  leaving) ends their project access in that workspace and moves them to another
+  of their workspaces. Admins cannot edit CEO or Admin accounts, and nobody but
+  the person (or platform staff) edits the profile of someone who also belongs
+  to other workspaces.
 - **Agents.** Git commands run only inside `generated_projects/<project>/`, never in
   the platform checkout, never against `AGENT_PROTECTED_REPOS`, and never against a
   repository guessed from a folder name. Push, pull, merge and PR results are
   reported as they happened. Prompt directives (pull, build, push) require explicit
   phrases, and prompts never push `main`.
+- **No invented work.** Agent replies, plans and code come from the configured
+  model; with no provider the request fails with 503 instead of returning a
+  scripted answer. Token counts and costs are reported only when a provider
+  reports them, repository creation without a GitHub token fails instead of
+  returning a fake repository, and SEO audits store only measured values (no
+  browser metrics are collected).
 - **Outbound requests.** SEO audits fetch only public http(s) addresses on default
   ports, re-checked for every connection and redirect.
 - **Webhooks.** Deployment callbacks (HMAC), Stripe and Slack events are verified.
@@ -208,9 +226,8 @@ Unsigned callbacks get 401; callbacks after a final status get 409.
    "Personal Workspace"). Review environments that ran that code:
    `SELECT o.id, o.name, count(u.id) FROM organizations_organization o JOIN accounts_user u ON u.organization_id = o.id WHERE u.password LIKE '!sso_%' GROUP BY o.id, o.name HAVING count(u.id) > 1;`
 4. **Unverified email on password sign-up.** Password sign-up does not verify the
-   email address, so whoever registers an address first can accept invitations
-   sent to it. Prefer Clerk sign-in for invited people, or add email verification
-   before relying on password sign-up.
+   email address. Such accounts cannot accept invitations until the person signs
+   in with Clerk, which also revokes any password set on the account before.
 5. **Django admin exposure.** `/admin/` is public behind Django authentication;
    restrict it by IP at the proxy if possible.
 6. **Token storage in the browser.** The web app keeps tokens in `localStorage`;

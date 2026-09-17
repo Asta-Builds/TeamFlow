@@ -63,7 +63,7 @@ export default function DashboardPage() {
       avgSeoScore:
         seoAudits.length > 0
           ? Math.round(seoAudits.reduce((acc, a) => acc + (a.score || 0), 0) / seoAudits.length)
-          : 92,
+          : null,
     };
   }, [tasks, deployments, seoAudits, user?.id]);
 
@@ -130,17 +130,21 @@ export default function DashboardPage() {
                 All {projects.length} workspace projects active. Overall completion rate is{" "}
                 <strong className="text-slate-900 dark:text-white">
                   {tasks.length > 0 ? Math.round((tasks.filter((t) => t.status === "done").length / tasks.length) * 100) : 0}%
-                </strong>. Zero critical blocker escalations pending.
+                </strong>.
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold">
-              SEO Health: {avgSeoScore}/100
-            </Badge>
-            <Badge className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 font-semibold">
-              Deployments: Healthy
-            </Badge>
+            {avgSeoScore !== null && (
+              <Badge className="bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800/60 font-semibold">
+                SEO Health: {avgSeoScore}/100
+              </Badge>
+            )}
+            {latestDeploy && (
+              <Badge className="bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60 font-semibold">
+                Latest Deploy: {latestDeploy.status}
+              </Badge>
+            )}
           </div>
         </div>
       )}
@@ -230,7 +234,7 @@ export default function DashboardPage() {
               </span>
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-              Orchestrator: <strong className="text-slate-800 dark:text-slate-200">Tech Lead</strong> · RAG: <strong className="text-slate-800 dark:text-slate-200">{agentCluster.vector_store} ({agentCluster.rag_embeddings_count} chunks)</strong> · Traces: <strong className="text-slate-800 dark:text-slate-200">{agentCluster.observability}</strong>
+              Orchestration: <strong className="text-slate-800 dark:text-slate-200">{agentCluster.orchestration_framework}</strong> · RAG: <strong className="text-slate-800 dark:text-slate-200">{agentCluster.vector_store} {agentCluster.rag_embeddings_count !== undefined ? `(${agentCluster.rag_embeddings_count} chunks)` : ""}</strong> · Traces: <strong className="text-slate-800 dark:text-slate-200">{agentCluster.observability}</strong>
             </p>
           </div>
 
@@ -257,10 +261,10 @@ export default function DashboardPage() {
 
       {/* Main SuperStat KPI Grid */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Active Projects" value={projects.length} icon={FolderKanban} subtitle="All workspace initiatives" trend="+100%" />
-        <StatCard label="Open Tickets" value={openTickets.length} icon={ListTodo} subtitle={`${tasks.filter(t => t.status === 'done').length} completed`} trend="Agile" />
+        <StatCard label="Active Projects" value={projects.length} icon={FolderKanban} subtitle="All workspace initiatives" />
+        <StatCard label="Open Tickets" value={openTickets.length} icon={ListTodo} subtitle={`${tasks.filter(t => t.status === 'done').length} completed`} />
         <StatCard label="Assigned to Me" value={myTickets.length} icon={User} subtitle="Your active backlog" color="border-indigo-800/60 bg-indigo-950/20" />
-        <StatCard label="Deployments" value={deployments.length} icon={Rocket} subtitle={latestDeploy ? `Last: ${latestDeploy.environment}` : "Staging & Prod"} trend="Live" />
+        <StatCard label="Deployments" value={deployments.length} icon={Rocket} subtitle={latestDeploy ? `Last: ${latestDeploy.environment}` : "No deployments"} />
       </div>
 
       {/* 2-Column Content Grid */}

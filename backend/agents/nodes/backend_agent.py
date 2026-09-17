@@ -1,11 +1,18 @@
 import os
 import re
 import time
+from django.conf import settings
 from typing import Dict, Any
 from agents.state import TicketState
 from agents.tools.app_tool import add_ticket_comment, log_task_activity
 from agents.tools.redis_tool import publish_agent_event
 from agents.events import emit_state_event
+
+from agents.llm import generate_text
+from agents.code_writer import parse_file_blocks, safe_workspace_path, clean_code_content
+from agents.registry import get_agent_spec
+from agents.users import get_agent_user_for_task
+from tasks.models import Task
 from agents.git_service import (
     get_project_workspace,
     git_pull,
@@ -20,7 +27,7 @@ from agents.git_service import (
 
 def backend_agent_node(state: TicketState) -> Dict[str, Any]:
     """
-    Senior Backend Engineer Node (Marcus Aurelius - backend1@teamflow.dev):
+    Senior Backend Engineer Node:
     - Pulls latest main in isolated project workspace
     - Generates production-grade backend endpoints, models, and tests
     - Runs pre-commit AST static analysis build verification
@@ -33,14 +40,23 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
     description = state.get("description", "")
     history = list(state.get("history", []))
     code_changes = dict(state.get("code_changes", {}))
-    total_tokens = state.get("total_tokens", 0) + 650
-    total_cost = state.get("total_cost_usd", 0.0) + 0.0065
+    total_tokens = state.get("total_tokens", 0)
+    total_cost = state.get("total_cost_usd", 0.0)
+
+    agent_key = "backend"
+    agent_spec = get_agent_spec(agent_key)
+    author_name = agent_spec["name"]
+    agent_role = agent_spec["role"]
+    
+    task_obj = Task.objects.get(id=ticket_id) if ticket_id else None
+    agent_user = get_agent_user_for_task(task_obj, agent_key) if task_obj else None
+    author_email = agent_user.email if agent_user else getattr(settings, "GIT_AUTHOR_EMAIL", "")
 
     emit_state_event(
         state,
         event_type="progress",
         sender_key="backend_core",
-        message="Marcus Aurelius (AI) started backend sprint development: preparing repository workspace and endpoints.",
+        message=f"{author_name} started the backend step: preparing the repository workspace.",
         current_work="Implementing backend endpoints and database models",
         remaining_work=["AST build check", "commit and push", "Tech Lead review", "QA gate"],
     )
@@ -59,48 +75,65 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
     checkout_res = git_checkout_branch(branch_name, create_if_missing=True, cwd=project_workspace)
 
     # 3. Generate real backend code files
+    sys_prompt = f"You are a {agent_role}. Generate required backend code. Output only FILE: <path> and CODE: blocks."
+    user_prompt = f"Ticket #{ticket_id}: {title}\nDescription: {description}\nContext: {state.get('retrieved_context', [])}\nProvide the implementation."
+
+
+
+    
+    llm_output = generate_text(sys_prompt, user_prompt)
+    if not llm_output:
+        step_log = {
+            "node": "backend",
+            "agent_role": agent_role,
+            "action": "implementation_blocked",
+            "message": f"{author_name} failed to generate code because no language model is configured.",
+            "pr_url": "",
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+        }
+        history.append(step_log)
+        if ticket_id:
+            add_ticket_comment(ticket_id, agent_key, f"**{author_name} - {agent_role}**\n\nNo language model is configured, so no code was generated.")
+
+
+        emit_state_event(
+            state, event_type="blocked", sender_key="backend_core", recipient_key="system",
+            message="No code was generated.", current_work="Failed to generate code",
+            remaining_work=["configure language model"], metadata={}
+        )
+        return {
+            "status": "in_review",
+            "pr_url": "",
+            "assigned_agent": "tech_lead",
+            "code_changes": {},
+            "files_modified": list(state.get("files_modified", [])),
+            "workspace_path": project_workspace,
+            "branch_name": state.get("branch_name", ""),
+            "history": history,
+            "total_tokens": total_tokens,
+            "total_cost_usd": total_cost,
+        }
+
+    file_blocks = parse_file_blocks(llm_output)
+    written_files = []
+    for rel_path, code in file_blocks:
+        abs_path = safe_workspace_path(project_workspace, rel_path)
+        if abs_path:
+            os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+            cleaned = clean_code_content(code)
+            with open(abs_path, "w", encoding="utf-8") as fh:
+                fh.write(cleaned)
+            written_files.append(rel_path)
+            code_changes[rel_path] = cleaned
+
+    endpoint_file = written_files[0] if written_files else f"api/{slug}_endpoints.py"
     service_class_name = "".join(w.capitalize() for w in slug.split("-")) + "Service"
-    endpoint_file = f"api/{slug}_endpoints.py"
-    abs_endpoint_path = os.path.join(project_workspace, endpoint_file)
-    os.makedirs(os.path.dirname(abs_endpoint_path), exist_ok=True)
-
-    backend_code = (
-        f"# Auto-generated backend service for ticket #{ticket_id}: {title}\n"
-        f"# Author: Marcus Aurelius (AI) <backend1@teamflow.dev>\n\n"
-        f"from typing import Dict, Any\n"
-        f"from rest_framework.views import APIView\n"
-        f"from rest_framework.response import Response\n"
-        f"from rest_framework import status\n\n\n"
-        f"class {service_class_name}View(APIView):\n"
-        f"    \"\"\"API handler for {title}\"\"\"\n\n"
-        f"    def get(self, request) -> Response:\n"
-        f"        return Response({{\n"
-        f"            'status': 'active',\n"
-        f"            'ticket_id': {ticket_id},\n"
-        f"            'feature': '{title}',\n"
-        f"            'ready_for_frontend': True\n"
-        f"        }}, status=status.HTTP_200_OK)\n\n"
-        f"    def post(self, request) -> Response:\n"
-        f"        payload = request.data or {{}}\n"
-        f"        return Response({{\n"
-        f"            'status': 'processed',\n"
-        f"            'ticket_id': {ticket_id},\n"
-        f"            'received': payload\n"
-        f"        }}, status=status.HTTP_201_CREATED)\n"
-    )
-
-    with open(abs_endpoint_path, "w", encoding="utf-8") as fh:
-        fh.write(backend_code)
-
-    code_changes[endpoint_file] = backend_code
 
     # 4. Pre-commit AST Static Analysis & Build Verification
     build_res = run_project_build(project_workspace)
     build_passed = build_res.get("success", False)
 
     # 5. Git Commit with signed specialist identity
-    author_name = "Marcus Aurelius (AI)"
-    author_email = "backend1@teamflow.dev"
     commit_msg = f"feat(backend): implement {title} [ticket #{ticket_id}]"
 
     commit_res = git_commit(
@@ -158,13 +191,11 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
 
     step_log = {
         "node": "backend",
-        "agent_role": "Senior Backend Engineer",
+        "agent_role": agent_role,
         "action": "pull_request_created" if pr_info.get("is_live_pr") else ("branch_committed" if committed else "implementation_blocked"),
-        "message": f"Marcus Aurelius generated backend endpoints; {build_summary}. {git_summary}",
+        "message": f"{author_name} generated backend endpoints; {build_summary}. {git_summary}",
         "pr_url": pr_info.get("pr_url", ""),
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "tokens": 650,
-        "cost_usd": 0.0065,
     }
     history.append(step_log)
 
@@ -178,7 +209,7 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
         elif not pushed:
             blockers.append("branch not pushed")
         standup_comment = (
-            f"**Marcus Aurelius (AI) - Senior Backend Engineer**\n\n"
+            f"**{author_name} - {agent_role}**\n\n"
             f"**Standup and handoff to Tech Lead:**\n\n"
             f"- **Work:** Generated a REST endpoint scaffold `{endpoint_file}` for ticket #{ticket_id} (`{title}`).\n"
             f"- **Checks:** {build_summary}.\n"
@@ -186,7 +217,7 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
             f"- **Blockers:** {', '.join(blockers) if blockers else 'None'}.\n"
             f"- **PR:** {pr_summary}"
         )
-        add_ticket_comment(ticket_id, "backend1", standup_comment)
+        add_ticket_comment(ticket_id, agent_key, standup_comment)
         log_task_activity(ticket_id, author_name, "opened_pr", {"pr_url": pr_info.get("pr_url", ""), "branch": branch_name})
 
     publish_agent_event("pr_ready", {"ticket_id": ticket_id, "pr_url": pr_info.get("pr_url", "")})

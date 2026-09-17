@@ -77,16 +77,6 @@ export default function LoginPage() {
 
         {/* Testimonial Quote */}
         <div className="relative z-20 max-w-md space-y-4">
-          <blockquote className="space-y-2">
-            <p className="text-sm text-slate-700 dark:text-slate-300 font-normal leading-relaxed">
-              &ldquo;TeamFlow has completely transformed how our virtual tech teams ship production software, coordinate autonomous engineering roles, and manage sprint deliverables seamlessly.&rdquo;
-            </p>
-            <footer className="text-xs text-slate-500 dark:text-slate-400 font-medium pt-2">
-              <span className="font-bold text-slate-900 dark:text-white block text-sm">Sarah Jenkins</span>
-              VP of Engineering at CloudScale
-            </footer>
-          </blockquote>
-
           <div className="flex items-center gap-4 pt-4 text-xs text-slate-500 dark:text-slate-400">
             <div className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -160,7 +150,7 @@ export default function LoginPage() {
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Sarah Jenkins"
+                    placeholder="Alex Morgan"
                     className="flex h-9 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 px-3 py-1 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 </div>

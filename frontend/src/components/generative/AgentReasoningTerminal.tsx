@@ -41,7 +41,7 @@ export function AgentReasoningTerminal({
   activeAgent,
   activeTool,
   onClear,
-  title = "Athena & Swarm · Live Reasoning Stream",
+  title = "Live agent activity",
   maxHeight = "max-h-80",
   showIfEmpty = false,
 }: AgentReasoningTerminalProps) {
@@ -246,7 +246,7 @@ export function AgentReasoningTerminal({
                       <Bot className="h-3 w-3 text-slate-400 shrink-0" />
                     )}
                     <span className="font-bold text-[10px] uppercase tracking-wider text-white">
-                      {e.sender_name || "Athena"} · {e.event_type}
+                      {e.sender_name || "Agent"} · {e.event_type}
                     </span>
                     {e.metadata && typeof e.metadata === "object" && "tool_name" in e.metadata && (
                       <span className="bg-amber-950 border border-amber-800/60 text-amber-300 px-1.5 py-0.5 rounded text-[9px] font-bold font-mono">

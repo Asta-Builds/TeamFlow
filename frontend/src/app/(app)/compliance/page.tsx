@@ -183,25 +183,34 @@ export default function CompliancePage() {
             </div>
 
             {/* Subscores */}
-            <div className="grid grid-cols-3 gap-3 text-center bg-slate-50/80 dark:bg-slate-950/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="grid grid-cols-4 gap-3 text-center bg-slate-50/80 dark:bg-slate-950/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              {a.metrics?.response_time_ms && (
+                <div>
+                  <div className="text-sm font-black text-emerald-600 dark:text-emerald-400 flex items-center justify-center gap-1">
+                    <Gauge className="h-3.5 w-3.5" />
+                    <span>{a.metrics.response_time_ms} ms</span>
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Response Time</div>
+                </div>
+              )}
               <div>
                 <div className="text-sm font-black text-indigo-600 dark:text-indigo-400 flex items-center justify-center gap-1">
                   <Gauge className="h-3.5 w-3.5" />
-                  <span>{a.performance_score ?? 94}</span>
+                  <span>{a.performance_score ?? "N/A"}</span>
                 </div>
                 <div className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Performance</div>
               </div>
               <div>
                 <div className="text-sm font-black text-teal-600 dark:text-teal-400 flex items-center justify-center gap-1">
                   <SearchCheck className="h-3.5 w-3.5" />
-                  <span>{a.seo_score ?? 92}</span>
+                  <span>{a.seo_score ?? "N/A"}</span>
                 </div>
                 <div className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">SEO Tags</div>
               </div>
               <div>
                 <div className="text-sm font-black text-purple-600 dark:text-purple-400 flex items-center justify-center gap-1">
                   <Smartphone className="h-3.5 w-3.5" />
-                  <span>{a.mobile_score ?? 95}</span>
+                  <span>{a.mobile_score ?? "N/A"}</span>
                 </div>
                 <div className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">Mobile Speed</div>
               </div>

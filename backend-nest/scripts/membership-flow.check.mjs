@@ -90,7 +90,13 @@ try {
   await rejects(requireTenantUsers(prisma, [b.id], a), /must belong/);
 
   // Accepting switches Bob into Alice's workspace as a member.
-  const accepted = await orgs.switchOrganization(b, a.organizationId);
+  await rejects(orgs.switchOrganization(b, a.organizationId), /Sign in with Clerk/);
+  clerkIdentity = { clerk_id: `user_bob_${run}`, email: email('bob'), name: 'Bob' };
+  const bobClerk = await auth.clerkLogin({ token: 'verified' });
+  await rejects(principal(bob), /Session has ended/);
+  await rejects(auth.login({ email: email('bob'), password: 'bob-password-1' }), /Invalid email or password/);
+
+  const accepted = await orgs.switchOrganization(await principal(bobClerk), a.organizationId);
   b = await principal(accepted);
   assert.equal(b.organizationId, a.organizationId);
   assert.equal(b.role, 'member');
@@ -99,23 +105,25 @@ try {
 
   // Role changes follow the seat; only the CEO manages admins.
   await orgs.updateMemberRole(a, b.id, 'admin');
-  b = await principal(bob);
+  b = await principal(bobClerk);
   assert.equal(b.role, 'admin');
   await rejects(orgs.updateMemberRole(b, a.id, 'member'), /workspace owners/);
   await rejects(users.update(a.id, { is_active: false }, b), /workspace owners/);
   await rejects(orgs.leaveOrganization(a, a.organizationId), /at least one owner/);
 
   // Bob switches back home; his role there is still CEO.
-  b = await principal(await orgs.switchOrganization(b, bob.user.organization));
+  b = await principal(await orgs.switchOrganization(b, bobClerk.user.organization));
   assert.equal(b.role, 'ceo');
   team = await users.findAll(a);
   assert.equal(team.find((u) => u.email === email('bob')).role, 'admin');
   assert.equal(team.find((u) => u.email === email('bob')).organization_name, `Alice's workspace`);
 
-  // A new email gets a placeholder; signing up claims it without accepting.
+  // A new email gets a placeholder; only a Clerk sign-in with that email claims it, and the invitation stays pending.
   await orgs.inviteMember(a, { email: email('carol'), name: 'Carol' });
   await rejects(orgs.inviteMember(a, { email: email('carol') }), /pending invitation/);
-  const carol = await auth.register({ email: email('carol'), password: 'carol-password-1' });
+  await rejects(auth.register({ email: email('carol'), password: 'carol-password-1' }), /already exists/);
+  clerkIdentity = { clerk_id: `user_carol_${run}`, email: email('carol'), name: 'Carol' };
+  const carol = await auth.clerkLogin({ token: 'verified' });
   let c = await principal(carol);
   assert.equal(c.role, 'ceo');
   assert.notEqual(c.organizationId, a.organizationId);
@@ -138,18 +146,19 @@ try {
   // Removing Bob sends his active workspace back to his own.
   b = await principal(await orgs.switchOrganization(b, a.organizationId));
   await orgs.removeMember(a, b.id);
-  b = await principal(bob);
-  assert.equal(b.organizationId, bob.user.organization);
+  b = await principal(bobClerk);
+  assert.equal(b.organizationId, bobClerk.user.organization);
   assert.equal(b.role, 'ceo');
   await rejects(users.findOne(b.id, a), /Access denied/);
 
   // Sessions of a person whose seat disappeared out of band fail closed.
   await prisma.membership.deleteMany({ where: { userId: b.id } });
-  b = await principal(bob);
+  b = await principal(bobClerk);
   assert.equal(b.organizationId, null);
-  const relogin = await auth.login({ email: email('bob'), password: 'bob-password-1' });
+  clerkIdentity = { clerk_id: `user_bob_${run}`, email: email('bob'), name: 'Bob' };
+  const relogin = await auth.clerkLogin({ token: 'verified' });
   assert.equal(relogin.user.role, 'ceo', 'sign-in founds a new workspace when none is left');
-  assert.notEqual(relogin.user.organization, bob.user.organization);
+  assert.notEqual(relogin.user.organization, bobClerk.user.organization);
 
   // Agent seats never sign in, even with a known password.
   await rejects(

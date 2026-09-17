@@ -4,10 +4,10 @@ import { BlockList, isIP } from 'node:net';
 /**
  * Outbound request guard for user-supplied URLs (SEO probes).
  *
- * Every connection is resolved through `publicOnlyLookup`, so redirects and
- * DNS rebinding cannot reach loopback, private, link-local (cloud metadata),
- * or other non-public addresses. Private targets are allowed only outside
- * production when OUTBOUND_ALLOW_PRIVATE_HOSTS=true (local development).
+ * Host names are resolved through `publicOnlyLookup` on every connection (which
+ * also covers DNS rebinding) and redirect targets are re-validated by
+ * `assertRedirectTarget`. Private targets are allowed only outside production
+ * when OUTBOUND_ALLOW_PRIVATE_HOSTS=true (local development).
  */
 
 const blocked = new BlockList();
@@ -77,7 +77,7 @@ type LookupCallback = (
 
 /**
  * axios `lookup` implementation that refuses non-public destinations.
- * It is applied to every connection, including redirects.
+ * It is applied to every connection to a host name.
  */
 export function publicOnlyLookup(
   hostname: string,
@@ -132,4 +132,24 @@ export function assertAuditableUrl(raw: string): URL {
     }
   }
   return url;
+}
+
+/**
+ * axios `beforeRedirect` hook: applies the same protocol, port and address
+ * rules as `assertAuditableUrl` to every redirect target. IP-literal hosts
+ * never reach `publicOnlyLookup`, so they must be checked here.
+ */
+export function assertRedirectTarget(options: {
+  protocol?: string;
+  hostname?: string;
+  host?: string;
+  port?: string | number | null;
+}): void {
+  const protocol = options.protocol || 'http:';
+  let hostname = options.hostname ?? options.host ?? '';
+  if (hostname.includes(':') && !hostname.startsWith('[')) {
+    hostname = `[${hostname}]`;
+  }
+  const port = options.port ? `:${options.port}` : '';
+  assertAuditableUrl(`${protocol}//${hostname}${port}`);
 }

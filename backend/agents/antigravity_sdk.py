@@ -334,114 +334,26 @@ class AntigravityAgentEngine:
 
         response_text = ""
 
-        # Strategy A: Google Antigravity SDK with Gemini API
-        gemini_key = os.getenv("GEMINI_API_KEY")
-        if gemini_key:
-            try:
-                import asyncio
-                from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
+        response_text = ""
 
-                async def _run_antigrav():
-                    config = LocalAgentConfig(
-                        api_key=gemini_key,
-                        system_instructions=system_prompt,
-                        capabilities=CapabilitiesConfig(),
-                        model="gemini-2.0-flash",
-                    )
-                    async with Agent(config) as agy_agent:
-                        resp = await agy_agent.chat(prompt)
-                        tokens = []
-                        async for token in resp:
-                            tokens.append(token)
-                        return "".join(tokens)
+        # Query Language Model via centralized llm service
+        from .llm import generate_text, ModelUnavailable
+        response_text = generate_text(system_prompt, prompt)
 
-                response_text = asyncio.run(_run_antigrav())
-            except Exception as agy_err:
-                logger.info(f"Google Antigravity SDK live call bypassed: {agy_err}")
-
-        # Strategy B: Local Ollama (running locally on GPU / Ollama base URL)
+        # Fallback when no model is configured
         if not response_text:
-            try:
-                from .ollama_service import query_ollama, is_ollama_available
-                if is_ollama_available():
-                    ollama_resp = query_ollama(prompt=prompt, system_prompt=system_prompt)
-                    if ollama_resp:
-                        response_text = ollama_resp
-            except Exception as e:
-                logger.debug(f"Ollama local inference bypassed: {e}")
-
-        # Strategy C: OpenAI API if key configured
-        if not response_text:
-            openai_key = os.getenv("OPENAI_API_KEY")
-            if openai_key:
-                try:
-                    from langchain_openai import ChatOpenAI
-                    from langchain_core.messages import SystemMessage, HumanMessage
-
-                    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2, openai_api_key=openai_key)
-                    res = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=prompt)])
-                    response_text = res.content
-                except Exception as e:
-                    logger.warning(f"OpenAI call via Antigravity SDK failed: {e}")
-
-        # Strategy D: Dynamic Contextual Reasoning Engine (Zero-Hardcode Fallback)
-        if not response_text:
-            prompt_clean = prompt.strip()
-            prompt_lower = prompt_clean.lower()
-            author_name = ""
-            if user:
-                author_name = getattr(user, "name", "") or getattr(user, "first_name", "") or (user.email.split("@")[0] if getattr(user, "email", None) else "")
-            if not author_name and comments_history:
-                for match in re.finditer(r"\[(.*?)\]", comments_history):
-                    candidate = match.group(1).strip()
-                    if "agent" not in candidate.lower() and candidate.lower() not in self.spec["name"].lower():
-                        author_name = candidate
-            author_greet = f"Hey {author_name.split()[0]}!" if author_name else "Hey!"
-
-            # Detect intent dynamically from prompt
-            is_question = any(w in prompt_lower for w in ["?", "how", "what", "why", "when", "can we", "should we", "est-ce que", "comment"])
-            is_approval = any(w in prompt_lower for w in ["approve", "looks good", "lgmt", "valide", "merge", "ship it", "go ahead"])
-            is_scope_risk = any(w in prompt_lower for w in ["everything", "all features", "crypto", "blockchain", "asap", "demain", "immediately"])
+            lines = [ModelUnavailable.default_detail]
+            
             workspace_tools = [t for t in tool_calls if t.name in {"git_pull", "run_project_build", "git_push"}]
-            is_git_request = bool(workspace_tools)
-
-            lines = []
-            lines.append(f"{author_greet} {self.spec['name']} here ({self.spec['title']}). I've reviewed your note regarding **#{task.id}: {task.title}**.")
-
-            if is_git_request:
+            if workspace_tools:
                 lines.append("\nHere is what happened in the project workspace:")
                 for tool in workspace_tools:
                     lines.append(f"- `{tool.name}`: {tool.output}")
-            elif is_approval:
-                lines.append(
-                    f"\nGreat! Moving ahead with the plan. I've verified the Definition of Done acceptance criteria "
-                    f"and ensured our branch changes remain strictly isolated."
-                )
-            elif is_question:
-                lines.append(
-                    f"\nRegarding your question (*\"{prompt_clean}\"*):\n"
-                    f"Looking at our current state (`{task.status}`, priority: `{task.priority}`), our primary objective is delivering "
-                    f"the core functionality cleanly. Grounded in our {len(rag_context)} architectural RAG context chunks, "
-                    f"we can achieve this while keeping the sprint timeline on track."
-                )
-            elif is_scope_risk:
-                lines.append(
-                    f"\nHeads up on scope: *\"{prompt_clean}\"* touches multiple critical surfaces. To prevent scope creep and keep our delivery date reliable, "
-                    f"I recommend locking the core deliverable in this ticket first and pushing secondary integrations to Milestone 2."
-                )
-            else:
-                lines.append(
-                    f"\nI've analyzed your directive: *\"{prompt_clean}\"*\n"
-                    f"Execution path is active. I'm focusing our work directly on the acceptance criteria for `{task.title}` "
-                    f"to ensure high test coverage and clean PR integration."
-                )
-
-            if tool_calls:
-                lines.append(f"\n**Actions completed:**")
+            elif tool_calls:
+                lines.append("\n**Actions completed:**")
                 for t in tool_calls:
                     lines.append(f"- `{t.name}`: {t.output}")
-
-            lines.append(f"\nI'll keep you updated as this progresses. Let me know if you want to adjust any priorities!")
+                    
             response_text = "\n".join(lines)
 
         # 4. Parse file changes and execute Git lifecycle on workspace mount
@@ -452,7 +364,7 @@ class AntigravityAgentEngine:
                 task=task,
                 agent_info={
                     "name": self.spec["name"],
-                    "email": f"{self.spec['email_local']}@teamflow.dev",
+                    "email": get_or_create_agent_user(self.agent_key, task.organization).email,
                     "role": self.role
                 }
             )
@@ -500,8 +412,6 @@ def run_antigravity_agent(
     elif engine.role in {"backend", "frontend"}:
         task.status = Task.Status.IN_REVIEW
         task.assignee = agent_user
-        if repo_name and not task.pr_url:
-            task.pr_url = f"https://github.com/{repo_name}/tree/feat/ticket-{task.id}"
     elif engine.role == "tech_lead":
         if task.status == Task.Status.TODO:
             task.status = Task.Status.IN_PROGRESS

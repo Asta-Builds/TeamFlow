@@ -1,5 +1,6 @@
 import {
   Controller,
+  Get,
   Post,
   Body,
   UseGuards,
@@ -15,6 +16,14 @@ import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 @Controller('billing')
 export class BillingController {
   constructor(private billingService: BillingService) {}
+
+  @Get('plans')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List available subscription plans and their limits' })
+  getPlans() {
+    return this.billingService.getPlans();
+  }
 
   @Post('create-checkout-session')
   @UseGuards(JwtAuthGuard)

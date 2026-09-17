@@ -1,4 +1,5 @@
 import os
+import urllib.parse
 import logging
 import hashlib
 import hmac
@@ -174,7 +175,7 @@ class GitHubIntegrationView(views.APIView):
             if tok:
                 try:
                     resp = requests.get(
-                        "https://api.github.com/user",
+                        f"{settings.GITHUB_API_URL}/user",
                         headers={"Authorization": f"token {tok}", "Accept": "application/vnd.github.v3+json"},
                         timeout=8
                     )
@@ -224,7 +225,7 @@ class GitHubTestView(views.APIView):
         }
 
         try:
-            resp = requests.get("https://api.github.com/user", headers=headers, timeout=10)
+            resp = requests.get(f"{settings.GITHUB_API_URL}/user", headers=headers, timeout=10)
             if resp.status_code == 200:
                 user_data = resp.json()
                 login = user_data.get("login", "")
@@ -252,7 +253,7 @@ class GitHubTestView(views.APIView):
                         "avatar_url": avatar,
                         "type": acc_type,
                         "public_repos": repos_count,
-                        "html_url": user_data.get("html_url", f"https://github.com/{login}"),
+                        "html_url": user_data.get("html_url", f"{settings.GITHUB_WEB_URL}/{login}"),
                     }
                 }, status=status.HTTP_200_OK)
             elif resp.status_code == 401:

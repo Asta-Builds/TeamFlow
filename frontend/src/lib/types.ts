@@ -185,14 +185,19 @@ export interface SEOIssue {
 }
 
 export interface SEOMetrics {
-  fcp_ms?: number;
-  lcp_ms?: number;
-  cls?: number;
-  fid_ms?: number;
-  ttfb_ms?: number;
+  response_time_ms?: number;
+  measured_with?: string;
   canonical_detected?: boolean;
   robots_txt_present?: boolean;
   sitemap_present?: boolean;
+}
+
+export interface BillingPlan {
+  tier: string;
+  name: string;
+  limits: OrganizationLimits;
+  price_label: string | null;
+  checkout_available: boolean;
 }
 
 export interface SEOAudit {

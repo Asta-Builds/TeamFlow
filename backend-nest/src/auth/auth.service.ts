@@ -23,7 +23,7 @@ import {
   ensureActiveWorkspace,
   humanRoleFor,
   isReservedAgentEmail,
-  isUnclaimedInvitee,
+  hasUsablePassword,
   personalWorkspaceName,
 } from '../common/workspace.js';
 
@@ -55,9 +55,7 @@ export class AuthService {
       throw new BadRequestException('This email address is reserved for AI agent seats');
     }
     const existing = await this.prisma.user.findUnique({ where: { email } });
-    // An invitation placeholder is claimed by signing up; its invitations stay
-    // pending until the person accepts them.
-    if (existing && !isUnclaimedInvitee(existing)) {
+    if (existing) {
       throw new ConflictException('User with this email already exists');
     }
 
@@ -71,17 +69,17 @@ export class AuthService {
           name: dto.organization_name?.trim() || personalWorkspaceName(dto.name, email),
         },
       });
-      const data = {
-        password: hashedPassword,
-        name: dto.name || existing?.name || email.split('@')[0],
-        role: 'ceo',
-        userStatus: 'active',
-        organizationId: org.id,
-        memberships: { create: { organizationId: org.id, role: 'ceo' } },
-      };
-      return existing
-        ? tx.user.update({ where: { id: existing.id }, data })
-        : tx.user.create({ data: { email, ...data } });
+      return tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          name: dto.name || email.split('@')[0],
+          role: 'ceo',
+          userStatus: 'active',
+          organizationId: org.id,
+          memberships: { create: { organizationId: org.id, role: 'ceo' } },
+        },
+      });
     });
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -385,6 +383,8 @@ export class AuthService {
     const name = verified.name || email.split('@')[0];
     const avatarUrl = verified.avatar_url || '';
 
+    let revokedUserId: number | undefined;
+
     const user = await this.prisma.$transaction(async (tx) => {
       const refuse = (account: { isActive: boolean; agentKey: string }) => {
         if (account.agentKey) {
@@ -410,6 +410,11 @@ export class AuthService {
             'This TeamFlow account is linked to a different Clerk identity',
           );
         }
+        const revokePassword = !existing.clerkId && hasUsablePassword(existing.password);
+        if (revokePassword) {
+          revokedUserId = existing.id;
+        }
+
         const linkedUser = await tx.user.update({
           where: { id: existing.id },
           data: {
@@ -417,6 +422,7 @@ export class AuthService {
             ...(existing.avatarUrl || !avatarUrl ? {} : { avatarUrl }),
             // A placeholder created by an invitation takes the person's own name.
             ...(existing.userStatus === 'pending' && verified.name ? { name: verified.name } : {}),
+            ...(revokePassword ? { password: `!sso_clerk_${randomUUID()}` } : {}),
           },
         });
         return ensureActiveWorkspace(tx, linkedUser);
@@ -443,6 +449,10 @@ export class AuthService {
         },
       });
     });
+
+    if (revokedUserId) {
+      await this.tokenStore.endAllSessions(revokedUserId);
+    }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     const serializedUser = await this.serializeUser(user.id);

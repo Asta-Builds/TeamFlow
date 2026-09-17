@@ -23,7 +23,7 @@ from .git_service import (
     git_merge_pull_request,
 )
 from .code_writer import parse_and_apply_code_changes
-from .ollama_service import query_ollama
+from .llm import generate_text
 from .rag.vector_store import query_similar_chunks
 from .registry import AGENT_SEATS, get_agent_spec
 from .users import get_or_create_agent_user
@@ -32,43 +32,17 @@ from .tools.app_tool import trigger_app_deployment
 
 logger = logging.getLogger(__name__)
 
-SWARM_SPECIALISTS = {
-    "tech_lead": {
-        "key": "tech_lead",
-        "name": "Sarah Jenkins (AI)",
-        "role": "tech_lead",
-        "title": "Tech Lead & System Architect",
-        "avatar": "SJ",
-    },
-    "backend": {
-        "key": "backend_core",
-        "name": "Marcus Aurelius (AI)",
-        "role": "backend",
-        "title": "Senior Backend Engineer",
-        "avatar": "MA",
-    },
-    "frontend": {
-        "key": "frontend_app",
-        "name": "Cleopatra (AI)",
-        "role": "frontend",
-        "title": "Senior Frontend Engineer",
-        "avatar": "CL",
-    },
-    "qa": {
-        "key": "qa",
-        "name": "Alan Turing (AI)",
-        "role": "qa",
-        "title": "QA & Test Automation Specialist",
-        "avatar": "ATu",
-    },
-    "devops": {
-        "key": "devops",
-        "name": "Joan of Arc (AI)",
-        "role": "devops",
-        "title": "DevOps & Infrastructure Engineer",
-        "avatar": "JA",
-    },
-}
+
+SWARM_SPECIALISTS = {}
+for _key, _spec_key in [("tech_lead", "tech_lead"), ("backend", "backend"), ("frontend", "frontend"), ("qa", "qa"), ("devops", "devops")]:
+    _spec = get_agent_spec(_spec_key)
+    SWARM_SPECIALISTS[_key] = {
+        "key": _spec_key,
+        "name": _spec["name"],
+        "role": _spec["role"],
+        "title": _spec["title"],
+        "avatar": _spec["name"][:2].upper(),
+    }
 
 
 def generate_validation_contract(task: Task, instruction: str = "") -> List[Dict[str, Any]]:
@@ -164,7 +138,7 @@ def execute_full_swarm_chain(
     )
 
     # -------------------------------------------------------------
-    # STEP 1: Tech Lead Sarah Jenkins (Architecture & Handoff to Backend)
+    # STEP 1: Tech Lead (architecture and handoff to backend)
     # -------------------------------------------------------------
     lead_user = get_or_create_agent_user("tech_lead", task.organization)
     rag_results = query_similar_chunks(
@@ -177,9 +151,9 @@ def execute_full_swarm_chain(
 
     contract_bullets = "\n".join([f"  - **[{c['id']}]** {c['assertion']}" for c in contract])
     lead_comment_body = (
-        f"**Sarah Jenkins (AI) - Tech Lead & System Architect**\n\n"
+        f"**{SWARM_SPECIALISTS['tech_lead']['name']} - {SWARM_SPECIALISTS['tech_lead']['title']}**\n\n"
         f"**Sprint Planning Handoff to @backend_core:**\n\n"
-        f"Hey Marcus! I analyzed ticket **#{task.id} : {task.title}** for project **`{project_name}`** and established our **Validation Contract (Definition of Done)**:\n\n"
+        f"Hey {SWARM_SPECIALISTS['backend']['name']}! I analyzed ticket **#{task.id} : {task.title}** for project **`{project_name}`** and established our **Validation Contract (Definition of Done)**:\n\n"
         f"**Validation Contract ({len(contract)} independent assertions):**\n"
         f"{contract_bullets}\n\n"
         f"**Architectural Directives:**\n"
@@ -236,19 +210,16 @@ def execute_full_swarm_chain(
         f"You are the Senior Backend Engineer at TeamFlow. Build robust backend endpoints and database models "
         f"for project '{project_name}'. Output clean code with FILE: and CODE: blocks."
     )
-    backend_llm_out = query_ollama(backend_prompt, system_prompt=backend_system, timeout=180)
+
+    backend_llm_out = generate_text(backend_system, backend_prompt, timeout=180)
     if not backend_llm_out:
-        backend_llm_out = (
-            f"FILE: api/views.py\n"
-            f"CODE:\n"
-            f"# Automated Backend Service for {task.title}\n"
-            f"from rest_framework.views import APIView\n"
-            f"from rest_framework.response import Response\n\n"
-            f"class {task_clean_title.replace('-', '').capitalize()}View(APIView):\n"
-            f"    def get(self, request):\n"
-            f"        return Response({{'status': 'active', 'ticket_id': {task.id}}})\n"
-            f"---\n"
-        )
+        fail_body = f"**{SWARM_SPECIALISTS['backend']['name']} - {SWARM_SPECIALISTS['backend']['title']}**\n\nNo language model is configured, so no code was generated."
+
+
+        Comment.objects.create(task=task, author=backend_user, body=fail_body)
+        emit_agent_event(task=task, trace=trace, session_id=session_id, event_type="blocked", sender_key="backend_core", message="No code was generated.", current_work="Failed to generate code", remaining_work=["configure language model"])
+        return chain_events
+
 
     backend_code_report = parse_and_apply_code_changes(
         llm_output=backend_llm_out,
@@ -258,9 +229,9 @@ def execute_full_swarm_chain(
     )
 
     backend_comment_body = (
-        f"**Marcus Aurelius (AI) - Senior Backend Engineer**\n\n"
+        f"**{SWARM_SPECIALISTS['backend']['name']} - {SWARM_SPECIALISTS['backend']['title']}**\n\n"
         f"**Sprint Daily Standup & Handoff to @frontend_app & @tech_lead:**\n\n"
-        f"Hey Cleopatra! Backend implementation and models for **#{task.id} : {task.title}** are complete, verified, and committed.\n\n"
+        f"Hey {SWARM_SPECIALISTS['frontend']['name']}! Backend implementation and models for **#{task.id} : {task.title}** are complete, verified, and committed.\n\n"
         f"- **Completed:** Implemented REST API endpoints and data schemas.\n"
         f"- **Branch:** `{branch_name}`\n"
         f"- **Workspace:** `generated_projects/{workspace_rel}/`\n\n"
@@ -310,24 +281,19 @@ def execute_full_swarm_chain(
         f"---\n"
     )
     frontend_system = (
-        f"You are Cleopatra, Senior Frontend Engineer at TeamFlow. Build modern Tailwind CSS & Lucide icon components for project '{project_name}'."
+        f"You are {SWARM_SPECIALISTS['frontend']['name']}, {SWARM_SPECIALISTS['frontend']['title']} at TeamFlow. "
+        f"Build the frontend components for project '{project_name}'."
     )
-    frontend_llm_out = query_ollama(frontend_prompt, system_prompt=frontend_system, timeout=180)
+
+    frontend_llm_out = generate_text(frontend_system, frontend_prompt, timeout=180)
     if not frontend_llm_out:
-        frontend_llm_out = (
-            f"FILE: src/components/{task_clean_title.replace('-', '_').capitalize()}View.tsx\n"
-            f"CODE:\n"
-            f"import React from 'react';\n\n"
-            f"export function {task_clean_title.replace('-', '').capitalize()}View() {{\n"
-            f"  return (\n"
-            f"    <div className='p-6 rounded-2xl bg-slate-900 border border-slate-800 text-white'>\n"
-            f"      <h2 className='text-xl font-bold'>{task.title}</h2>\n"
-            f"      <p className='text-sm text-slate-400'>Implemented by Cleopatra (AI)</p>\n"
-            f"    </div>\n"
-            f"  );\n"
-            f"}}\n"
-            f"---\n"
-        )
+        fail_body = f"**{SWARM_SPECIALISTS['frontend']['name']} - {SWARM_SPECIALISTS['frontend']['title']}**\n\nNo language model is configured, so no code was generated."
+
+
+        Comment.objects.create(task=task, author=frontend_user, body=fail_body)
+        emit_agent_event(task=task, trace=trace, session_id=session_id, event_type="blocked", sender_key="frontend_app", message="No code was generated.", current_work="Failed to generate code", remaining_work=["configure language model"])
+        return chain_events
+
 
     frontend_code_report = parse_and_apply_code_changes(
         llm_output=frontend_llm_out,
@@ -340,11 +306,11 @@ def execute_full_swarm_chain(
     task.save(update_fields=["status"])
 
     frontend_comment_body = (
-        f"**Cleopatra (AI) - Senior Frontend Engineer**\n\n"
+        f"**{SWARM_SPECIALISTS['frontend']['name']} - {SWARM_SPECIALISTS['frontend']['title']}**\n\n"
         f"**Sprint Daily Standup & Handoff to @qa & @tech_lead:**\n\n"
-        f"Hey Alan! Client UI views and reactive state for **#{task.id} : {task.title}** are fully developed and styled with Tailwind CSS & Lucide icons.\n\n"
+        f"Hey {SWARM_SPECIALISTS['qa']['name']}! Client UI views and reactive state for **#{task.id} : {task.title}** are fully developed and styled with Tailwind CSS & Lucide icons.\n\n"
         f"{frontend_code_report}\n\n"
-        f"UI views are connected to Marcus's backend endpoints. Ticket moved to **QA / Ready for Test** for @qa Validation Contract check."
+        f"UI views are connected to {SWARM_SPECIALISTS['backend']['name']}'s backend endpoints. Ticket moved to **QA / Ready for Test** for @qa Validation Contract check."
     )
     frontend_comment = Comment.objects.create(task=task, author=frontend_user, body=frontend_comment_body)
     TaskActivity.objects.create(
@@ -455,7 +421,7 @@ def execute_full_swarm_chain(
         task.save(update_fields=["validation_contract", "contract_compliance_score", "qa_rejected", "qa_rejection_reason", "status"])
 
         qa_fail_comment = (
-            f"**Alan Turing (AI) - QA Specialist**\n\n"
+            f"**{SWARM_SPECIALISTS['qa']['name']} - {SWARM_SPECIALISTS['qa']['title']}**\n\n"
             f"**Sprint Quality Gate REJECTION for @backend_core & @tech_lead:**\n\n"
             f"Validation Contract Verification: **FAILED ({compliance_score}%)** on branch `{branch_name}`.\n\n"
             f"**Failure Details:**\n" + "\n".join([f"- [DEFECT] {r}" for r in failure_reasons])
@@ -480,9 +446,9 @@ def execute_full_swarm_chain(
 
     contract_eval_bullets = "\n".join([f"  - **[{c['id']}]** {c['assertion']} *(Status: {c['status']})*" for c in validated_contract])
     qa_comment_body = (
-        f"**Alan Turing (AI) - QA Specialist**\n\n"
+        f"**{SWARM_SPECIALISTS['qa']['name']} - {SWARM_SPECIALISTS['qa']['title']}**\n\n"
         f"**Sprint Quality Gate Sign-Off for @tech_lead & @devops:**\n\n"
-        f"Hey Sarah! I ran the automated Validation Contract checks on branch `{branch_name}`:\n\n"
+        f"Hey {SWARM_SPECIALISTS['tech_lead']['name']}! I ran the automated Validation Contract checks on branch `{branch_name}`:\n\n"
         f"**Validation Contract (Definition of Done):**\n"
         f"{contract_eval_bullets}\n\n"
         f"**Quality Report:**\n"
@@ -521,7 +487,7 @@ def execute_full_swarm_chain(
     )
 
     # -------------------------------------------------------------
-    # STEP 5: Tech Lead Sarah Jenkins (Merge PR to main & Handoff to DevOps)
+    # STEP 5: Tech Lead (merge the pull request and hand off to DevOps)
     # -------------------------------------------------------------
     merge_res = git_merge_pull_request(
         repo=getattr(project, "github_repo", ""),
@@ -532,7 +498,7 @@ def execute_full_swarm_chain(
 
     if not merge_res.get("success"):
         merge_fail_body = (
-            f"**Sarah Jenkins (AI) - Tech Lead & System Architect**\n\n"
+            f"**{SWARM_SPECIALISTS['tech_lead']['name']} - {SWARM_SPECIALISTS['tech_lead']['title']}**\n\n"
             f"**Merge blocked for `{branch_name}`:**\n\n"
             f"QA passed, but merging into `main` did not succeed.\n\n"
             f"- Reason: {merge_res.get('output', 'unknown error')}\n"
@@ -571,9 +537,9 @@ def execute_full_swarm_chain(
         else "`main` was updated locally; it was not pushed to a remote."
     )
     lead_merge_comment_body = (
-        f"**Sarah Jenkins (AI) - Tech Lead & System Architect**\n\n"
+        f"**{SWARM_SPECIALISTS['tech_lead']['name']} - {SWARM_SPECIALISTS['tech_lead']['title']}**\n\n"
         f"**Sprint PR Merge Sign-Off for @devops:**\n\n"
-        f"Hey Joan! Code review is completed and Alan's QA validation confirmed.\n\n"
+        f"Hey {SWARM_SPECIALISTS['devops']['name']}! Code review is completed and Alan's QA validation confirmed.\n\n"
         f"**Merge Report:**\n"
         f"- Merged branch: `{branch_name}` -> `main`\n"
         f"- Merge Commit SHA: `{merge_sha}`\n"
@@ -610,7 +576,7 @@ def execute_full_swarm_chain(
     )
 
     # -------------------------------------------------------------
-    # STEP 6: DevOps Specialist Joan of Arc (Staging Rollout & Final Completion)
+    # STEP 6: DevOps (staging rollout and completion)
     # -------------------------------------------------------------
     devops_user = get_or_create_agent_user("devops", task.organization)
     deploy_res = trigger_app_deployment(
@@ -633,7 +599,7 @@ def execute_full_swarm_chain(
         release_details = {"environment": "staging", "status": "failed", "deployment_id": deploy_res.get("deployment_id")}
 
     devops_comment_body = (
-        f"**Joan of Arc (AI) - DevOps Engineer**\n\n"
+        f"**{SWARM_SPECIALISTS['devops']['name']} - {SWARM_SPECIALISTS['devops']['title']}**\n\n"
         f"**Release step for ticket #{task.id}:**\n\n"
         f"- `main` is at `{merge_sha or 'unknown'}`.\n"
         f"{release_line}"

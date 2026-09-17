@@ -144,60 +144,12 @@ def generate_llm_response(
         except Exception as e:
             logger.error(f"Git pull failed: {e}")
 
-    # 1. Query Google Antigravity SDK if Gemini key available
-    gemini_key = os.getenv("GEMINI_API_KEY")
-    if gemini_key:
-        try:
-            import asyncio
-            from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
-
-            async def _call_antigrav():
-                config = LocalAgentConfig(
-                    api_key=gemini_key,
-                    system_instructions=system_prompt,
-                    capabilities=CapabilitiesConfig(),
-                    model="gemini-2.0-flash",
-                )
-                async with Agent(config) as agy:
-                    res = await agy.chat(prompt)
-                    parts = []
-                    async for tok in res:
-                        parts.append(tok)
-                    return "".join(parts)
-
-            response_text = asyncio.run(_call_antigrav())
-        except Exception as agy_err:
-            logger.info(f"Antigravity SDK call bypassed in prompter: {agy_err}")
-
-    # 2. Query Local Ollama GPU Engine
-    if not response_text:
-        try:
-            from .ollama_service import query_ollama, is_ollama_available
-            if is_ollama_available():
-                ollama_res = query_ollama(prompt=prompt, system_prompt=system_prompt)
-                if ollama_res:
-                    response_text = ollama_res
-        except Exception as e:
-            logger.debug(f"Ollama inference bypassed in prompter: {e}")
-
-    # 3. Query OpenAI API if key available
-    if not response_text:
-        openai_key = os.getenv("OPENAI_API_KEY")
-        if openai_key:
-            try:
-                from langchain_openai import ChatOpenAI
-                from langchain_core.messages import SystemMessage, HumanMessage
-
-                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2, openai_api_key=openai_key)
-                response = llm.invoke([
-                    SystemMessage(content=system_prompt),
-                    HumanMessage(content=prompt)
-                ])
-                response_text = response.content
-            except Exception as e:
-                logger.warning(f"OpenAI invocation failed: {e}. Falling back to structured response.")
+    # 1. Query Language Model via centralized llm service
+    from .llm import generate_text, ModelUnavailable
+    response_text = generate_text(system_prompt, prompt)
 
     # 4. Apply file changes and execute Git lifecycle (branch, commit, push, PR)
+    diff_summary = ""
     if response_text:
         try:
             from .code_writer import parse_and_apply_code_changes
@@ -212,37 +164,8 @@ def generate_llm_response(
             logger.warning(f"Failed to parse and apply code changes: {e}")
         return response_text
 
-    # 5. Dynamic Contextual Human-like Response (Zero-Hardcode Fallback)
-    prompt_clean = prompt.strip()
-    prompt_lower = prompt_clean.lower()
-    is_question = any(w in prompt_lower for w in ["?", "how", "what", "why", "when", "can we", "should we"])
-    is_scope_risk = any(w in prompt_lower for w in ["everything", "all features", "crypto", "asap", "immediately"])
-
-    response_lines = [
-        f"Hey! I've reviewed your note regarding **#{task.id}: {task.title}**."
-    ]
-
-    if is_question:
-        response_lines.append(
-            f"\nTo answer your question (*\"{prompt_clean}\"*):\n"
-            f"Given our current state (`{task.status}` priority: `{task.priority}`), we can deliver this within scope. "
-            f"Grounded in our {len(rag_context)} architectural RAG context chunks, the implementation path is clear."
-        )
-    elif is_scope_risk:
-        response_lines.append(
-            f"\nHeads up on scope: *\"{prompt_clean}\"* introduces additional complexity. To keep our sprint delivery timeline intact, "
-            f"I recommend locking the core requirements for this ticket first, and scheduling auxiliary items for the next sprint."
-        )
-    else:
-        response_lines.append(
-            f"\nDirective noted: *\"{prompt_clean}\"*\n"
-            f"I've initiated the necessary technical checks. We're keeping scope tightly bound to the acceptance criteria for `{task.title}`."
-        )
-
-    response_lines.append(
-        f"\nI'll keep you posted as the work moves forward. Let me know if you'd like to adjust any priorities!"
-    )
-    return "\n".join(response_lines)
+    # 5. Fallback when no model is configured
+    return ModelUnavailable.default_detail + (diff_summary if diff_summary else "")
 
 
 def process_ceo_prompt(

@@ -14,6 +14,7 @@ const activeUser = {
   organizationId: 3,
   role: 'member',
   agentKey: '',
+  password: '!sso_clerk_existing',
   memberships: [{ organizationId: 3, role: 'member' }],
 };
 
@@ -32,7 +33,8 @@ describe('McpPrincipalService', () => {
       user: { findUnique: vi.fn().mockResolvedValue(activeUser) },
     };
     const clerk = { getUserProfile: vi.fn() };
-    const service = new McpPrincipalService(prisma as any, clerk as any);
+    const store = { endAllSessions: vi.fn() };
+    const service = new McpPrincipalService(prisma as any, clerk as any, store as any);
 
     await expect(service.resolve(auth([MCP_READ_SCOPE]), false)).resolves.toEqual(activeUser);
     expect(clerk.getUserProfile).not.toHaveBeenCalled();
@@ -41,7 +43,8 @@ describe('McpPrincipalService', () => {
   it('requires the write scope for mutations', async () => {
     const prisma = { user: { findUnique: vi.fn() } };
     const clerk = { getUserProfile: vi.fn() };
-    const service = new McpPrincipalService(prisma as any, clerk as any);
+    const store = { endAllSessions: vi.fn() };
+    const service = new McpPrincipalService(prisma as any, clerk as any, store as any);
 
     await expect(service.resolve(auth([MCP_READ_SCOPE]), true)).rejects.toThrow(
       MCP_WRITE_SCOPE,
@@ -69,7 +72,8 @@ describe('McpPrincipalService', () => {
         name: 'Member',
       }),
     };
-    const service = new McpPrincipalService(prisma as any, clerk as any);
+    const store = { endAllSessions: vi.fn() };
+    const service = new McpPrincipalService(prisma as any, clerk as any, store as any);
 
     await expect(
       service.resolve(auth([MCP_READ_SCOPE], 'user_new'), false),
@@ -80,6 +84,45 @@ describe('McpPrincipalService', () => {
         data: { clerkId: 'user_new' },
       }),
     );
+    expect(store.endAllSessions).not.toHaveBeenCalled();
+  });
+
+  it('revokes a password set before the Clerk identity was linked', async () => {
+    const unlinkedUser = { ...activeUser, clerkId: null, password: 'pbkdf2_sha256$1000$salt$hash' };
+    const updatedUser = { ...unlinkedUser, clerkId: 'user_new' };
+    const tx = {
+      user: {
+        findUnique: vi.fn().mockResolvedValue(unlinkedUser),
+        update: vi.fn().mockResolvedValue(updatedUser),
+      },
+    };
+    const prisma = {
+      user: { findUnique: vi.fn().mockResolvedValue(null) },
+      $transaction: vi.fn(async (operation: any) => operation(tx)),
+    };
+    const clerk = {
+      getUserProfile: vi.fn().mockResolvedValue({
+        clerk_id: 'user_new',
+        email: activeUser.email,
+        name: 'Member',
+      }),
+    };
+    const store = { endAllSessions: vi.fn() };
+    const service = new McpPrincipalService(prisma as any, clerk as any, store as any);
+
+    await expect(
+      service.resolve(auth([MCP_READ_SCOPE], 'user_new'), false),
+    ).resolves.toEqual(updatedUser);
+    expect(tx.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: activeUser.id },
+        data: expect.objectContaining({
+          clerkId: 'user_new',
+          password: expect.stringMatching(/^!sso_clerk_/),
+        }),
+      }),
+    );
+    expect(store.endAllSessions).toHaveBeenCalledWith(activeUser.id);
   });
 
   it('refuses a workspace the account no longer has a seat in', async () => {

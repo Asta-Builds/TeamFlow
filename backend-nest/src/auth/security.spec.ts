@@ -122,7 +122,7 @@ describe('authentication boundaries', () => {
     ).rejects.toThrow('reserved');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
-  it('lets sign-up claim an invitation placeholder without accepting its invitations', async () => {
+  it('refuses sign-up for an invitation placeholder', async () => {
     const placeholder = {
       id: 5,
       email: 'invitee@example.com',
@@ -132,31 +132,15 @@ describe('authentication boundaries', () => {
       agentKey: '',
       organizationId: null,
     };
-    const tx = {
-      organization: { create: vi.fn().mockResolvedValue({ id: 43 }) },
-      user: {
-        create: vi.fn(),
-        update: vi.fn().mockResolvedValue({ ...placeholder, role: 'ceo', organizationId: 43 }),
-      },
-    };
     const prisma = {
       user: { findUnique: vi.fn().mockResolvedValue(placeholder) },
-      $transaction: vi.fn((fn) => fn(tx)),
+      $transaction: vi.fn(),
     };
     const service = new AuthService(prisma as any, new JwtService(), undefined, undefined, memoryStore() as any);
-    vi.spyOn(service, 'serializeUser').mockResolvedValue(null);
-    await service.register({ email: 'invitee@example.com', password: 'secure-password' });
-    expect(tx.user.create).not.toHaveBeenCalled();
-    expect(tx.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: 5 },
-        data: expect.objectContaining({
-          role: 'ceo',
-          organizationId: 43,
-          memberships: { create: { organizationId: 43, role: 'ceo' } },
-        }),
-      }),
-    );
+    await expect(
+      service.register({ email: 'invitee@example.com', password: 'secure-password' }),
+    ).rejects.toThrow('already exists');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
   it('keeps real accounts from being claimed by sign-up', async () => {
     const prisma = {
@@ -370,9 +354,10 @@ describe('Clerk sign-in provisioning', () => {
         name: 'Person',
       }),
     };
-    const service = new AuthService(prisma as any, new JwtService(), undefined, clerk as any, memoryStore() as any);
+    const store = memoryStore();
+    const service = new AuthService(prisma as any, new JwtService(), undefined, clerk as any, store as any);
     vi.spyOn(service, 'serializeUser').mockResolvedValue(null);
-    return { tx, service };
+    return { tx, service, store };
   }
 
   it('gives new users their own workspace instead of joining one by name or domain', async () => {
@@ -401,6 +386,7 @@ describe('Clerk sign-in provisioning', () => {
       organizationId: 5,
       role: 'member',
       userStatus: 'active',
+      password: '!invited_placeholder',
       clerkId: null,
       agentKey: '',
       isActive: true,
@@ -423,6 +409,7 @@ describe('Clerk sign-in provisioning', () => {
       organizationId: null,
       role: 'member',
       userStatus: 'pending',
+      password: '!invited_placeholder',
       clerkId: null,
       agentKey: '',
       isActive: true,
@@ -452,6 +439,7 @@ describe('Clerk sign-in provisioning', () => {
       organizationId: 5,
       role: 'admin',
       userStatus: 'active',
+      password: '!invited_placeholder',
       clerkId: 'user_abc',
       agentKey: '',
       isActive: true,
@@ -463,6 +451,34 @@ describe('Clerk sign-in provisioning', () => {
       where: { id: 3 },
       data: { organizationId: 8, role: 'member' },
     });
+  });
+
+  it('revokes a password set before the Clerk identity was linked', async () => {
+    const account = {
+      id: 3,
+      email: 'person@gmail.com',
+      name: 'Person',
+      organizationId: 5,
+      role: 'member',
+      userStatus: 'active',
+      password: 'pbkdf2_sha256$1000$salt$hash',
+      clerkId: null,
+      agentKey: '',
+      isActive: true,
+      avatarUrl: '',
+    };
+    const { tx, service, store } = setup({ byEmail: account, seats: [{ organizationId: 5, role: 'member' }] });
+    await service.clerkLogin({ token: 'verified' });
+
+    expect(tx.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          clerkId: 'user_abc',
+          password: expect.stringMatching(/^!sso_clerk_/),
+        }),
+      }),
+    );
+    expect(store.endAllSessions).toHaveBeenCalledWith(3);
   });
 
   it('refuses AI agent seats and reserved agent addresses', async () => {

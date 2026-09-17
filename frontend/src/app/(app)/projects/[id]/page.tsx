@@ -18,6 +18,7 @@ import {
   updatePulseFocus,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useAgentClusterStatus } from "@/lib/queries";
 import { KanbanSkeleton } from "@/components/skeletons/KanbanSkeleton";
 import type {
   AgentExecutionTrace,
@@ -36,7 +37,7 @@ import {
   Avatar,
   Badge,
   PRIORITY_STYLES,
-  ROLE_LABELS,
+  ROLE_LABELS, roleLabel,
   STATUS_DOT,
   TASK_COLUMNS,
   TASK_STATUS_LABELS,
@@ -162,7 +163,7 @@ export default function ProjectBoardPage() {
         method: "POST",
         body: { plan: pmPlanText.trim() },
       });
-      toast.success(res.pm_summary ? "PM Athena created sprint tickets with assigned agents!" : `Created ${res.tasks_created_count || 3} tickets!`);
+      toast.success(res.pm_summary ? "The PM agent created sprint tickets with assigned agents!" : `Created ${res.tasks_created_count || 3} tickets!`);
       setShowPmModal(false);
       setPmPlanText("");
       load();
@@ -377,7 +378,7 @@ export default function ProjectBoardPage() {
               setShowDevopsModal(true);
             }}
             className="rounded-xl border border-sky-200 dark:border-sky-700/60 bg-sky-50 dark:bg-sky-950/60 px-3.5 py-2 text-xs font-bold text-sky-800 dark:text-sky-200 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition flex items-center gap-1.5 cursor-pointer shadow-xs focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none"
-            title="DevOps Agent (Joan): Provision and link remote GitHub repository with CI/CD"
+            title="DevOps agent: Provision and link remote GitHub repository with CI/CD"
             aria-label="DevOps GitHub Provisioning"
             aria-haspopup="dialog"
           >
@@ -776,10 +777,10 @@ export default function ProjectBoardPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Athena (AI) · Autonomous Project Manager</span>
+                    <span>PM agent</span>
                   </h3>
                   <p className="text-xs text-violet-700 dark:text-violet-300/80">
-                    Give a plan or feature vision — PM Athena will break it into a structured WBS, set scope boundaries, and assign specialist agents.
+                    Give a plan or feature vision — The PM agent will break it into a structured WBS, set scope boundaries, and assign specialist agents.
                   </p>
                 </div>
               </div>
@@ -869,7 +870,7 @@ export default function ProjectBoardPage() {
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                    <span>Joan of Arc (AI) · DevOps Specialist</span>
+                    <span>DevOps agent</span>
                     <span className="text-[10px] font-mono text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/80 border border-sky-200 dark:border-sky-800 px-1.5 py-0.5 rounded">
                       DevOps agent
                     </span>
@@ -1207,7 +1208,7 @@ function TaskDetailPanel({
                 event.event_type === "started"
               ) {
                 setIsStreaming(true);
-                setStreamingStatus(event.message || "Athena is reasoning...");
+                setStreamingStatus(event.message || "The AI is reasoning...");
                 if (event.event_type === "thought") {
                   setActiveTokens(event.message);
                 } else if (event.event_type === "tool_call") {
@@ -1241,7 +1242,7 @@ function TaskDetailPanel({
                 setActiveTool(null);
                 refresh();
                 if (event.event_type === "completed") {
-                  toast.success(`${event.sender_name || "Athena (PM)"} completed execution.`);
+                  toast.success(`${event.sender_name || "PM agent"} completed execution.`);
                 }
               }
             },
@@ -1276,7 +1277,7 @@ function TaskDetailPanel({
   async function handleRunSwarm() {
     setRunningSwarm(true);
     setIsStreaming(true);
-    setStreamingStatus("Dispatching Athena PM & autonomous swarm...");
+    setStreamingStatus("Dispatching the PM agent & autonomous swarm...");
     try {
       const result = await dispatchAgentSwarm(detail.id);
       setTraces((current) => [result.trace, ...current]);
@@ -1316,10 +1317,10 @@ function TaskDetailPanel({
     const commentBody = comment.trim();
     if (hasAgentMention) {
       setIsStreaming(true);
-      setStreamingStatus("Athena PM is analyzing prompt & querying RAG...");
+      setStreamingStatus("The PM agent is analyzing prompt & querying RAG...");
       executeSwarmChain(task.id, commentBody).then((chainRes) => {
         setTraces((current) => [chainRes.trace, ...current]);
-        toast.success("Athena PM has picked up your prompt and started execution.");
+        toast.success("The PM agent has picked up your prompt and started execution.");
       }).catch(() => {});
     }
     try {
@@ -1460,7 +1461,7 @@ function TaskDetailPanel({
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 dark:bg-emerald-400"></span>
                   </span>
-                  <span className="font-bold shrink-0">Athena PM is reasoning</span>
+                  <span className="font-bold shrink-0">The PM agent is reasoning</span>
                   <span className="text-[11px] text-emerald-700 dark:text-emerald-400/80 font-mono truncate max-w-xs">{streamingStatus}</span>
                 </div>
                 <button
@@ -1715,7 +1716,7 @@ function TaskDetailPanel({
             {/* TAB: Multi-Agent Workflow */}
             {activeTab === "agents" && (
               <div className="space-y-4">
-                {/* Live Real-Time Athena Reasoning Terminal */}
+                {/* Live agent reasoning stream */}
                 <AgentReasoningTerminal
                   events={liveEvents}
                   isStreaming={isStreaming}
@@ -1732,19 +1733,9 @@ function TaskDetailPanel({
                     data={{
                       pr_url: detail.pr_url || latestTrace?.graph_state?.pr_url,
                       title: detail.title,
-                      branch: `feat/ticket-${detail.id}-${detail.title.toLowerCase().replace(/[^a-z0-9_-]/g, "-").slice(0, 25)}`,
-                      target_branch: "main",
-                      author_name: "Senior Backend (Marcus)",
-                      author_role: "backend",
-                      additions: 142,
-                      deletions: 18,
-                      changed_files_count: 5,
                       status: detail.status === "done" ? "merged" : "open",
-                    }}
-                    onMerged={() => {
-                      updateField({ status: "done" });
-                    }}
-                  />
+                      ...((latestTrace?.graph_state as any)?.branch ? { branch: (latestTrace?.graph_state as any).branch } : {})
+                    }} />
                 )}
 
                 {latestTrace ? (
@@ -1756,7 +1747,6 @@ function TaskDetailPanel({
                         total_tokens: latestTrace.tokens_used,
                         cost_usd: latestTrace.cost_usd,
                         duration_seconds: latestTrace.duration_seconds,
-                        model: "claude-3-7-sonnet",
                       }}
                     />
 
@@ -1901,7 +1891,7 @@ function TaskDetailPanel({
                   )}
                 </div>
 
-                {/* Live Athena Reasoning Terminal during comment prompt */}
+                {/* Live agent reasoning stream */}
                 {(isStreaming || liveEvents.length > 0) && (
                   <div className="pt-2">
                     <AgentReasoningTerminal
@@ -2219,6 +2209,7 @@ function SwarmLiveFeedModal({
   projectName: string;
   onClose: () => void;
 }) {
+  const { data: clusterStatus } = useAgentClusterStatus();
   const [feed, setFeed] = useState<AgentEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterAgent, setFilterAgent] = useState("all");
@@ -2329,11 +2320,13 @@ function SwarmLiveFeedModal({
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mr-1">Filtrer :</span>
             {[
               { id: "all", label: "Tous les Agents" },
-              { id: "lead", label: "Sarah (Tech Lead)" },
-              { id: "backend", label: "Marcus (Backend)" },
-              { id: "frontend", label: "Cleopatra (Frontend)" },
-              { id: "qa", label: "Alan (QA)" },
-              { id: "devops", label: "Joan (DevOps)" },
+              ...(clusterStatus?.active_agents?.length ? clusterStatus.active_agents.map((a: any) => ({ id: a.role === "tech_lead" ? "lead" : a.role, label: a.name || roleLabel(a.role as any, true) })) : [
+                { id: "lead", label: roleLabel("tech_lead" as any, true) },
+                { id: "backend", label: roleLabel("backend" as any, true) },
+                { id: "frontend", label: roleLabel("frontend" as any, true) },
+                { id: "qa", label: roleLabel("qa" as any, true) },
+                { id: "devops", label: roleLabel("devops" as any, true) }
+              ])
             ].map((f) => (
               <button
                 key={f.id}

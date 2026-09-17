@@ -4,6 +4,10 @@ from agents.state import TicketState
 from agents.tools.app_tool import add_ticket_comment, log_task_activity
 from agents.events import emit_state_event
 
+from agents.registry import get_agent_spec
+from agents.users import get_agent_user_for_task
+from tasks.models import Task
+
 
 def seo_agent_node(state: TicketState) -> Dict[str, Any]:
     """
@@ -13,8 +17,16 @@ def seo_agent_node(state: TicketState) -> Dict[str, Any]:
     ticket_id = state.get("ticket_id")
     title = state.get("title", "")
     history = list(state.get("history", []))
-    total_tokens = state.get("total_tokens", 0) + 360
-    total_cost = state.get("total_cost_usd", 0.0) + 0.0036
+    total_tokens = state.get("total_tokens", 0)
+    total_cost = state.get("total_cost_usd", 0.0)
+
+    agent_key = "seo"
+    agent_spec = get_agent_spec(agent_key)
+    author_name = agent_spec["name"]
+    agent_role = agent_spec["role"]
+
+    task_obj = Task.objects.get(id=ticket_id) if ticket_id else None
+    agent_user = get_agent_user_for_task(task_obj, agent_key) if task_obj else None
     emit_state_event(
         state,
         event_type="progress",
@@ -26,12 +38,10 @@ def seo_agent_node(state: TicketState) -> Dict[str, Any]:
 
     step_log = {
         "node": "seo",
-        "agent_role": "SEO Specialist",
+        "agent_role": agent_role,
         "action": "seo_audit_verified",
         "message": f"SEO Specialist verified OpenGraph meta tags, canonical URL headers, and Core Web Vitals targets for: {title}.",
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-        "tokens": 360,
-        "cost_usd": 0.0036,
     }
     history.append(step_log)
     emit_state_event(
@@ -48,9 +58,9 @@ def seo_agent_node(state: TicketState) -> Dict[str, Any]:
         add_ticket_comment(
             ticket_id,
             "seo",
-            f"**Ada Lovelace (AI) - Technical SEO Specialist**\n\nRecorded the SEO review step for `{title}`."
+            f"**{author_name} - {agent_role}**\n\nRecorded the SEO review step for `{title}`."
         )
-        log_task_activity(ticket_id, "Ada Lovelace (AI)", "audited_seo", {"title": title})
+        log_task_activity(ticket_id, author_name, "audited_seo", {"title": title})
 
     return {
         "assigned_agent": "tech_lead",
