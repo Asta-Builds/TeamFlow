@@ -308,7 +308,7 @@ class SwarmLiveFeedView(views.APIView):
             author_name = comment.author.name or comment.author.email if comment.author else "TeamFlow"
             author_role = getattr(comment.author, "role", "system") if comment.author else "system"
             target_agent = "Swarm"
-            target_match = re.search(r"➔\s*@([a-zA-Z0-9_\s\(\)]+?)(?:\]|\n|\:)", comment.body)
+            target_match = re.search(r"(?:->|to\s+)?@([a-zA-Z0-9_\s\(\)]+?)(?:\]|\n|\:|\s|$)", comment.body)
             if target_match:
                 target_agent = target_match.group(1).strip()
             feed_items.append(

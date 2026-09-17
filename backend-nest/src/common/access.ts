@@ -56,6 +56,16 @@ export async function requireProject(
   return project;
 }
 
+/** People with an active seat in the workspace, and the workspace's AI agents. */
+export function workspaceUserWhere(organizationId: number): Prisma.UserWhereInput {
+  return {
+    OR: [
+      { agentKey: '', memberships: { some: { organizationId, status: 'active' } } },
+      { agentKey: { not: '' }, organizationId },
+    ],
+  };
+}
+
 export async function requireTenantUsers(
   prisma: PrismaService,
   ids: number[],
@@ -67,7 +77,7 @@ export async function requireTenantUsers(
   const uniqueIds = [...new Set(ids)];
   if (!uniqueIds.length) return;
   const count = await prisma.user.count({
-    where: { id: { in: uniqueIds }, organizationId },
+    where: { id: { in: uniqueIds }, ...workspaceUserWhere(organizationId) },
   });
   if (count !== uniqueIds.length)
     throw new BadRequestException('Users must belong to your organization');

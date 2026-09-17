@@ -3,8 +3,10 @@ Django settings for the TeamFlow project & ticket management platform.
 See the Virtual Tech Company Blueprint for architecture context.
 """
 
+import os
 import sys
 import secrets
+import tempfile
 from datetime import timedelta
 from pathlib import Path
 
@@ -35,10 +37,20 @@ env = environ.Env(
     AGENT_EMAIL_DOMAIN=(str, ""),
 )
 
-# Load a .env file if present (dev convenience).
-environ.Env.read_env(BASE_DIR / ".env")
+if TESTING:
+    # Tests are hermetic: no developer .env, no GitHub credentials, and agent
+    # workspaces live in a throwaway directory instead of the real checkout.
+    for _credential in ("GITHUB_TOKEN", "GH_TOKEN", "GITHUB_ORG"):
+        os.environ.pop(_credential, None)
+    os.environ.setdefault("WORKSPACE_ROOT", tempfile.mkdtemp(prefix="teamflow-test-workspace-"))
+    os.environ.setdefault("GIT_AUTHOR_NAME", "TeamFlow Test Agent")
+    os.environ.setdefault("GIT_AUTHOR_EMAIL", "agents@example.invalid")
+elif (BASE_DIR / ".env").exists():
+    environ.Env.read_env(BASE_DIR / ".env")
+else:
+    environ.Env.read_env(BASE_DIR.parent / ".env")
 
-SECRET_KEY = env("SECRET_KEY")
+SECRET_KEY = env("SECRET_KEY", default="") or env("DJANGO_SECRET_KEY", default="")
 if not SECRET_KEY:
     if TESTING:
         SECRET_KEY = secrets.token_urlsafe(64)
@@ -50,6 +62,19 @@ CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
 # Reverse proxy SSL header support
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+if not DEBUG:
+    # TLS terminates at the public proxy; cookies and browsers must stay on HTTPS.
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool("SECURE_HSTS_INCLUDE_SUBDOMAINS", default=True)
+    SECURE_HSTS_PRELOAD = env.bool("SECURE_HSTS_PRELOAD", default=False)
+    # Internal health probes use plain HTTP, so redirects stay opt-in.
+    SECURE_SSL_REDIRECT = env.bool("SECURE_SSL_REDIRECT", default=False)
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+    X_FRAME_OPTIONS = "DENY"
 
 
 # Application definition
@@ -113,9 +138,20 @@ TEMPLATES = [
 WSGI_APPLICATION = "teamflow.wsgi.application"
 
 
-# Database — Postgres via DATABASE_URL in prod, SQLite for local dev.
-if env("DATABASE_URL"):
-    DATABASES = {"default": env.db("DATABASE_URL")}
+# Database — Postgres via DATABASE_URL in prod/Docker, SQLite only when DATABASE_URL is unset.
+db_url = env("DATABASE_URL", default="")
+if db_url and "@db:" in db_url and DEBUG and not TESTING:
+    # Local convenience: the root .env targets the Compose "db" host. When Django runs on the
+    # host machine instead, reach the published Postgres port. Never falls back to SQLite.
+    import socket
+
+    try:
+        socket.gethostbyname("db")
+    except OSError:
+        db_url = db_url.replace("@db:", "@localhost:")
+
+if db_url:
+    DATABASES = {"default": env.db_url_config(db_url)}
 else:
     DATABASES = {
         "default": {
@@ -212,6 +248,9 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 SLACK_SIGNING_SECRET = env("SLACK_SIGNING_SECRET")
 STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET")
+# Simulated checkout is available only for local development with an explicit opt-in.
+ALLOW_MOCK_BILLING = env.bool("ALLOW_MOCK_BILLING", default=False)
+MOCK_BILLING_ENABLED = (DEBUG or TESTING) and ALLOW_MOCK_BILLING
 STRIPE_PRICES = {
     "growth": env("STRIPE_PRICE_GROWTH"),
     "enterprise": env("STRIPE_PRICE_ENTERPRISE"),
@@ -220,7 +259,27 @@ AGENT_EMAIL_DOMAIN = env("AGENT_EMAIL_DOMAIN").strip()
 if TESTING and not AGENT_EMAIL_DOMAIN:
     AGENT_EMAIL_DOMAIN = "agents.invalid"
 
+# Repositories agents must never pull, push, clone, or merge (comma-separated "owner/name").
+AGENT_PROTECTED_REPOS = [
+    repo.strip() for repo in env("AGENT_PROTECTED_REPOS", default="").split(",") if repo.strip()
+]
+
+# Deployment provider (see deployments/providers.py). Without a hook URL, deployments return 503.
+DEPLOY_HOOK_URLS = {
+    "dev": env("DEPLOY_HOOK_URL_DEV", default="").strip(),
+    "staging": env("DEPLOY_HOOK_URL_STAGING", default="").strip(),
+    "production": env("DEPLOY_HOOK_URL_PRODUCTION", default="").strip(),
+}
+DEPLOY_HOOK_SECRET = env("DEPLOY_HOOK_SECRET", default="").strip()
+DEPLOY_CALLBACK_BASE_URL = env("DEPLOY_CALLBACK_BASE_URL", default="").strip()
+DEPLOY_HOOK_TIMEOUT_SECONDS = env.int("DEPLOY_HOOK_TIMEOUT_SECONDS", default=15)
+if any(DEPLOY_HOOK_URLS.values()) and not DEPLOY_HOOK_SECRET and not DEBUG and not TESTING:
+    raise ImproperlyConfigured("DEPLOY_HOOK_SECRET is required when a deploy hook URL is configured.")
+
 GIT_AUTHOR_NAME = env("GIT_AUTHOR_NAME", default="").strip()
 GIT_AUTHOR_EMAIL = env("GIT_AUTHOR_EMAIL", default="").strip()
 GITHUB_TOKEN = env("GITHUB_TOKEN", default="").strip()
+# Whether workspaces without their own GitHub integration may use the operator's GITHUB_TOKEN.
+# Keep this off for a multi-tenant deployment.
+AGENT_ALLOW_PLATFORM_GITHUB_TOKEN = env.bool("AGENT_ALLOW_PLATFORM_GITHUB_TOKEN", default=DEBUG)
 GITHUB_ORG = env("GITHUB_ORG", default="").strip()

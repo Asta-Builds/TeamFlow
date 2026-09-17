@@ -15,6 +15,7 @@ import { RefreshDto } from './dto/refresh.dto.js';
 import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { KeycloakDto } from './dto/keycloak.dto.js';
 import { ClerkDto } from './dto/clerk.dto.js';
+import { LogoutDto } from './dto/logout.dto.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard.js';
@@ -68,8 +69,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Log out current session' })
-  async logout() {
-    return { detail: 'Successfully logged out.' };
+  async logout(@CurrentUser() user: any, @Body() dto: LogoutDto) {
+    return this.authService.logout(user, dto);
   }
 
   @Get('me')

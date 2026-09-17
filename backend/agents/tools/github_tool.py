@@ -4,9 +4,13 @@ Delegates to real Git operations and GitHub REST API in `agents.git_service`.
 Provides both direct callable Python functions and LangChain `@tool` wrappers.
 """
 
+import os
+import re
 import time
 import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
+
+import requests
 from langchain_core.tools import tool
 
 from agents.git_service import (
@@ -22,6 +26,29 @@ from agents.git_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+_PR_URL = re.compile(r"^https://github\.com/([^/\s]+/[^/\s]+)/pull/(\d+)")
+
+
+def _github_token() -> str:
+    from agents.git_service import platform_github_token
+
+    return platform_github_token()
+
+
+def _parse_pr_url(pr_url: str) -> Optional[Tuple[str, int]]:
+    match = _PR_URL.match((pr_url or "").strip())
+    if not match:
+        return None
+    return match.group(1), int(match.group(2))
+
+
+def _github_headers(token: str) -> Dict[str, str]:
+    return {
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github.v3+json",
+        "User-Agent": "TeamFlow-Agent-Swarm",
+    }
 
 
 def create_remote_repo(
@@ -101,11 +128,22 @@ def open_pull_request(
     base_branch: str = "main",
     cwd: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """GitHub Tool: Pushes changes and opens a Pull Request on GitHub."""
-    git_push(head_branch, cwd=cwd)
-    pr_data = git_create_pull_request(repo, title, body, head_branch, base_branch)
+    """GitHub Tool: Pushes the branch and opens a Pull Request on GitHub."""
+    push_res = git_push(head_branch, cwd=cwd)
+    if not push_res.get("success"):
+        return {
+            "status": "error",
+            "pr_number": 0,
+            "pr_url": "",
+            "title": title,
+            "head": head_branch,
+            "base": base_branch,
+            "is_live_pr": False,
+            "error": push_res.get("output", "Branch was not pushed."),
+        }
+    pr_data = git_create_pull_request(repo, title, body, head_branch, base_branch, cwd=cwd)
     return {
-        "status": "success",
+        "status": "success" if pr_data.get("is_live_pr") else "compare_link_only",
         "pr_number": pr_data.get("pr_number", 0),
         "pr_url": pr_data.get("pr_url", ""),
         "title": title,
@@ -116,23 +154,85 @@ def open_pull_request(
 
 
 def post_pr_comment(pr_url: str, comment: str) -> Dict[str, Any]:
-    """GitHub Tool: Posts an automated code review or QA report on a Pull Request."""
+    """GitHub Tool: Posts a review or QA report on a Pull Request. Reports ``posted: False`` when it cannot."""
+    parsed = _parse_pr_url(pr_url)
+    token = _github_token()
+    if not parsed or not token:
+        return {
+            "status": "skipped",
+            "posted": False,
+            "pr_url": pr_url,
+            "reason": "No GitHub pull request URL or token is available.",
+        }
+    repo, number = parsed
+    try:
+        resp = requests.post(
+            f"https://api.github.com/repos/{repo}/issues/{number}/comments",
+            json={"body": comment},
+            headers=_github_headers(token),
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        return {"status": "error", "posted": False, "pr_url": pr_url, "reason": sanitize_sensitive_data(str(exc))}
+    posted = resp.status_code == 201
     return {
-        "status": "success",
+        "status": "success" if posted else "error",
+        "posted": posted,
         "pr_url": pr_url,
-        "comment": comment,
+        "reason": "" if posted else f"GitHub returned HTTP {resp.status_code}",
     }
 
 
 def check_ci_status(pr_url: str) -> Dict[str, Any]:
-    """GitHub Tool: Checks GitHub Actions CI pipeline status."""
+    """GitHub Tool: Reads the check runs for a Pull Request's head commit from GitHub."""
+    unknown = {
+        "status": "unavailable",
+        "ci_state": "unknown",
+        "total_checks": 0,
+        "passed_checks": 0,
+        "failed_checks": 0,
+    }
+    parsed = _parse_pr_url(pr_url)
+    token = _github_token()
+    if not parsed or not token:
+        return {**unknown, "reason": "No GitHub pull request URL or token is available."}
+    repo, number = parsed
+    headers = _github_headers(token)
+    try:
+        pr = requests.get(f"https://api.github.com/repos/{repo}/pulls/{number}", headers=headers, timeout=10)
+        if pr.status_code != 200:
+            return {**unknown, "reason": f"GitHub returned HTTP {pr.status_code} for the pull request"}
+        sha = pr.json().get("head", {}).get("sha", "")
+        runs = requests.get(
+            f"https://api.github.com/repos/{repo}/commits/{sha}/check-runs",
+            headers=headers,
+            timeout=10,
+        )
+        if runs.status_code != 200:
+            return {**unknown, "reason": f"GitHub returned HTTP {runs.status_code} for check runs"}
+        check_runs = runs.json().get("check_runs", [])
+    except requests.RequestException as exc:
+        return {**unknown, "reason": sanitize_sensitive_data(str(exc))}
+
+    total = len(check_runs)
+    completed = [r for r in check_runs if r.get("status") == "completed"]
+    passed = sum(1 for r in completed if r.get("conclusion") in {"success", "neutral", "skipped"})
+    failed = sum(1 for r in completed if r.get("conclusion") not in {"success", "neutral", "skipped"})
+    if total == 0:
+        state = "no_checks"
+    elif failed:
+        state = "failed"
+    elif len(completed) < total:
+        state = "pending"
+    else:
+        state = "passed"
     return {
         "status": "success",
-        "ci_state": "passed",
-        "total_checks": 12,
-        "passed_checks": 12,
-        "failed_checks": 0,
-        "duration_seconds": 28,
+        "ci_state": state,
+        "head_sha": sha,
+        "total_checks": total,
+        "passed_checks": passed,
+        "failed_checks": failed,
     }
 
 
@@ -149,24 +249,31 @@ def merge_pull_request(
     """
     actual_repo = repo or ""
     actual_source = source_branch
+    actual_pr_number = pr_number
 
     if "github.com" in actual_repo and not source_branch:
         if "/tree/" in actual_repo:
             actual_repo, actual_source = actual_repo.split("/tree/")
         elif "/pull/" in actual_repo:
-            actual_repo = actual_repo.split("/pull/")[0]
-            actual_source = "main"
+            parts = actual_repo.split("/pull/")
+            actual_repo = parts[0]
+            if not actual_pr_number:
+                try:
+                    actual_pr_number = int(parts[1].split("/")[0].split("?")[0])
+                except Exception:
+                    pass
+            actual_source = ""
         else:
-            actual_source = "main"
+            actual_source = ""
     elif not source_branch:
         actual_source = actual_repo
         actual_repo = ""
 
-    res = git_merge_pull_request(actual_repo, actual_source or "main", target_branch, pr_number, cwd=cwd)
+    res = git_merge_pull_request(actual_repo, actual_source or "", target_branch, actual_pr_number, cwd=cwd)
     return {
         "status": "merged" if res["success"] else "error",
         "repo": actual_repo,
-        "source_branch": actual_source,
+        "source_branch": actual_source or res.get("source_branch", ""),
         "target_branch": target_branch,
         "merged_sha": res.get("merged_sha", ""),
         "merged_at": time.strftime("%Y-%m-%d %H:%M:%SZ"),

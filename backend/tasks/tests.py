@@ -209,3 +209,44 @@ class APIFlowTests(APITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data, [])
+
+
+class CommentMentionDispatchTests(APITestCase):
+    """Agent mentions queue work only for users allowed to run agents."""
+
+    def setUp(self):
+        from unittest.mock import patch
+
+        self.org = Organization.objects.create(name="Mention Org")
+        self.lead = User.objects.create_user(
+            email="lead@mention.dev", password="pw-lead-12345", role=User.Role.TECH_LEAD, organization=self.org
+        )
+        self.member = User.objects.create_user(
+            email="member@mention.dev", password="pw-member-12345", role=User.Role.MEMBER, organization=self.org
+        )
+        self.project = Project.objects.create(name="Mentions", organization=self.org, owner=self.lead)
+        self.project.members.add(self.member)
+        self.task = Task.objects.create(
+            project=self.project, title="Mention me", organization=self.org, created_by=self.lead
+        )
+        patcher = patch("agents.queue.queue_prompt_run")
+        self.queue = patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _comment(self, user, body):
+        self.client.force_authenticate(user)
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post("/api/comments/", {"task": self.task.id, "body": body}, format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+
+    def test_member_mentions_do_not_run_agents(self):
+        self._comment(self.member, "@backend please look")
+        self.queue.assert_not_called()
+
+    def test_plain_comments_do_not_run_agents(self):
+        self._comment(self.lead, "No mentions here")
+        self.queue.assert_not_called()
+
+    def test_privileged_mentions_queue_one_run_after_commit(self):
+        self._comment(self.lead, "@backend please look")
+        self.queue.assert_called_once()

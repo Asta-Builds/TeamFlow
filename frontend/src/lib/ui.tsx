@@ -1,20 +1,33 @@
 import React from "react";
-import type { Priority, Role, TaskStatus, TaskType, UserStatus } from "./types";
-import { Sparkles, Bug, CheckSquare, Crown, Bot } from "lucide-react";
+import type { HumanRole, Priority, Role, TaskStatus, TaskType, UserStatus } from "./types";
+import { Sparkles, Bug, CheckSquare, Crown, Bot, UserRound } from "lucide-react";
 
 export const ROLE_LABELS: Record<Role, string> = {
-  ceo: "CEO (Human Founder)",
-  pm: "AI Product Manager",
-  tech_lead: "AI Tech Lead",
-  backend: "AI Backend Engineer",
-  frontend: "AI Frontend Engineer",
-  devops: "AI DevOps Engineer",
-  qa: "AI QA Engineer",
-  designer: "AI UI/UX Designer",
-  seo: "AI SEO Specialist",
+  ceo: "CEO",
   admin: "Admin",
-  member: "AI Member Agent",
+  member: "Member",
+  pm: "Product Manager",
+  tech_lead: "Tech Lead",
+  backend: "Backend Engineer",
+  frontend: "Frontend Engineer",
+  devops: "DevOps Engineer",
+  qa: "QA Engineer",
+  designer: "UI/UX Designer",
+  seo: "SEO Specialist",
 };
+
+/** Roles a person can be given. Specialist roles belong to AI agent seats. */
+export const HUMAN_ROLE_OPTIONS: { value: HumanRole; label: string; description: string }[] = [
+  { value: "member", label: "Member", description: "Works on the projects they are added to" },
+  { value: "admin", label: "Admin", description: "Manages projects, people and workspace settings" },
+  { value: "ceo", label: "CEO", description: "Owns the workspace, including billing and admins" },
+];
+
+/** Label for a role, marking AI agent seats as such. */
+export function roleLabel(role: Role | null | undefined, isAi = false): string {
+  const label = (role && ROLE_LABELS[role]) || role || ROLE_LABELS.member;
+  return isAi ? `AI ${label}` : label;
+}
 
 export const ROLE_COLORS: Record<Role, string> = {
   ceo: "bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/50",
@@ -138,13 +151,21 @@ export function Avatar({
   );
 }
 
-export function AgentTypeBadge({ role, isAi }: { role?: Role; isAi?: boolean }) {
-  const isHuman = role === "ceo" || isAi === false;
-  if (isHuman) {
+/** Tells people and AI agent seats apart. Only accounts flagged as agents are AI. */
+export function AgentTypeBadge({ role, isAi = false }: { role?: Role; isAi?: boolean }) {
+  if (!isAi && role === "ceo") {
     return (
       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/70 border border-purple-200 dark:border-purple-800/60 px-2 py-0.5 rounded-md">
         <Crown className="h-3 w-3 inline text-purple-600 dark:text-purple-400" />
-        <span>Human Founder</span>
+        <span>Human · CEO</span>
+      </span>
+    );
+  }
+  if (!isAi) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-md">
+        <UserRound className="h-3 w-3 inline text-emerald-600 dark:text-emerald-400" />
+        <span>Human</span>
       </span>
     );
   }

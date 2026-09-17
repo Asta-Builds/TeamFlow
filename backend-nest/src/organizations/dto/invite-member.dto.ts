@@ -19,7 +19,7 @@ export class InviteMemberDto {
   name?: string;
 
   @ApiPropertyOptional({
-    description: 'Role to assign within the workspace (member, tech_lead, backend, frontend, qa, devops, designer, seo, admin)',
+    description: 'Workspace role for the person (member, admin or ceo). Specialist roles belong to AI agents.',
     example: 'member',
   })
   @IsOptional()

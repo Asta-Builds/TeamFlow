@@ -1,8 +1,18 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 from rest_framework import serializers
 
+from organizations.membership import add_member, is_reserved_agent_email
+from organizations.models import Membership, Organization
+
 User = get_user_model()
+
+
+def validate_person_email(value):
+    if is_reserved_agent_email(value):
+        raise serializers.ValidationError("This address is reserved for AI agent seats.")
+    return value
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -36,6 +46,14 @@ class UserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "agent_key", "date_joined", "is_active", "organization"]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # Team listings report the person's role in the viewer's workspace.
+        workspace_role = getattr(instance, "workspace_role", None)
+        if workspace_role:
+            data["role"] = workspace_role
+        return data
+
     def get_open_tasks_count(self, obj):
         return obj.assigned_tasks.exclude(status="done").count()
 
@@ -62,48 +80,47 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "name", "password", "role", "organization_name"]
+        read_only_fields = ["role"]
 
+    def validate_email(self, value):
+        return validate_person_email(value)
+
+    @transaction.atomic
     def create(self, validated_data):
-        org_name = validated_data.pop("organization_name", None)
+        org_name = (validated_data.pop("organization_name", None) or "").strip()
         password = validated_data.pop("password")
+        email = validated_data.get("email", "")
+        org = Organization.objects.create(
+            name=org_name or f"{validated_data.get('name') or email.split('@')[0]}'s workspace"
+        )
 
-        if not org_name:
-            email = validated_data.get("email", "")
-            if "@" in email:
-                domain = email.split("@")[-1]
-                company_name = domain.split(".")[0].capitalize()
-            else:
-                company_name = "My"
-            org_name = f"{company_name} Workspace"
-
-        from organizations.models import Organization
-        org = Organization.objects.create(name=org_name)
-
-        # First registering user is CEO / Admin
-        validated_data["role"] = User.Role.CEO
-        validated_data["organization"] = org
-
-        user = User(**validated_data)
+        # A new account always founds its own workspace as its CEO.
+        user = User(**validated_data, role=User.Role.CEO, organization=org)
         user.set_password(password)
         user.save()
+        add_member(user, org, Membership.Role.OWNER)
         return user
 
 
 class MemberCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
+    role = serializers.ChoiceField(choices=Membership.Role.choices, default=Membership.Role.MEMBER)
 
     class Meta:
         model = User
         fields = ["id", "email", "name", "role", "user_status", "password", "bio"]
 
+    def validate_email(self, value):
+        return validate_person_email(value)
+
+    @transaction.atomic
     def create(self, validated_data):
         password = validated_data.pop("password")
-        request = self.context.get("request")
-        user = User(**validated_data)
-        if request and request.user.organization:
-            user.organization = request.user.organization
+        organization = self.context["request"].user.organization
+        user = User(**validated_data, organization=organization)
         user.set_password(password)
         user.save()
+        add_member(user, organization, user.role)
         return user
 
 

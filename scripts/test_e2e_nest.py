@@ -157,28 +157,16 @@ def run_suite():
     assert status == 202, f"Expected 202 Accepted for CEO dispatch, got {status}: {dispatch_res}"
     print(f"  PASS: Agent Swarm dispatch succeeded (HTTP 202): {dispatch_res.get('message')}")
 
-    # 14. Clerk SSO Authentication & Session Provisioning
-    print("\n[14/21] Testing Clerk SSO Token Exchange & Session Provisioning...")
-    clerk_email = f"clerk_{timestamp}@acme-corp.com"
+    # 14. Clerk SSO requires a verified Clerk session token
+    print("\n[14/21] Testing that Clerk SSO rejects unverified identities...")
     clerk_payload = {
         "clerk_id": f"user_2clerk_{timestamp}",
-        "email": clerk_email,
-        "name": "Clerk Enterprise User",
-        "avatar_url": "https://img.clerk.com/test_avatar.png"
+        "email": email,
+        "name": "Spoofed Clerk User",
     }
     status, clerk_auth_data = request(f"{BASE_URL}/auth/clerk", method="POST", data=clerk_payload)
-    assert status == 200, f"Clerk authentication exchange failed ({status}): {clerk_auth_data}"
-    assert "access" in clerk_auth_data, "No access token in Clerk exchange response"
-    assert "refresh" in clerk_auth_data, "No refresh token in Clerk exchange response"
-    assert clerk_auth_data["user"]["email"] == clerk_email, f"User email mismatch: {clerk_auth_data['user']}"
-    assert "Acme-corp Workspace" in clerk_auth_data["user"]["organization_name"], f"Expected Acme-corp Workspace, got {clerk_auth_data['user']['organization_name']}"
-    
-    # Verify the Clerk-provisioned access token works on protected routes
-    clerk_access_token = clerk_auth_data["access"]
-    status, me_data = request(f"{BASE_URL}/auth/me", token=clerk_access_token)
-    assert status == 200, f"Failed accessing /auth/me with Clerk token ({status}): {me_data}"
-    assert me_data["email"] == clerk_email
-    print(f"  PASS: Clerk SSO user authenticated. Org: '{me_data['organization_name']}', Role: '{me_data['role']}'")
+    assert status == 401, f"Unverified Clerk identity must be rejected, got {status}: {clerk_auth_data}"
+    print("  PASS: Clerk exchange without a signed session token was rejected (401).")
 
     # 15. Real Technical SEO Audit (Live HTTP Probing & HTML Heuristics)
     print("\n[15/21] Testing Real SEO Audit against http://localhost:3000...")
@@ -198,26 +186,23 @@ def run_suite():
     assert status == 200, f"Verifying SEO task ticket failed ({status}): {verified_seo_task}"
     print(f"  PASS: SEO Task #{seo_task_id} created: '{verified_seo_task['title']}'")
 
-    # 17. DevOps Deployment Execution (Build & Health Pipeline)
-    print(f"\n[17/21] Triggering DevOps Deployment on Project #{proj_id}...")
+    # 17. DevOps deployment is handed to the configured provider (503 without one)
+    print(f"\n[17/21] Requesting a DevOps deployment on Project #{proj_id}...")
     deploy_payload = {
         "project": proj_id,
         "environment": "staging",
         "branch": "main",
-        "commit_sha": f"c{timestamp}"[:8]
+        "commit_sha": f"{timestamp:x}"[:8],
     }
     status, deploy_data = request(f"{BASE_URL}/deployments", method="POST", data=deploy_payload, token=access_token)
-    assert status in (200, 201), f"Deployment trigger failed ({status}): {deploy_data}"
-    assert deploy_data["status"] == "success", f"Expected success status, got {deploy_data['status']}"
-    deploy_id = deploy_data["id"]
-    print(f"  PASS: Deployment #{deploy_id} succeeded (Env: {deploy_data['environment']}, Duration: {deploy_data['duration_seconds']}s)")
-
-    # 18. 1-Click Rollback Execution
-    print(f"\n[18/21] Executing 1-Click Rollback for Deployment #{deploy_id}...")
-    status, rb_data = request(f"{BASE_URL}/deployments/{deploy_id}/rollback", method="POST", data={}, token=access_token)
-    assert status in (200, 201), f"Rollback failed ({status}): {rb_data}"
-    assert rb_data["status"] == "rolled_back", f"Expected rolled_back status, got {rb_data['status']}"
-    print(f"  PASS: Rollback #{rb_data['id']} recorded (Status: {rb_data['status']})")
+    assert status in (202, 503), f"Unexpected deployment response ({status}): {deploy_data}"
+    if status == 503:
+        print("  PASS: No deployment provider configured; request refused without recording a deployment.")
+        print("\n[18/21] Rollback skipped (no provider configured).")
+    else:
+        assert deploy_data["status"] == "in_progress", f"Expected in_progress, got {deploy_data['status']}"
+        print(f"  PASS: Deployment #{deploy_data['id']} accepted by the provider.")
+        print("\n[18/21] Rollback requires a successful provider-reported deployment; skipped.")
 
     # 19. Team Notifications Delivery Verification
     print("\n[19/21] Verifying Workspace Team Notifications...")
@@ -229,7 +214,8 @@ def run_suite():
     print("\n[20/21] Testing Billing Checkout Session & Mock Payment...")
     checkout_payload = {
         "tier": "scale",
-        "billing_period": "monthly"
+        "success_url": "http://localhost:3000/billing?success=true",
+        "cancel_url": "http://localhost:3000/billing?canceled=true",
     }
     status, checkout_data = request(f"{BASE_URL}/billing/create-checkout-session", method="POST", data=checkout_payload, token=access_token)
     assert status in (200, 201), f"Checkout session creation failed ({status}): {checkout_data}"

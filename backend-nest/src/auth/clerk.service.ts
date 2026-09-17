@@ -29,17 +29,35 @@ export interface ClerkVerifiedUser {
   role?: string;
 }
 
+function issuerFromPublishableKey(publishableKey: string): string {
+  if (!publishableKey) return '';
+  try {
+    const encoded = publishableKey.replace(/^pk_(test|live)_/, '');
+    const host = Buffer.from(encoded, 'base64')
+      .toString('utf-8')
+      .replace(/\$$/, '')
+      .trim();
+    return /^[a-z0-9.-]+$/i.test(host) ? `https://${host}` : '';
+  } catch {
+    return '';
+  }
+}
+
 @Injectable()
 export class ClerkService {
   private readonly logger = new Logger(ClerkService.name);
-  private readonly publishableKey?: string;
-  private readonly secretKey?: string;
+  private readonly publishableKey: string;
+  private readonly secretKey: string;
   private readonly apiUrl: string;
-  private defaultDomain?: string;
+  private readonly issuer: string;
+  private readonly authorizedParties: string[];
 
   private jwksCache = new Map<string, JsonWebKey & { kid: string }>();
   private jwksFetchedAt = 0;
+  private lastForcedRefreshAt = 0;
   private readonly jwksTtlMs = 3600000; // 1 hour
+  private readonly forcedRefreshIntervalMs = 60000;
+  private readonly clockSkewSeconds = 60;
 
   constructor(private readonly httpService: HttpService) {
     this.publishableKey =
@@ -48,22 +66,28 @@ export class ClerkService {
       '';
     this.secretKey = process.env.CLERK_SECRET_KEY || '';
     this.apiUrl = process.env.CLERK_API_URL || 'https://api.clerk.com/v1';
-
-    if (this.publishableKey) {
-      try {
-        const rawKey = this.publishableKey.replace(/^pk_(test|live)_/, '');
-        const decoded = Buffer.from(rawKey, 'base64').toString('utf-8');
-        this.defaultDomain = decoded.replace(/\$$/, '');
-      } catch {
-        this.defaultDomain = 'good-gecko-1307.clerk.accounts.dev';
-      }
-    } else {
-      this.defaultDomain = 'good-gecko-1307.clerk.accounts.dev';
-    }
+    // Only tokens from this issuer are accepted. The token's own `iss` claim is never
+    // used to locate signing keys.
+    this.issuer = (
+      process.env.CLERK_ISSUER || issuerFromPublishableKey(this.publishableKey)
+    ).replace(/\/+$/, '');
+    this.authorizedParties = (
+      process.env.CLERK_AUTHORIZED_PARTIES || process.env.FRONTEND_URL || ''
+    )
+      .split(',')
+      .map((origin) => origin.trim().replace(/\/+$/, ''))
+      .filter(Boolean);
   }
 
   getDomain(): string {
-    return this.defaultDomain || 'good-gecko-1307.clerk.accounts.dev';
+    return this.issuer.replace(/^https?:\/\//, '');
+  }
+
+  private requireIssuer(): string {
+    if (!this.issuer) {
+      throw new UnauthorizedException('Clerk sign-in is not configured');
+    }
+    return this.issuer;
   }
 
   /**
@@ -73,7 +97,7 @@ export class ClerkService {
   async getUserProfile(clerkId: string): Promise<ClerkVerifiedUser> {
     if (!this.secretKey) {
       throw new UnauthorizedException(
-        'CLERK_SECRET_KEY is required to resolve an MCP OAuth user',
+        'CLERK_SECRET_KEY is required to resolve a Clerk user',
       );
     }
     if (!clerkId) {
@@ -97,7 +121,13 @@ export class ClerkService {
       const email = primaryEmail?.email_address?.toLowerCase();
       if (!email) {
         throw new UnauthorizedException(
-          'Clerk OAuth user must have a primary email address',
+          'Clerk user must have a primary email address',
+        );
+      }
+      const verification = primaryEmail?.verification?.status;
+      if (verification && verification !== 'verified') {
+        throw new UnauthorizedException(
+          'Clerk user primary email address is not verified',
         );
       }
       const name =
@@ -113,46 +143,40 @@ export class ClerkService {
       };
     } catch (error: any) {
       if (error instanceof UnauthorizedException) throw error;
-      this.logger.warn(
-        `Unable to resolve Clerk profile for MCP OAuth user: ${error.message}`,
-      );
-      throw new UnauthorizedException('Unable to resolve Clerk OAuth user');
+      this.logger.warn(`Unable to resolve Clerk profile: ${error.message}`);
+      throw new UnauthorizedException('Unable to resolve Clerk user');
     }
   }
 
   async fetchJwks(
-    issuerUrl?: string,
     forceRefresh = false,
   ): Promise<Map<string, JsonWebKey & { kid: string }>> {
+    const issuer = this.requireIssuer();
     const now = Date.now();
-    if (
-      !forceRefresh &&
-      this.jwksCache.size > 0 &&
-      now - this.jwksFetchedAt < this.jwksTtlMs
-    ) {
+    const fresh = this.jwksCache.size > 0 && now - this.jwksFetchedAt < this.jwksTtlMs;
+    if (fresh && (!forceRefresh || now - this.lastForcedRefreshAt < this.forcedRefreshIntervalMs)) {
       return this.jwksCache;
     }
+    if (forceRefresh) this.lastForcedRefreshAt = now;
 
-    const domain = issuerUrl
-      ? issuerUrl.replace(/^https?:\/\//, '').replace(/\/$/, '')
-      : this.getDomain();
-    const jwksUrl = `https://${domain}/.well-known/jwks.json`;
-
+    const jwksUrl = `${issuer}/.well-known/jwks.json`;
     try {
       const response = await this.httpService.axiosRef.get(jwksUrl, {
         timeout: 8000,
+        maxRedirects: 0,
       });
       const keys = response.data?.keys;
       if (!Array.isArray(keys)) {
         throw new Error('Malformed JWKS response from Clerk');
       }
 
-      this.jwksCache.clear();
+      const next = new Map<string, JsonWebKey & { kid: string }>();
       for (const k of keys) {
-        if (k.kid) {
-          this.jwksCache.set(k.kid, k);
+        if (k?.kid && k.kty === 'RSA') {
+          next.set(k.kid, k);
         }
       }
+      this.jwksCache = next;
       this.jwksFetchedAt = now;
       return this.jwksCache;
     } catch (err: any) {
@@ -198,11 +222,16 @@ export class ClerkService {
       throw new UnauthorizedException('Clerk token header missing key ID (kid)');
     }
 
-    let jwks = await this.fetchJwks(payload.iss);
+    const issuer = this.requireIssuer();
+    if (payload.iss !== issuer) {
+      throw new UnauthorizedException('Clerk token issuer is not trusted');
+    }
+
+    let jwks = await this.fetchJwks();
     let jwk = jwks.get(header.kid);
 
     if (!jwk) {
-      jwks = await this.fetchJwks(payload.iss, true);
+      jwks = await this.fetchJwks(true);
       jwk = jwks.get(header.kid);
     }
 
@@ -232,89 +261,53 @@ export class ClerkService {
       );
     }
 
-    // Validate expiration
     const nowSeconds = Math.floor(Date.now() / 1000);
-    const clockTolerance = 60; // 60s clock skew
-    if (payload.exp && payload.exp + clockTolerance < nowSeconds) {
+    const skew = this.clockSkewSeconds;
+    if (typeof payload.exp !== 'number' || payload.exp + skew < nowSeconds) {
       throw new UnauthorizedException('Clerk token has expired');
+    }
+    if (typeof payload.nbf === 'number' && payload.nbf - skew > nowSeconds) {
+      throw new UnauthorizedException('Clerk token is not valid yet');
+    }
+    if (typeof payload.sub !== 'string' || !payload.sub) {
+      throw new UnauthorizedException('Clerk token does not identify a user');
+    }
+    if (
+      this.authorizedParties.length > 0 &&
+      payload.azp &&
+      !this.authorizedParties.includes(String(payload.azp).replace(/\/+$/, ''))
+    ) {
+      throw new UnauthorizedException('Clerk token was issued for another origin');
     }
 
     return payload;
   }
 
+  /**
+   * Verify a Clerk session token and return the user's canonical identity.
+   * Client-supplied email, name, or user IDs are never trusted.
+   */
   async verifyClerkSession(dto: ClerkDto): Promise<ClerkVerifiedUser> {
-    let claims: ClerkClaims | undefined;
-    let clerkId = dto.clerk_id;
+    if (!dto.token) {
+      throw new UnauthorizedException('A Clerk session token is required');
+    }
+    const claims = await this.verifyClerkToken(dto.token);
 
-    if (dto.token) {
-      claims = await this.verifyClerkToken(dto.token);
-      clerkId = claims.sub || clerkId;
+    if (this.secretKey) {
+      return this.getUserProfile(claims.sub);
     }
 
-    if (!clerkId && !dto.email) {
-      throw new UnauthorizedException(
-        'A verified Clerk token, clerk_id, or email is required',
-      );
-    }
-
-    let email = (claims?.email || dto.email)?.toLowerCase();
-    let name = claims?.name || dto.name;
-    let avatarUrl = claims?.avatar_url || dto.avatar_url;
-
-    // If secret key is available and we have a clerkId, query Clerk REST API for authoritative profile
-    if (this.secretKey && clerkId) {
-      try {
-        const res = await this.httpService.axiosRef.get(
-          `${this.apiUrl}/users/${clerkId}`,
-          {
-            headers: {
-              Authorization: `Bearer ${this.secretKey}`,
-            },
-            timeout: 5000,
-          },
-        );
-        const userData = res.data;
-        if (userData) {
-          if (Array.isArray(userData.email_addresses) && userData.email_addresses.length > 0) {
-            const primaryId = userData.primary_email_address_id;
-            const primaryObj = userData.email_addresses.find(
-              (e: any) => e.id === primaryId,
-            ) || userData.email_addresses[0];
-            if (primaryObj?.email_address) {
-              email = primaryObj.email_address.toLowerCase();
-            }
-          }
-          const fullName = [userData.first_name, userData.last_name]
-            .filter(Boolean)
-            .join(' ');
-          if (fullName) {
-            name = fullName;
-          } else if (userData.username) {
-            name = userData.username;
-          }
-          if (userData.image_url) {
-            avatarUrl = userData.image_url;
-          }
-        }
-      } catch (err: any) {
-        this.logger.debug(
-          `Clerk API lookup for ${clerkId} skipped or failed: ${err.message}`,
-        );
-      }
-    }
-
+    const email = typeof claims.email === 'string' ? claims.email.toLowerCase() : '';
     if (!email) {
       throw new UnauthorizedException(
-        'Clerk user profile must have a valid email address',
+        'Clerk session token has no email claim; configure CLERK_SECRET_KEY',
       );
     }
-
     return {
-      clerk_id: clerkId || `clerk_user_${Buffer.from(email).toString('hex').slice(0, 16)}`,
+      clerk_id: claims.sub,
       email,
-      name: name || email.split('@')[0],
-      avatar_url: avatarUrl,
-      role: 'member',
+      name: claims.name || email.split('@')[0],
+      avatar_url: claims.avatar_url,
     };
   }
 }

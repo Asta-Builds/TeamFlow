@@ -34,7 +34,12 @@ describe('BillingService', () => {
 
   it('creates checkout session in mock mode without throwing 503', async () => {
     const user = { id: 1, organizationId: 1, role: 'ceo' };
-    const res = await service.createCheckoutSession(user, 'growth');
+    const res = await service.createCheckoutSession(
+      user,
+      'growth',
+      'http://localhost:3000/billing?success=true',
+      'http://localhost:3000/billing?canceled=true',
+    );
 
     expect(res.mock).toBe(true);
     expect(res.tier).toBe('growth');
@@ -67,6 +72,11 @@ describe('BillingService', () => {
         }),
       }),
     );
+  });
+
+  it('requires explicit redirect URLs', async () => {
+    const user = { id: 1, organizationId: 1, role: 'ceo' };
+    await expect(service.createCheckoutSession(user, 'growth')).rejects.toThrow('success_url');
   });
 
   it('rejects invalid subscription tiers', async () => {

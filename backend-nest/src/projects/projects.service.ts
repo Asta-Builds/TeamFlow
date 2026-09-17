@@ -4,11 +4,14 @@ import {
   NotFoundException,
   ForbiddenException,
   BadRequestException,
+  ConflictException,
   Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { JwtService } from '@nestjs/jwt';
 import { HttpService } from '@nestjs/axios';
+import { bridgePost } from '../common/python-bridge.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateProjectDto } from './dto/create-project.dto.js';
 import { UpdateProjectDto } from './dto/update-project.dto.js';
@@ -290,9 +293,14 @@ export class ProjectsService {
       where: { agentKey, organizationId },
     });
     if (!user) {
+      const email = this.agentEmail(agentKey, organizationId);
+      if (await this.prisma.user.findUnique({ where: { email } })) {
+        // Never turn a person's account into an agent seat.
+        throw new ConflictException(`The agent address ${email} belongs to another account`);
+      }
       user = await this.prisma.user.create({
         data: {
-          email: this.agentEmail(agentKey, organizationId),
+          email,
           name: defaultName,
           role: defaultRole,
           agentKey,
@@ -529,60 +537,38 @@ export class ProjectsService {
   ) {
     const project = await this.prisma.project.findUnique({
       where: { id: projectId },
-      include: { members: true },
     });
 
     if (!project) {
       throw new NotFoundException(`Project #${projectId} not found`);
     }
-
-    const bridgeToken = this.getBridgeToken(currentUser);
-    if (this.httpService && bridgeToken && this.pythonAiUrl) {
-      try {
-        const response = await this.httpService.axiosRef.post(
-          `${this.pythonAiUrl}/api/projects/${projectId}/devops_create_repo/`,
-          dto,
-          {
-            headers: { Authorization: `Bearer ${bridgeToken}` },
-            timeout: 30000,
-          },
-        );
-        if (response.data && response.data.ok) {
-          await this.prisma.project.update({
-            where: { id: projectId },
-            data: { githubRepo: response.data.full_name },
-          });
-          return response.data;
-        }
-      } catch (err: any) {
-        if (err.response?.data) {
-          return err.response.data;
-        }
-      }
+    if (
+      !currentUser.organizationId ||
+      project.organizationId !== currentUser.organizationId
+    ) {
+      throw new ForbiddenException('Access denied across tenants');
     }
-
-    const organization = dto.org?.trim() || process.env.GITHUB_ORG?.trim();
-    if (!organization) {
-      throw new BadRequestException(
-        'A GitHub organization or user must be provided to create a repository.',
+    if (!this.isPrivileged(currentUser) && project.ownerId !== currentUser.id) {
+      throw new ForbiddenException(
+        'Only the project owner or a privileged user can provision repositories',
       );
     }
-    const cleanRepo = (dto.repo_name || project.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')).replace(/^-+|-+$/g, '');
-    const fullName = `${organization}/${cleanRepo}`;
-    await this.prisma.project.update({
-      where: { id: projectId },
-      data: { githubRepo: fullName },
-    });
+    if (!this.httpService) {
+      throw new ServiceUnavailableException(
+        'The TeamFlow execution service is not configured',
+      );
+    }
 
-    return {
-      ok: true,
-      repo_name: cleanRepo,
-      full_name: fullName,
-      html_url: `https://github.com/${fullName}`,
-      clone_url: `https://github.com/${fullName}.git`,
-      simulated: true,
-      message: `DevOps Agent simulated repository ${fullName} creation.`,
-    };
+    // Django creates the GitHub repository, pushes the scaffold, and links
+    // project.github_repo in the shared database. Nothing is simulated here.
+    const result = await bridgePost(
+      this.httpService,
+      currentUser,
+      `/api/projects/${projectId}/devops_create_repo/`,
+      dto,
+      30000,
+    );
+    return result.data;
   }
 }
 

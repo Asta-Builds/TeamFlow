@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   initials,
+  HUMAN_ROLE_OPTIONS,
+  roleLabel,
   ROLE_LABELS,
   ROLE_COLORS,
   TASK_STATUS_LABELS,
@@ -43,6 +45,18 @@ describe("Frontend UI Primitives & Mappings", () => {
       expect(ROLE_LABELS.qa).toContain("QA");
       expect(ROLE_LABELS.devops).toContain("DevOps");
       expect(ROLE_LABELS.seo).toContain("SEO");
+    });
+
+    it("offers people only workspace roles", () => {
+      expect(HUMAN_ROLE_OPTIONS.map((option) => option.value)).toEqual(["member", "admin", "ceo"]);
+    });
+
+    it("marks only AI agent seats as AI", () => {
+      expect(roleLabel("member")).toBe("Member");
+      expect(roleLabel("ceo")).toBe("CEO");
+      expect(roleLabel("qa", true)).toBe("AI QA Engineer");
+      expect(roleLabel(undefined)).toBe("Member");
+      expect(Object.values(ROLE_LABELS).some((label) => label.startsWith("AI "))).toBe(false);
     });
 
     it("defines distinct styling classes for all roles", () => {

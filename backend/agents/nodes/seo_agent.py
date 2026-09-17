@@ -47,10 +47,10 @@ def seo_agent_node(state: TicketState) -> Dict[str, Any]:
     if ticket_id:
         add_ticket_comment(
             ticket_id,
-            "pm",
-            f"🔍 SEO Agent: Technical audit complete. Canonical and metadata verified for {title}."
+            "seo",
+            f"**Ada Lovelace (AI) - Technical SEO Specialist**\n\nRecorded the SEO review step for `{title}`."
         )
-        log_task_activity(ticket_id, "Athena (AI)", "audited_seo", {"title": title})
+        log_task_activity(ticket_id, "Ada Lovelace (AI)", "audited_seo", {"title": title})
 
     return {
         "assigned_agent": "tech_lead",

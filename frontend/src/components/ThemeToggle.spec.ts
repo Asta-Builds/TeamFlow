@@ -8,7 +8,6 @@ import {
   TASK_TYPE_STYLES,
   PRIORITY_STYLES,
 } from "@/lib/ui";
-import { cardVariants } from "./ui"; // if any or button/badge
 import { buttonVariants } from "./ui/button";
 import { badgeVariants } from "./ui/badge";
 import { selectVariants } from "./ui/select";

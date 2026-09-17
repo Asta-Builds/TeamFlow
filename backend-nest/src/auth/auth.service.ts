@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Optional,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
@@ -16,48 +17,74 @@ import { KeycloakDto } from './dto/keycloak.dto.js';
 import { KeycloakService } from './keycloak.service.js';
 import { ClerkDto } from './dto/clerk.dto.js';
 import { ClerkService } from './clerk.service.js';
+import { RefreshTokenStore } from './refresh-token.store.js';
+import { LogoutDto } from './dto/logout.dto.js';
+import {
+  ensureActiveWorkspace,
+  humanRoleFor,
+  isReservedAgentEmail,
+  isUnclaimedInvitee,
+  personalWorkspaceName,
+} from '../common/workspace.js';
+
+export const ACCESS_TOKEN_TTL_SECONDS = 60 * 60;
+export const REFRESH_TOKEN_TTL_SECONDS = 7 * 24 * 60 * 60;
+
+export interface TokenPair {
+  access: string;
+  refresh: string;
+}
 
 @Injectable()
 export class AuthService {
+  private readonly tokenStore: RefreshTokenStore;
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private keycloakService?: KeycloakService,
-    private clerkService?: ClerkService,
-  ) {}
+    @Optional() private keycloakService?: KeycloakService,
+    @Optional() private clerkService?: ClerkService,
+    @Optional() tokenStore?: RefreshTokenStore,
+  ) {
+    this.tokenStore = tokenStore ?? new RefreshTokenStore(prisma);
+  }
 
   async register(dto: RegisterDto) {
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase() },
-    });
-    if (existing) {
+    const email = dto.email.toLowerCase();
+    if (isReservedAgentEmail(email)) {
+      throw new BadRequestException('This email address is reserved for AI agent seats');
+    }
+    const existing = await this.prisma.user.findUnique({ where: { email } });
+    // An invitation placeholder is claimed by signing up; its invitations stay
+    // pending until the person accepts them.
+    if (existing && !isUnclaimedInvitee(existing)) {
       throw new ConflictException('User with this email already exists');
     }
 
     const hashedPassword = await hashPassword(dto.password);
     // Organization and account creation must succeed together. Public signups
-    // never join an existing tenant or choose their own privileged role.
+    // never join an existing tenant or choose their own role: every new person
+    // founds their own workspace as its CEO.
     const user = await this.prisma.$transaction(async (tx) => {
       const org = await tx.organization.create({
         data: {
-          name:
-            dto.organization_name?.trim() ||
-            `${dto.name || dto.email.split('@')[0]}'s workspace`,
+          name: dto.organization_name?.trim() || personalWorkspaceName(dto.name, email),
         },
       });
-      return tx.user.create({
-        data: {
-          email: dto.email.toLowerCase(),
-          password: hashedPassword,
-          name: dto.name || dto.email.split('@')[0],
-          role: 'ceo',
-          organizationId: org.id,
-          avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(dto.email)}`,
-        },
-      });
+      const data = {
+        password: hashedPassword,
+        name: dto.name || existing?.name || email.split('@')[0],
+        role: 'ceo',
+        userStatus: 'active',
+        organizationId: org.id,
+        memberships: { create: { organizationId: org.id, role: 'ceo' } },
+      };
+      return existing
+        ? tx.user.update({ where: { id: existing.id }, data })
+        : tx.user.create({ data: { email, ...data } });
     });
 
-    const tokens = this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
     const serializedUser = await this.serializeUser(user.id);
 
     return {
@@ -72,7 +99,8 @@ export class AuthService {
       include: { organization: true },
     });
 
-    if (!user) {
+    // AI agent seats never sign in.
+    if (!user || user.agentKey) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -83,8 +111,9 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
-    const tokens = this.generateTokens(user.id, user.email, user.role);
-    const serializedUser = await this.serializeUser(user.id);
+    const active = await this.prisma.$transaction((tx) => ensureActiveWorkspace(tx, user));
+    const tokens = await this.generateTokens(active.id, active.email, active.role);
+    const serializedUser = await this.serializeUser(active.id);
 
     return {
       ...tokens,
@@ -92,25 +121,62 @@ export class AuthService {
     };
   }
 
-  async refresh(dto: RefreshDto) {
+  /**
+   * Rotate a refresh token. Each refresh token works once; presenting a used or
+   * revoked token is treated as theft and revokes every session of the user.
+   */
+  async refresh(dto: RefreshDto): Promise<TokenPair> {
+    let payload: any;
     try {
-      const payload = this.jwtService.verify(dto.refresh, {
+      payload = this.jwtService.verify(dto.refresh, {
         secret: requireSecret('JWT_REFRESH_SECRET'),
         algorithms: ['HS256'],
       });
-      if (payload.token_type !== 'refresh')
-        throw new UnauthorizedException('Invalid refresh token');
-      const userId = payload.user_id ?? payload.sub;
-      const user = await this.prisma.user.findUnique({ where: { id: userId } });
-      if (!user || !user.isActive) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
-
-      const tokens = this.generateTokens(user.id, user.email, user.role);
-      return tokens;
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
+    const userId = payload.user_id ?? payload.sub;
+    if (payload.token_type !== 'refresh' || !payload.jti || !Number.isSafeInteger(userId)) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const status = await this.tokenStore.status(payload.jti);
+    if (status === 'unknown') {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    if (status === 'revoked' || !(await this.tokenStore.rotate(payload.jti))) {
+      await this.tokenStore.endAllSessions(userId);
+      throw new UnauthorizedException('Refresh token reuse detected; all sessions were signed out');
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !user.isActive || user.agentKey) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    return this.generateTokens(user.id, user.email, user.role);
+  }
+
+  /** Revoke the caller's current session and, when supplied, the given refresh token. */
+  async logout(user: { id: number; sessionJti?: string }, dto?: LogoutDto) {
+    if (user.sessionJti) {
+      await this.tokenStore.endSession(user.sessionJti);
+    }
+    if (dto?.refresh) {
+      try {
+        const payload: any = this.jwtService.verify(dto.refresh, {
+          secret: requireSecret('JWT_REFRESH_SECRET'),
+          algorithms: ['HS256'],
+          ignoreExpiration: true,
+        });
+        const owner = payload.user_id ?? payload.sub;
+        if (payload.token_type === 'refresh' && payload.jti && owner === user.id) {
+          await this.tokenStore.endSession(payload.jti);
+        }
+      } catch {
+        // An invalid refresh token cannot grant access, so there is nothing to revoke.
+      }
+    }
+    return { detail: 'Successfully logged out.' };
   }
 
   async changePassword(userId: number, dto: ChangePasswordDto) {
@@ -132,7 +198,10 @@ export class AuthService {
       data: { password: newHash },
     });
 
-    return { message: 'Password updated successfully' };
+    // Every existing session ends; the caller continues with a fresh session.
+    await this.tokenStore.endAllSessions(userId);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    return { message: 'Password updated successfully', ...tokens };
   }
 
   async serializeUser(userId: number) {
@@ -176,21 +245,35 @@ export class AuthService {
     };
   }
 
-  generateTokens(userId: number, email: string, role: string) {
+  /**
+   * Issue a new session. The refresh token is registered so it can be rotated
+   * and revoked; the access token carries the session id (`sid`) so revoking
+   * the session also invalidates its access tokens.
+   */
+  async generateTokens(userId: number, email: string, role: string): Promise<TokenPair> {
     const payload = { user_id: userId, sub: userId, email, role };
+    const sessionJti = randomUUID();
     const access = this.jwtService.sign(
-      { ...payload, token_type: 'access', jti: randomUUID() },
+      { ...payload, token_type: 'access', jti: randomUUID(), sid: sessionJti },
       {
         secret: requireSecret('JWT_SECRET'),
-        expiresIn: '1d',
+        expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+        algorithm: 'HS256',
       },
     );
     const refresh = this.jwtService.sign(
-      { ...payload, token_type: 'refresh', jti: randomUUID() },
+      { ...payload, token_type: 'refresh', jti: sessionJti },
       {
         secret: requireSecret('JWT_REFRESH_SECRET'),
-        expiresIn: '7d',
+        expiresIn: REFRESH_TOKEN_TTL_SECONDS,
+        algorithm: 'HS256',
       },
+    );
+    await this.tokenStore.record(
+      sessionJti,
+      userId,
+      refresh,
+      new Date(Date.now() + REFRESH_TOKEN_TTL_SECONDS * 1000),
     );
 
     return { access, refresh };
@@ -221,75 +304,68 @@ export class AuthService {
     const claims = await this.keycloakService.verifyKeycloakToken(token);
     const email = (claims.email || claims.preferred_username!).toLowerCase();
     const name = claims.name || claims.given_name || email.split('@')[0];
-    const role = this.keycloakService.extractRole(claims) || 'member';
+    // Identity-provider roles are mapped onto the roles a person can hold.
+    const idpRole = this.keycloakService.extractRole(claims);
 
     const orgNameClaim =
       claims.organization || claims.org || claims.tenant || claims.workspace;
-    let orgName = orgNameClaim;
-    if (!orgName) {
-      if (email.includes('@')) {
-        const domain = email.split('@')[1];
-        const company = domain.split('.')[0];
-        const isGeneric = [
-          'gmail',
-          'yahoo',
-          'hotmail',
-          'outlook',
-          'example',
-        ].includes(company.toLowerCase());
-        orgName = isGeneric
-          ? 'Personal Workspace'
-          : `${company.charAt(0).toUpperCase() + company.slice(1)} Workspace`;
-      } else {
-        orgName = 'Personal Workspace';
-      }
-    }
+    // Only an explicit organization claim from the trusted identity provider selects a
+    // shared tenant. Without one, a new account gets its own workspace.
+    const orgName = typeof orgNameClaim === 'string' ? orgNameClaim.trim() : '';
 
-    // Provision or sync user in transaction
     const user = await this.prisma.$transaction(async (tx) => {
-      let existingOrg = await tx.organization.findFirst({
-        where: { name: orgName },
-      });
-      if (!existingOrg) {
-        existingOrg = await tx.organization.create({
-          data: {
-            name: orgName,
-            subscriptionTier: 'growth',
-            subscriptionStatus: 'active',
-          },
+      const existingUser = await tx.user.findUnique({ where: { email } });
+      if (existingUser && (existingUser.agentKey || !existingUser.isActive)) {
+        throw new UnauthorizedException('This account cannot sign in');
+      }
+      if (!existingUser && isReservedAgentEmail(email)) {
+        throw new UnauthorizedException('This email address is reserved for AI agent seats');
+      }
+
+      let org = orgName
+        ? await tx.organization.findFirst({ where: { name: orgName }, orderBy: { id: 'asc' } })
+        : null;
+      const createOrg = !org && Boolean(orgName || !existingUser);
+      if (createOrg) {
+        org = await tx.organization.create({
+          data: { name: orgName || personalWorkspaceName(name, email) },
         });
       }
-
-      let existingUser = await tx.user.findUnique({ where: { email } });
+      const role = createOrg ? 'ceo' : humanRoleFor(idpRole);
 
       if (!existingUser) {
-        const unusableHash = `!sso_keycloak_${randomUUID()}`;
-        existingUser = await tx.user.create({
+        return tx.user.create({
           data: {
             email,
-            password: unusableHash,
+            password: `!sso_keycloak_${randomUUID()}`,
             name,
             role,
-            organizationId: existingOrg.id,
-            avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`,
+            organizationId: org!.id,
+            memberships: { create: { organizationId: org!.id, role } },
           },
         });
-      } else {
-        const updateData: any = {};
-        if (role && existingUser.role !== role) updateData.role = role;
-        if (!existingUser.organizationId) updateData.organizationId = existingOrg.id;
-        if (Object.keys(updateData).length > 0) {
-          existingUser = await tx.user.update({
-            where: { id: existingUser.id },
-            data: updateData,
-          });
-        }
       }
 
-      return existingUser;
+      if (org) {
+        const setRole = createOrg || idpRole !== null;
+        const seat = await tx.membership.upsert({
+          where: { userId_organizationId: { userId: existingUser.id, organizationId: org.id } },
+          create: { userId: existingUser.id, organizationId: org.id, role },
+          update: { status: 'active', ...(setRole && { role }) },
+        });
+        if (existingUser.organizationId === null) {
+          await tx.user.update({
+            where: { id: existingUser.id },
+            data: { organizationId: org.id, role: seat.role },
+          });
+          existingUser.organizationId = org.id;
+          existingUser.role = seat.role;
+        }
+      }
+      return ensureActiveWorkspace(tx, existingUser);
     });
 
-    const tokens = this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
     const serializedUser = await this.serializeUser(user.id);
 
     return {
@@ -303,79 +379,72 @@ export class AuthService {
       throw new UnauthorizedException('Clerk service is not configured');
     }
 
-    const verifiedUser = await this.clerkService.verifyClerkSession(dto);
-    const email = verifiedUser.email.toLowerCase();
-    const name = verifiedUser.name || email.split('@')[0];
-    const role = verifiedUser.role || 'member';
-    const avatarUrl =
-      verifiedUser.avatar_url ||
-      `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`;
-
-    // Resolve or create tenant organization
-    let orgName = 'Personal Workspace';
-    if (email.includes('@')) {
-      const domain = email.split('@')[1];
-      const company = domain.split('.')[0];
-      const isGeneric = [
-        'gmail',
-        'yahoo',
-        'hotmail',
-        'outlook',
-        'example',
-      ].includes(company.toLowerCase());
-      orgName = isGeneric
-        ? 'Personal Workspace'
-        : `${company.charAt(0).toUpperCase() + company.slice(1)} Workspace`;
-    }
+    const verified = await this.clerkService.verifyClerkSession(dto);
+    const clerkId = verified.clerk_id;
+    const email = verified.email.toLowerCase();
+    const name = verified.name || email.split('@')[0];
+    const avatarUrl = verified.avatar_url || '';
 
     const user = await this.prisma.$transaction(async (tx) => {
-      let existingOrg = await tx.organization.findFirst({
-        where: { name: orgName },
+      const refuse = (account: { isActive: boolean; agentKey: string }) => {
+        if (account.agentKey) {
+          throw new UnauthorizedException('AI agent seats cannot sign in');
+        }
+        if (!account.isActive) {
+          throw new UnauthorizedException('This account is disabled');
+        }
+      };
+
+      const linked = await tx.user.findUnique({ where: { clerkId } });
+      if (linked) {
+        refuse(linked);
+        return ensureActiveWorkspace(tx, linked);
+      }
+
+      const existing = await tx.user.findUnique({ where: { email } });
+      if (existing) {
+        refuse(existing);
+        // An invited or pre-existing account is linked to its verified Clerk identity.
+        if (existing.clerkId && existing.clerkId !== clerkId) {
+          throw new UnauthorizedException(
+            'This TeamFlow account is linked to a different Clerk identity',
+          );
+        }
+        const linkedUser = await tx.user.update({
+          where: { id: existing.id },
+          data: {
+            clerkId,
+            ...(existing.avatarUrl || !avatarUrl ? {} : { avatarUrl }),
+            // A placeholder created by an invitation takes the person's own name.
+            ...(existing.userStatus === 'pending' && verified.name ? { name: verified.name } : {}),
+          },
+        });
+        return ensureActiveWorkspace(tx, linkedUser);
+      }
+
+      if (isReservedAgentEmail(email)) {
+        throw new UnauthorizedException('This email address is reserved for AI agent seats');
+      }
+      // New sign-ups always get their own workspace, exactly like /auth/register.
+      // Accounts never join an existing tenant based on email domain or name.
+      const org = await tx.organization.create({
+        data: { name: personalWorkspaceName(name, email) },
       });
-      if (!existingOrg) {
-        existingOrg = await tx.organization.create({
-          data: {
-            name: orgName,
-            subscriptionTier: 'growth',
-            subscriptionStatus: 'active',
-          },
-        });
-      }
-
-      let existingUser = await tx.user.findUnique({ where: { email } });
-
-      if (!existingUser) {
-        const unusableHash = `!sso_clerk_${randomUUID()}`;
-        existingUser = await tx.user.create({
-          data: {
-            email,
-            password: unusableHash,
-            name,
-            role,
-            organizationId: existingOrg.id,
-            avatarUrl,
-          },
-        });
-      } else {
-        const updateData: any = {};
-        if (!existingUser.organizationId) {
-          updateData.organizationId = existingOrg.id;
-        }
-        if (avatarUrl && !existingUser.avatarUrl) {
-          updateData.avatarUrl = avatarUrl;
-        }
-        if (Object.keys(updateData).length > 0) {
-          existingUser = await tx.user.update({
-            where: { id: existingUser.id },
-            data: updateData,
-          });
-        }
-      }
-
-      return existingUser;
+      return tx.user.create({
+        data: {
+          email,
+          clerkId,
+          password: `!sso_clerk_${randomUUID()}`,
+          name,
+          role: 'ceo',
+          organizationId: org.id,
+          avatarUrl,
+          memberships: { create: { organizationId: org.id, role: 'ceo' } },
+        },
+      });
     });
 
-    const tokens = this.generateTokens(user.id, user.email, user.role);
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
     const serializedUser = await this.serializeUser(user.id);
 
     return {

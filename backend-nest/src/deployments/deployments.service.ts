@@ -1,18 +1,65 @@
 import { requireOrganization, requireProject } from '../common/access.js';
 import {
+  BadGatewayException,
   Injectable,
   NotFoundException,
   ForbiddenException,
+  Optional,
 } from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateDeploymentDto } from './dto/create-deployment.dto.js';
-import { randomBytes } from 'node:crypto';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import { bridgePost } from '../common/python-bridge.js';
 
+/**
+ * Deployment history lives in the shared database. Deployments and rollbacks are
+ * executed by the Django service, which hands them to the configured provider and
+ * records only what the provider reports. Without a provider the API returns 503.
+ */
 @Injectable()
 export class DeploymentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private httpService?: HttpService,
+  ) {}
+
+  private http(): HttpService {
+    if (!this.httpService) {
+      throw new Error('HttpService is required for deployment execution');
+    }
+    return this.httpService;
+  }
+
+  private mapBridgeDeployment(d: any) {
+    return {
+      id: d.id,
+      project: d.project,
+      project_name: d.project_name,
+      environment: d.environment,
+      status: d.status,
+      commit_sha: d.commit_sha,
+      branch: d.branch,
+      logs: d.logs,
+      duration_seconds: d.duration_seconds,
+      triggered_by: d.triggered_by,
+      triggered_by_name:
+        d.triggered_by_detail?.name || d.triggered_by_detail?.email,
+      started_at: d.started_at,
+      finished_at: d.finished_at,
+    };
+  }
+
+  private async execute(path: string, body: unknown, user: any) {
+    const result = await bridgePost(this.http(), user, path, body);
+    const deployment = this.mapBridgeDeployment(result.data);
+    if (result.status === 502) {
+      throw new BadGatewayException({
+        detail: 'The deployment provider rejected the request.',
+        deployment,
+      });
+    }
+    return deployment;
+  }
 
   private isPrivileged(user: any): boolean {
     return (
@@ -38,38 +85,6 @@ export class DeploymentsService {
       started_at: d.startedAt.toISOString(),
       finished_at: d.finishedAt ? d.finishedAt.toISOString() : null,
     };
-  }
-
-  private async notifyTeam(
-    organizationId: number,
-    actor: any,
-    title: string,
-    message: string,
-  ) {
-    try {
-      const teammates = await this.prisma.user.findMany({
-        where: {
-          organizationId,
-          role: { in: ['ceo', 'tech_lead', 'admin', 'devops'] },
-          id: { not: actor.id },
-        },
-      });
-
-      if (teammates.length > 0) {
-        await this.prisma.notification.createMany({
-          data: teammates.map((m) => ({
-            recipientId: m.id,
-            actorId: actor.id,
-            title,
-            message,
-            link: '/deployments',
-            organizationId,
-          })),
-        });
-      }
-    } catch {
-      // Notification failure must not abort deployment transaction
-    }
   }
 
   async findAll(
@@ -124,87 +139,19 @@ export class DeploymentsService {
       );
     }
 
-    const organizationId = requireOrganization(user);
+    requireOrganization(user);
     await requireProject(this.prisma, dto.project, user);
 
-    const project = await this.prisma.project.findUnique({
-      where: { id: dto.project },
-    });
-
-    if (!project) {
-      throw new NotFoundException(`Project #${dto.project} not found`);
-    }
-
-    const environment = dto.environment || 'staging';
-    const branch = dto.branch || 'main';
-    const commitSha =
-      dto.commit_sha?.trim() || randomBytes(4).toString('hex');
-
-    // Check project workspace artifacts
-    let artifactCount = 0;
-    let hasWorkspace = false;
-    const workspacePaths = [
-      path.join('/workspace', 'generated_projects', `project_${project.id}`),
-      path.join(process.cwd(), 'generated_projects', `project_${project.id}`),
-    ];
-
-    for (const wp of workspacePaths) {
-      if (fs.existsSync(wp)) {
-        hasWorkspace = true;
-        try {
-          artifactCount = fs.readdirSync(wp).length;
-        } catch {
-          artifactCount = 0;
-        }
-        break;
-      }
-    }
-
-    const durationSeconds = 12;
-    const logs = `=== Build & Deployment Pipeline Started ===
-Target Environment: ${environment}
-Branch: ${branch}
-Commit SHA: ${commitSha}
-Triggered by: ${user.name || user.email}
-[STAGE 1] Workspace Verification: ${hasWorkspace ? 'Active workspace verified' : 'Standard repository build environment'} (${artifactCount} files detected)
-[STAGE 2] Running static analysis & security scanning... PASSED (0 vulnerabilities)
-[STAGE 3] Running automated unit & integration test suites... PASSED (100% test coverage)
-[STAGE 4] Container image build: teamflow-${project.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}:${commitSha} built successfully
-[STAGE 5] Publishing container to registry & updating Kubernetes pods... DEPLOYED
-[STAGE 6] Performing ingress health check... HTTP 200 OK. Traffic routing established.
-=== Deployment Successful ===`;
-
-    const startedAt = new Date();
-    const finishedAt = new Date(startedAt.getTime() + durationSeconds * 1000);
-
-    const deployment = await this.prisma.deployment.create({
-      data: {
-        projectId: project.id,
-        organizationId,
-        triggeredById: user.id,
-        environment,
-        branch,
-        commitSha,
-        status: 'success',
-        logs,
-        durationSeconds,
-        startedAt,
-        finishedAt,
+    return this.execute(
+      '/api/deployments/',
+      {
+        project: dto.project,
+        environment: dto.environment || 'staging',
+        branch: dto.branch || 'main',
+        commit_sha: dto.commit_sha?.trim() || '',
       },
-      include: {
-        project: true,
-        triggeredBy: true,
-      },
-    });
-
-    await this.notifyTeam(
-      organizationId,
       user,
-      `Deployment success: ${project.name} (${environment})`,
-      `${user.name || user.email} deployed branch ${branch} to ${environment}.`,
     );
-
-    return this.mapDeployment(deployment);
   }
 
   async rollback(id: number, user: any) {
@@ -230,43 +177,6 @@ Triggered by: ${user.name || user.email}
 
     await requireProject(this.prisma, targetDeployment.projectId, user);
 
-    const rollbackLogs = `=== Rollback to commit ${targetDeployment.commitSha} triggered by ${user.name || user.email} ===
-Restoring release configuration for branch ${targetDeployment.branch}...
-Rolling back Kubernetes pods to image tag ${targetDeployment.commitSha}...
-Verifying previous health check... HTTP 200 OK.
-Traffic routed back to stable release.`;
-
-    const durationSeconds = 15;
-    const startedAt = new Date();
-    const finishedAt = new Date(startedAt.getTime() + durationSeconds * 1000);
-
-    const rollbackDeployment = await this.prisma.deployment.create({
-      data: {
-        projectId: targetDeployment.projectId,
-        organizationId,
-        triggeredById: user.id,
-        environment: targetDeployment.environment,
-        branch: targetDeployment.branch,
-        commitSha: targetDeployment.commitSha,
-        status: 'rolled_back',
-        logs: rollbackLogs,
-        durationSeconds,
-        startedAt,
-        finishedAt,
-      },
-      include: {
-        project: true,
-        triggeredBy: true,
-      },
-    });
-
-    await this.notifyTeam(
-      organizationId,
-      user,
-      `Deployment rollback: ${targetDeployment.project?.name} (${targetDeployment.environment})`,
-      `${user.name || user.email} rolled back deployment to commit ${targetDeployment.commitSha}.`,
-    );
-
-    return this.mapDeployment(rollbackDeployment);
+    return this.execute(`/api/deployments/${id}/rollback/`, {}, user);
   }
 }

@@ -1,19 +1,66 @@
-from django.utils import timezone
+import json
+import logging
+
+from django.shortcuts import get_object_or_404
 from rest_framework import decorators, permissions, response, status, viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import APIException, PermissionDenied
 
 from notifications.models import Notification
 from .models import Deployment
+from .providers import SIGNATURE_HEADER, DeploymentProviderNotConfigured, verify_signature
 from .serializers import DeploymentSerializer
+from .services import apply_provider_callback, start_deployment
+
+logger = logging.getLogger(__name__)
+
+
+class DeploymentProviderUnavailable(APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_code = "deployment_provider_unavailable"
+    default_detail = "No deployment provider is configured for this environment."
+
+
+def _notify_team(actor, deployment, title, message):
+    from django.db.models import Q
+
+    from accounts.models import User
+    from organizations.membership import workspace_people
+    from organizations.models import Membership
+
+    recipients = (
+        workspace_people(actor.organization)
+        .filter(
+            Q(memberships__organization=actor.organization, memberships__role__in=[Membership.Role.OWNER, Membership.Role.ADMIN])
+            | Q(role__in=[User.Role.TECH_LEAD, User.Role.DEVOPS], organization=actor.organization)
+            & ~Q(agent_key="")
+        )
+        .exclude(pk=actor.pk)
+        .distinct()
+    )
+    for recipient in recipients:
+        Notification.objects.create(
+            recipient=recipient,
+            actor=actor,
+            title=title,
+            message=message,
+            link="/deployments",
+            organization=actor.organization,
+        )
 
 
 class DeploymentViewSet(viewsets.ModelViewSet):
-    """Deployment history. Triggering a deploy is a DevOps / privileged action."""
+    """
+    Deployment history. Triggering a deploy is a DevOps / privileged action.
+
+    Deployments are executed by the configured provider (see ``deployments.providers``).
+    Without a provider the API returns 503 and records nothing.
+    """
 
     serializer_class = DeploymentSerializer
     permission_classes = [permissions.IsAuthenticated]
     filterset_fields = ["project", "environment", "status"]
     ordering_fields = ["started_at", "status"]
+    http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -23,62 +70,32 @@ class DeploymentViewSet(viewsets.ModelViewSet):
             return Deployment.objects.none()
         return Deployment.objects.filter(organization=user.organization).select_related("project", "triggered_by")
 
-    def perform_create(self, serializer):
-        import os
-        import time
-        user = self.request.user
-        if not user.can_deploy:
+    def create(self, request, *args, **kwargs):
+        if not request.user.can_deploy:
             raise PermissionDenied("Only DevOps Engineer, Tech Lead or CEO can trigger deployments.")
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        try:
+            deployment = start_deployment(
+                project=data["project"],
+                environment=data.get("environment", Deployment.Environment.STAGING),
+                branch=data.get("branch", "main"),
+                commit_sha=data.get("commit_sha", ""),
+                actor=request.user,
+                organization=request.user.organization,
+            )
+        except DeploymentProviderNotConfigured as exc:
+            raise DeploymentProviderUnavailable(str(exc))
 
-        project = serializer.validated_data.get("project")
-        environment = serializer.validated_data.get("environment", "staging")
-        branch = serializer.validated_data.get("branch", "main")
-        commit_sha = serializer.validated_data.get("commit_sha", "head")
-
-        start_time = time.monotonic()
-        workspace_dir = os.path.join("generated_projects", f"project_{project.id}") if project else ""
-        has_workspace = bool(workspace_dir and os.path.exists(workspace_dir))
-        artifact_count = sum(len(files) for _, _, files in os.walk(workspace_dir)) if has_workspace else 0
-        duration = max(1, int(time.monotonic() - start_time) + 3)
-
-        logs = (
-            f"=== Build & Deployment Pipeline Started ===\n"
-            f"Target Environment: {environment}\n"
-            f"Branch: {branch}\n"
-            f"Commit: {commit_sha}\n"
-            f"Triggered by: {user.name or user.email}\n"
-            f"[INFO] Workspace Verification: {'Active workspace verified' if has_workspace else 'Standard build environment'} ({artifact_count} files)\n"
-            f"[INFO] Running linting and static analysis... OK\n"
-            f"[INFO] Running unit and integration tests... OK (100% passed)\n"
-            f"[INFO] Building Docker container image... Done ({duration}s)\n"
-            f"[INFO] Deploying container to Kubernetes cluster... Done\n"
-            f"[INFO] Health checks passing (HTTP 200 OK). Deployment verified!\n"
+        _notify_team(
+            request.user,
+            deployment,
+            title=f"Deployment {deployment.status}: {deployment.project.name} ({deployment.environment})",
+            message=f"{request.user.name or request.user.email} requested a deployment of {deployment.branch} to {deployment.environment}.",
         )
-        deployment = serializer.save(
-            triggered_by=user,
-            organization=user.organization,
-            status=Deployment.Status.SUCCESS,
-            logs=logs,
-            duration_seconds=duration,
-            finished_at=timezone.now(),
-        )
-
-        # Notify workspace if failed, or notify Tech Lead / CEO
-        from accounts.models import User
-        privileged_users = User.objects.filter(
-            organization=user.organization,
-            role__in=[User.Role.TECH_LEAD, User.Role.CEO, User.Role.ADMIN, User.Role.DEVOPS]
-        )
-        for p in privileged_users:
-            if p != user:
-                Notification.objects.create(
-                    recipient=p,
-                    actor=user,
-                    title=f"Deployment {deployment.status}: {deployment.project.name} ({deployment.environment})",
-                    message=f"{user.name or user.email} deployed branch {deployment.branch} to {deployment.environment}.",
-                    link="/deployments",
-                    organization=user.organization,
-                )
+        code = status.HTTP_202_ACCEPTED if deployment.status == Deployment.Status.IN_PROGRESS else status.HTTP_502_BAD_GATEWAY
+        return response.Response(self.get_serializer(deployment).data, status=code)
 
     @decorators.action(detail=True, methods=["get"])
     def status(self, request, pk=None):
@@ -96,21 +113,60 @@ class DeploymentViewSet(viewsets.ModelViewSet):
 
     @decorators.action(detail=True, methods=["post"])
     def rollback(self, request, pk=None):
-        """Rollback to the target previous successful deployment."""
+        """Ask the provider to redeploy the release recorded by the target deployment."""
         if not request.user.can_deploy:
             return response.Response({"detail": "Only DevOps or Tech Lead can trigger rollbacks."}, status=403)
 
-        target_deployment = self.get_object()
-        new_deployment = Deployment.objects.create(
-            project=target_deployment.project,
-            environment=target_deployment.environment,
-            status=Deployment.Status.ROLLED_BACK,
-            commit_sha=target_deployment.commit_sha,
-            branch=target_deployment.branch,
-            triggered_by=request.user,
-            organization=request.user.organization,
-            logs=f"=== Rollback to commit {target_deployment.commit_sha} triggered by {request.user.name or request.user.email} ===\nRestoring previous release artifacts...\nTraffic routed back to stable release.",
-            duration_seconds=15,
-            finished_at=timezone.now(),
+        target = self.get_object()
+        if target.status != Deployment.Status.SUCCESS or not target.commit_sha:
+            return response.Response(
+                {"detail": "Only a successful deployment with a recorded commit can be restored."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            deployment = start_deployment(
+                project=target.project,
+                environment=target.environment,
+                branch=target.branch,
+                commit_sha=target.commit_sha,
+                actor=request.user,
+                organization=request.user.organization,
+                action="rollback",
+            )
+        except DeploymentProviderNotConfigured as exc:
+            raise DeploymentProviderUnavailable(str(exc))
+
+        _notify_team(
+            request.user,
+            deployment,
+            title=f"Rollback {deployment.status}: {deployment.project.name} ({deployment.environment})",
+            message=f"{request.user.name or request.user.email} requested a rollback to {target.commit_sha}.",
         )
-        return response.Response(DeploymentSerializer(new_deployment).data, status=status.HTTP_201_CREATED)
+        code = status.HTTP_202_ACCEPTED if deployment.status == Deployment.Status.IN_PROGRESS else status.HTTP_502_BAD_GATEWAY
+        return response.Response(DeploymentSerializer(deployment).data, status=code)
+
+    @decorators.action(
+        detail=True,
+        methods=["post"],
+        url_path="provider_callback",
+        permission_classes=[permissions.AllowAny],
+        authentication_classes=[],
+    )
+    def provider_callback(self, request, pk=None):
+        """Signed status report from the deployment provider."""
+        body = request.body
+        if not verify_signature(body, request.headers.get(SIGNATURE_HEADER, "")):
+            return response.Response({"detail": "Invalid signature."}, status=status.HTTP_401_UNAUTHORIZED)
+        try:
+            payload = json.loads(body.decode("utf-8") or "{}")
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return response.Response({"detail": "Invalid JSON body."}, status=status.HTTP_400_BAD_REQUEST)
+        if not isinstance(payload, dict):
+            return response.Response({"detail": "Invalid JSON body."}, status=status.HTTP_400_BAD_REQUEST)
+
+        deployment = get_object_or_404(Deployment.objects.select_related("project"), pk=pk)
+        try:
+            apply_provider_callback(deployment, payload)
+        except ValueError as exc:
+            return response.Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return response.Response({"id": deployment.id, "status": deployment.status})

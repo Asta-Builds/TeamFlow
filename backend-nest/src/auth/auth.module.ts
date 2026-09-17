@@ -9,6 +9,7 @@ import { AuthController } from './auth.controller.js';
 import { JwtStrategy } from './jwt.strategy.js';
 import { KeycloakService } from './keycloak.service.js';
 import { ClerkService } from './clerk.service.js';
+import { RefreshTokenStore } from './refresh-token.store.js';
 
 @Module({
   imports: [
@@ -24,7 +25,7 @@ import { ClerkService } from './clerk.service.js';
         return {
           secret,
           signOptions: {
-            expiresIn: '1d' as const,
+            expiresIn: '1h' as const,
             algorithm: 'HS256' as const,
           },
         };
@@ -32,7 +33,15 @@ import { ClerkService } from './clerk.service.js';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, KeycloakService, ClerkService],
-  exports: [AuthService, JwtStrategy, KeycloakService, ClerkService, PassportModule, JwtModule],
+  providers: [AuthService, JwtStrategy, KeycloakService, ClerkService, RefreshTokenStore],
+  exports: [
+    AuthService,
+    JwtStrategy,
+    KeycloakService,
+    ClerkService,
+    RefreshTokenStore,
+    PassportModule,
+    JwtModule,
+  ],
 })
 export class AuthModule {}

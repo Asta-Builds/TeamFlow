@@ -14,6 +14,8 @@ from tasks.models import Task, Comment, TaskActivity
 from accounts.models import User
 from .git_service import (
     get_project_workspace,
+    git_pull,
+    run_project_build,
     git_checkout_branch,
     git_commit,
     git_push,
@@ -26,44 +28,45 @@ from .rag.vector_store import query_similar_chunks
 from .registry import AGENT_SEATS, get_agent_spec
 from .users import get_or_create_agent_user
 from .events import emit_agent_event, ensure_task_organization
+from .tools.app_tool import trigger_app_deployment
 
 logger = logging.getLogger(__name__)
 
 SWARM_SPECIALISTS = {
     "tech_lead": {
         "key": "tech_lead",
-        "name": "Athena (AI)",
+        "name": "Sarah Jenkins (AI)",
         "role": "tech_lead",
         "title": "Tech Lead & System Architect",
-        "avatar": "AT",
+        "avatar": "SJ",
     },
     "backend": {
         "key": "backend_core",
-        "name": "Backend Specialist (AI)",
+        "name": "Marcus Aurelius (AI)",
         "role": "backend",
         "title": "Senior Backend Engineer",
-        "avatar": "BE",
+        "avatar": "MA",
     },
     "frontend": {
         "key": "frontend_app",
-        "name": "Frontend Specialist (AI)",
+        "name": "Cleopatra (AI)",
         "role": "frontend",
         "title": "Senior Frontend Engineer",
-        "avatar": "FE",
+        "avatar": "CL",
     },
     "qa": {
         "key": "qa",
-        "name": "QA Specialist (AI)",
+        "name": "Alan Turing (AI)",
         "role": "qa",
-        "title": "QA Automation Engineer",
-        "avatar": "QA",
+        "title": "QA & Test Automation Specialist",
+        "avatar": "ATu",
     },
     "devops": {
         "key": "devops",
-        "name": "DevOps Specialist (AI)",
+        "name": "Joan of Arc (AI)",
         "role": "devops",
-        "title": "DevOps & Release Engineer",
-        "avatar": "DO",
+        "title": "DevOps & Infrastructure Engineer",
+        "avatar": "JA",
     },
 }
 
@@ -123,7 +126,7 @@ def execute_full_swarm_chain(
 ) -> List[Dict[str, Any]]:
     """
     Executes the sequential multi-agent swarm chain:
-    1. Tech Lead (Architecture & Upfront Validation Contract ➔ Backend)
+    1. Tech Lead (Architecture & Upfront Validation Contract -> Backend)
     2. Senior Backend (Code API in isolated project workspace & Branch/Commit)
     3. Senior Frontend (Code UI in isolated project workspace & Connect API)
     4. QA Engineer (Validation Contract Verification & Gate Signoff)
@@ -140,6 +143,9 @@ def execute_full_swarm_chain(
     task_clean_title = re.sub(r'[^a-zA-Z0-9]+', '-', task.title.lower()).strip('-')[:28]
     branch_name = f"feat/ticket-{task.id}-{task_clean_title}"
 
+    # Synchronize project workspace with remote main before starting swarm chain
+    git_pull("main", cwd=project_workspace)
+
     # Generate Upfront Validation Contract (Factory 'Missions' Architecture)
     contract = generate_validation_contract(task, instruction)
     task.validation_contract = contract
@@ -152,13 +158,13 @@ def execute_full_swarm_chain(
         session_id=session_id,
         event_type="started",
         sender_key="tech_lead",
-        message="I am defining the validation contract and preparing the first backend handoff.",
+        message=f"{SWARM_SPECIALISTS['tech_lead']['name']} is defining the validation contract and preparing the first backend handoff.",
         current_work="Defining scope and validation contract",
         remaining_work=["backend step", "frontend step", "QA decision", "merge review", "release step"],
     )
 
     # -------------------------------------------------------------
-    # STEP 1: Tech Lead Athena (Architecture & Handoff to Backend)
+    # STEP 1: Tech Lead Sarah Jenkins (Architecture & Handoff to Backend)
     # -------------------------------------------------------------
     lead_user = get_or_create_agent_user("tech_lead", task.organization)
     rag_results = query_similar_chunks(
@@ -169,17 +175,18 @@ def execute_full_swarm_chain(
     )
     rag_context = "\n".join([r.get("content", "") for r in rag_results]) if rag_results else "Standard project architecture."
 
-    contract_bullets = "\n".join([f"  - 📌 **[{c['id']}]** {c['assertion']}" for c in contract])
+    contract_bullets = "\n".join([f"  - **[{c['id']}]** {c['assertion']}" for c in contract])
     lead_comment_body = (
-        f"🎯 **[Athena (AI) · Architecture & Validation Contract]**\n\n"
-        f"I analyzed ticket **#{task.id} : {task.title}** for project **`{project_name}`** and established the initial **Validation Contract (Definition of Done)**:\n\n"
-        f"**📜 Validation Contract ({len(contract)} independent assertions):**\n"
+        f"**Sarah Jenkins (AI) - Tech Lead & System Architect**\n\n"
+        f"**Sprint Planning Handoff to @backend_core:**\n\n"
+        f"Hey Marcus! I analyzed ticket **#{task.id} : {task.title}** for project **`{project_name}`** and established our **Validation Contract (Definition of Done)**:\n\n"
+        f"**Validation Contract ({len(contract)} independent assertions):**\n"
         f"{contract_bullets}\n\n"
-        f"**📋 Architectural Directives:**\n"
-        f"- Modular domain design with persistent models and RESTful endpoints.\n"
-        f"- Strict isolation in project directory: `generated_projects/{workspace_rel}/`.\n"
-        f"- Complete compliance with all validation clauses above.\n\n"
-        f"💬 Branch `{branch_name}` initialized. Backend specialist is taking on implementation."
+        f"**Architectural Directives:**\n"
+        f"- Clean domain separation with robust Django / FastAPI REST endpoints and boundary guards.\n"
+        f"- Strict repository isolation in `generated_projects/{workspace_rel}/`.\n"
+        f"- Automated build & AST verification required before pushing.\n\n"
+        f"Branch `{branch_name}` is initialized and synchronized with `main`. Handing off to @backend_core for backend implementation!"
     )
     lead_comment = Comment.objects.create(task=task, author=lead_user, body=lead_comment_body)
     TaskActivity.objects.create(
@@ -251,13 +258,14 @@ def execute_full_swarm_chain(
     )
 
     backend_comment_body = (
-        f"**[Backend Specialist -> Frontend Specialist]**\n\n"
-        f"Backend implementation for **#{task.id} : {task.title}** is complete.\n\n"
-        f"**Implementation Details:**\n"
+        f"**Marcus Aurelius (AI) - Senior Backend Engineer**\n\n"
+        f"**Sprint Daily Standup & Handoff to @frontend_app & @tech_lead:**\n\n"
+        f"Hey Cleopatra! Backend implementation and models for **#{task.id} : {task.title}** are complete, verified, and committed.\n\n"
+        f"- **Completed:** Implemented REST API endpoints and data schemas.\n"
         f"- **Branch:** `{branch_name}`\n"
         f"- **Workspace:** `generated_projects/{workspace_rel}/`\n\n"
         f"{backend_code_report}\n\n"
-        f"API endpoints and schemas are ready for frontend UI integration."
+        f"API endpoints and schemas are verified via AST analysis. Ready for @frontend_app Next.js frontend UI integration!"
     )
     backend_comment = Comment.objects.create(task=task, author=backend_user, body=backend_comment_body)
     TaskActivity.objects.create(
@@ -302,7 +310,7 @@ def execute_full_swarm_chain(
         f"---\n"
     )
     frontend_system = (
-        f"You are the Senior Frontend Engineer at TeamFlow. Build modern Tailwind CSS & Lucide icon components for project '{project_name}'."
+        f"You are Cleopatra, Senior Frontend Engineer at TeamFlow. Build modern Tailwind CSS & Lucide icon components for project '{project_name}'."
     )
     frontend_llm_out = query_ollama(frontend_prompt, system_prompt=frontend_system, timeout=180)
     if not frontend_llm_out:
@@ -314,7 +322,7 @@ def execute_full_swarm_chain(
             f"  return (\n"
             f"    <div className='p-6 rounded-2xl bg-slate-900 border border-slate-800 text-white'>\n"
             f"      <h2 className='text-xl font-bold'>{task.title}</h2>\n"
-            f"      <p className='text-sm text-slate-400'>Implemented by Frontend Specialist</p>\n"
+            f"      <p className='text-sm text-slate-400'>Implemented by Cleopatra (AI)</p>\n"
             f"    </div>\n"
             f"  );\n"
             f"}}\n"
@@ -332,10 +340,11 @@ def execute_full_swarm_chain(
     task.save(update_fields=["status"])
 
     frontend_comment_body = (
-        f"**[Frontend Specialist -> QA Specialist]**\n\n"
-        f"Client UI views and reactive state for **#{task.id} : {task.title}** are developed and styled with Tailwind CSS & Lucide icons.\n\n"
+        f"**Cleopatra (AI) - Senior Frontend Engineer**\n\n"
+        f"**Sprint Daily Standup & Handoff to @qa & @tech_lead:**\n\n"
+        f"Hey Alan! Client UI views and reactive state for **#{task.id} : {task.title}** are fully developed and styled with Tailwind CSS & Lucide icons.\n\n"
         f"{frontend_code_report}\n\n"
-        f"UI views are connected to backend endpoints. Ticket moved to **QA / Ready for Test** for validation."
+        f"UI views are connected to Marcus's backend endpoints. Ticket moved to **QA / Ready for Test** for @qa Validation Contract check."
     )
     frontend_comment = Comment.objects.create(task=task, author=frontend_user, body=frontend_comment_body)
     TaskActivity.objects.create(
@@ -380,7 +389,8 @@ def execute_full_swarm_chain(
     # 1. Verify workspace artifacts
     workspace_files = []
     if project_workspace and os.path.exists(project_workspace):
-        for root, _, files in os.walk(project_workspace):
+        for root, dirs, files in os.walk(project_workspace):
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in {"node_modules", "__pycache__"}]
             for file in files:
                 if not file.startswith(".") and not file.endswith((".pyc", ".log")):
                     workspace_files.append(os.path.join(root, file))
@@ -425,14 +435,16 @@ def execute_full_swarm_chain(
                 all_clauses_passed = False
                 failure_reasons.append(c["evidence"])
         else:
-            c["status"] = "PASSED"
-            c["evidence"] = "Verified domain invariants against schema specifications."
+            # No automated check exists for this clause; it needs a human reviewer.
+            c["status"] = "MANUAL_REVIEW"
+            c["evidence"] = "No automated check covers this clause. A human reviewer must confirm it."
 
         c["verified_at"] = time.strftime("%Y-%m-%d %H:%M:%SZ")
         validated_contract.append(c)
 
     passed_count = sum(1 for c in validated_contract if c["status"] == "PASSED")
-    compliance_score = round((passed_count / len(validated_contract)) * 100.0, 1) if validated_contract else 100.0
+    automated = [c for c in validated_contract if c["status"] != "MANUAL_REVIEW"]
+    compliance_score = round((passed_count / len(automated)) * 100.0, 1) if automated else 0.0
 
     task.validation_contract = validated_contract
     task.contract_compliance_score = compliance_score
@@ -443,9 +455,10 @@ def execute_full_swarm_chain(
         task.save(update_fields=["validation_contract", "contract_compliance_score", "qa_rejected", "qa_rejection_reason", "status"])
 
         qa_fail_comment = (
-            f"❌ **[QA Specialist ➔ Engineering Team]**\n\n"
+            f"**Alan Turing (AI) - QA Specialist**\n\n"
+            f"**Sprint Quality Gate REJECTION for @backend_core & @tech_lead:**\n\n"
             f"Validation Contract Verification: **FAILED ({compliance_score}%)** on branch `{branch_name}`.\n\n"
-            f"**Failure Details:**\n" + "\n".join([f"- ❌ {r}" for r in failure_reasons])
+            f"**Failure Details:**\n" + "\n".join([f"- [DEFECT] {r}" for r in failure_reasons])
         )
         Comment.objects.create(task=task, author=qa_user, body=qa_fail_comment)
         emit_agent_event(
@@ -465,18 +478,19 @@ def execute_full_swarm_chain(
     task.qa_rejection_reason = ""
     task.save(update_fields=["validation_contract", "contract_compliance_score", "qa_rejected", "qa_rejection_reason"])
 
-    contract_eval_bullets = "\n".join([f"  - ✅ **[{c['id']}]** {c['assertion']} *(Status: {c['status']})*" for c in validated_contract])
+    contract_eval_bullets = "\n".join([f"  - **[{c['id']}]** {c['assertion']} *(Status: {c['status']})*" for c in validated_contract])
     qa_comment_body = (
-        f"🧪 **[QA Specialist ➔ Tech Lead]**\n\n"
-        f"Executed test suite and **holistic Validation Contract verification** on branch `{branch_name}`:\n\n"
-        f"**📜 Validation Contract (Definition of Done):**\n"
+        f"**Alan Turing (AI) - QA Specialist**\n\n"
+        f"**Sprint Quality Gate Sign-Off for @tech_lead & @devops:**\n\n"
+        f"Hey Sarah! I ran the automated Validation Contract checks on branch `{branch_name}`:\n\n"
+        f"**Validation Contract (Definition of Done):**\n"
         f"{contract_eval_bullets}\n\n"
-        f"**📊 Quality Report:**\n"
-        f"- 🎯 **Contract Compliance Score:** `{compliance_score}%` ({passed_count}/{len(validated_contract)} assertions verified)\n"
-        f"- 📁 **Files Audited:** {len(workspace_files)} file(s)\n"
-        f"- ⚡ **AST Static Analysis:** 100% valid (0 syntax errors)\n"
-        f"- ♿ **Accessibility & Standards:** WCAG AA compliant\n\n"
-        f"💬 All assertions verified. PR is approved and ready for merge to `main`."
+        f"**Quality Report:**\n"
+        f"- **Automated Compliance Score:** `{compliance_score}%` ({passed_count}/{len(automated)} automated assertions passed; "
+        f"{len(validated_contract) - len(automated)} need manual review)\n"
+        f"- **Files Audited:** {len(workspace_files)} file(s)\n"
+        f"- **Python syntax check:** no syntax errors found\n\n"
+        f"Automated checks passed. Handing off to @tech_lead for the merge."
     )
     qa_comment = Comment.objects.create(task=task, author=qa_user, body=qa_comment_body)
     TaskActivity.objects.create(
@@ -507,7 +521,7 @@ def execute_full_swarm_chain(
     )
 
     # -------------------------------------------------------------
-    # STEP 5: Tech Lead Athena (Merge PR to main & Handoff to DevOps)
+    # STEP 5: Tech Lead Sarah Jenkins (Merge PR to main & Handoff to DevOps)
     # -------------------------------------------------------------
     merge_res = git_merge_pull_request(
         repo=getattr(project, "github_repo", ""),
@@ -515,18 +529,56 @@ def execute_full_swarm_chain(
         target_branch="main",
         cwd=project_workspace
     )
+
+    if not merge_res.get("success"):
+        merge_fail_body = (
+            f"**Sarah Jenkins (AI) - Tech Lead & System Architect**\n\n"
+            f"**Merge blocked for `{branch_name}`:**\n\n"
+            f"QA passed, but merging into `main` did not succeed.\n\n"
+            f"- Reason: {merge_res.get('output', 'unknown error')}\n"
+            f"- Ticket stays in **{task.get_status_display()}** until the merge is resolved."
+        )
+        merge_fail_comment = Comment.objects.create(task=task, author=lead_user, body=merge_fail_body)
+        chain_events.append({
+            "step": 5,
+            "agent": SWARM_SPECIALISTS["tech_lead"],
+            "target_agent": {"name": "CEO", "role": "ceo"},
+            "action": "Tech Lead Merge Blocked",
+            "comment_id": merge_fail_comment.id,
+            "content": merge_fail_body,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+        })
+        emit_agent_event(
+            task=task,
+            trace=trace,
+            session_id=session_id,
+            event_type="blocked",
+            sender_key="tech_lead",
+            message="The merge into main did not succeed. The run stopped before release.",
+            current_work="Merge blocked",
+            remaining_work=["resolve merge", "release step"],
+            metadata={"merge_output": merge_res.get("output", "")},
+        )
+        return chain_events
+
     task.status = Task.Status.DONE
     task.save(update_fields=["status"])
 
-    merge_sha = merge_res.get("merged_sha", "HEAD")
+    merge_sha = merge_res.get("merged_sha", "")
+    pushed_note = (
+        "`main` was pushed to the linked remote."
+        if merge_res.get("push_success")
+        else "`main` was updated locally; it was not pushed to a remote."
+    )
     lead_merge_comment_body = (
-        f"🛡️ **[Athena (Tech Lead) ➔ DevOps Specialist]**\n\n"
-        f"Code review completed and QA validation confirmed.\n\n"
+        f"**Sarah Jenkins (AI) - Tech Lead & System Architect**\n\n"
+        f"**Sprint PR Merge Sign-Off for @devops:**\n\n"
+        f"Hey Joan! Code review is completed and Alan's QA validation confirmed.\n\n"
         f"**Merge Report:**\n"
-        f"- 🎋 Merged branch: `{branch_name}` ➔ `main`\n"
-        f"- 📦 Merge Commit SHA: `{merge_sha}`\n"
-        f"- ✅ Ticket Status: **DONE**\n\n"
-        f"💬 Branch `main` is up to date in `generated_projects/{workspace_rel}/`. Ready for staging deployment."
+        f"- Merged branch: `{branch_name}` -> `main`\n"
+        f"- Merge Commit SHA: `{merge_sha}`\n"
+        f"- Ticket Status: **DONE**\n\n"
+        f"{pushed_note} Handing off to DevOps for the release step."
     )
     lead_merge_comment = Comment.objects.create(task=task, author=lead_user, body=lead_merge_comment_body)
     TaskActivity.objects.create(
@@ -558,29 +610,46 @@ def execute_full_swarm_chain(
     )
 
     # -------------------------------------------------------------
-    # STEP 6: DevOps Specialist (Staging Rollout & Final Completion)
+    # STEP 6: DevOps Specialist Joan of Arc (Staging Rollout & Final Completion)
     # -------------------------------------------------------------
     devops_user = get_or_create_agent_user("devops", task.organization)
+    deploy_res = trigger_app_deployment(
+        project.id if project else task.project_id,
+        environment="staging",
+        branch="main",
+        commit_sha=merge_sha,
+    )
+    if deploy_res.get("ok"):
+        release_line = (
+            f"- Deployment #{deploy_res.get('deployment_id')} was accepted by the deployment provider "
+            f"(status: `{deploy_res.get('status')}`). The provider reports the final outcome."
+        )
+        release_details = {"environment": "staging", "deployment_id": deploy_res.get("deployment_id"), "status": deploy_res.get("status")}
+    elif deploy_res.get("configured") is False:
+        release_line = "- No deployment provider is configured, so no staging deployment was started."
+        release_details = {"environment": "staging", "status": "not_configured"}
+    else:
+        release_line = f"- The deployment request failed: {deploy_res.get('error') or deploy_res.get('status')}."
+        release_details = {"environment": "staging", "status": "failed", "deployment_id": deploy_res.get("deployment_id")}
+
     devops_comment_body = (
-        f"🚀 **[DevOps Specialist ➔ TeamFlow Swarm]**\n\n"
-        f"CI/CD pipeline synchronized on `main`.\n\n"
-        f"**Staging Deployment Status:**\n"
-        f"- 🐳 Docker Container: `UP (healthy)`\n"
-        f"- 🌐 Health Check: `HTTP 200 OK` (latency 22ms)\n"
-        f"- 🎯 Ticket **#{task.id}** officially completed and released."
+        f"**Joan of Arc (AI) - DevOps Engineer**\n\n"
+        f"**Release step for ticket #{task.id}:**\n\n"
+        f"- `main` is at `{merge_sha or 'unknown'}`.\n"
+        f"{release_line}"
     )
     devops_comment = Comment.objects.create(task=task, author=devops_user, body=devops_comment_body)
     TaskActivity.objects.create(
         task=task,
         actor=devops_user,
-        action="deployed_release",
-        details={"environment": "staging", "status": "healthy"}
+        action="release_requested",
+        details=release_details,
     )
     chain_events.append({
         "step": 6,
         "agent": SWARM_SPECIALISTS["devops"],
         "target_agent": {"name": "TeamFlow Swarm", "role": "team"},
-        "action": "DevOps Deployment Verified",
+        "action": "DevOps Release Step",
         "comment_id": devops_comment.id,
         "content": devops_comment_body,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
@@ -591,7 +660,8 @@ def execute_full_swarm_chain(
         session_id=session_id,
         event_type="completed",
         sender_key="devops",
-        message="I completed the final release workflow step. The run is ready for human review.",
+        message="I recorded the release step. The run is ready for human review.",
+        metadata={"deployment": deploy_res},
         current_work="Run completed",
         remaining_work=[],
     )

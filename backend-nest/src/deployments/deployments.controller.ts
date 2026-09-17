@@ -7,6 +7,8 @@ import {
   Query,
   UseGuards,
   ParseIntPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { DeploymentsService } from './deployments.service.js';
@@ -46,13 +48,15 @@ export class DeploymentsController {
   }
 
   @Post()
-  @ApiOperation({ summary: 'Trigger a new deployment' })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Request a deployment from the configured provider' })
   async create(@Body() dto: CreateDeploymentDto, @CurrentUser() user: any) {
     return this.deploymentsService.create(dto, user);
   }
 
   @Post(':id/rollback')
-  @ApiOperation({ summary: '1-click rollback to previous stable release' })
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Request a redeploy of a previous successful release' })
   async rollback(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
     return this.deploymentsService.rollback(id, user);
   }

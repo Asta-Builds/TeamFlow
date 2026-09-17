@@ -25,6 +25,7 @@ import type {
   ActivityFeedItem,
   AgentClusterStatus,
   Organization,
+  HumanRole,
 } from "./types";
 import { toast } from "sonner";
 
@@ -469,7 +470,88 @@ export function useSwitchOrganizationMutation() {
       queryClient.invalidateQueries({ queryKey: queryKeys.team });
     },
     onError: (err) => {
-      toast.error(`Failed to switch workspace: ${err instanceof Error ? err.message : "Access denied"}`);
+      toast.error(apiErrorDetail(err, "Failed to switch workspace"));
+    },
+  });
+}
+
+interface WorkspaceSession {
+  message: string;
+  access: string;
+  refresh: string;
+  user: User;
+}
+
+function storeSession(res: { access?: string; refresh?: string }) {
+  if (res.access) {
+    localStorage.setItem("teamflow_access", res.access);
+    if (res.refresh) localStorage.setItem("teamflow_refresh", res.refresh);
+  }
+}
+
+/** Leave a workspace, or decline an invitation to it. */
+export function useLeaveOrganizationMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (orgId: number) => {
+      const res = await apiFetch<WorkspaceSession>(`/organizations/${orgId}/leave/`, {
+        method: "POST",
+      });
+      storeSession(res);
+      return res;
+    },
+    onSuccess: (data) => {
+      toast.success(data.message);
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentOrganization });
+      queryClient.invalidateQueries({ queryKey: queryKeys.organizations });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.team });
+    },
+    onError: (err) => {
+      toast.error(apiErrorDetail(err, "Could not leave the workspace"));
+    },
+  });
+}
+
+export function useUpdateMemberRoleMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, role }: { userId: number; role: HumanRole }) => {
+      return apiFetch<{ user_id: number; role: HumanRole }>(
+        `/organizations/current/members/${userId}/`,
+        { method: "PATCH", body: { role } },
+      );
+    },
+    onSuccess: () => {
+      toast.success("Role updated");
+      queryClient.invalidateQueries({ queryKey: queryKeys.team });
+    },
+    onError: (err) => {
+      toast.error(apiErrorDetail(err, "Could not change the role"));
+    },
+  });
+}
+
+export function useRemoveMemberMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userId: number) => {
+      return apiFetch<{ detail: string }>(`/organizations/current/members/${userId}/`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: () => {
+      toast.success("Removed from the workspace");
+      queryClient.invalidateQueries({ queryKey: queryKeys.team });
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentOrganization });
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects });
+    },
+    onError: (err) => {
+      toast.error(apiErrorDetail(err, "Could not remove the member"));
     },
   });
 }
@@ -478,19 +560,19 @@ export function useInviteMemberMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { email: string; name?: string; role?: string }) => {
+    mutationFn: async (data: { email: string; name?: string; role?: HumanRole }) => {
       return apiFetch<User>("/organizations/invite/", {
         method: "POST",
         body: data,
       });
     },
     onSuccess: (data) => {
-      toast.success(`Invitation sent to ${data.email}`);
+      toast.success(`${data.email} is invited; they join once they accept`);
       queryClient.invalidateQueries({ queryKey: queryKeys.team });
       queryClient.invalidateQueries({ queryKey: queryKeys.currentOrganization });
     },
     onError: (err) => {
-      toast.error(`Failed to invite member: ${err instanceof Error ? err.message : "Unknown error"}`);
+      toast.error(apiErrorDetail(err, "Failed to invite member"));
     },
   });
 }

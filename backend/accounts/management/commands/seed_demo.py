@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+from organizations.membership import add_member
 from organizations.models import Organization
 from projects.models import Project
 from tasks.models import Comment, Task, TaskActivity
@@ -87,9 +88,14 @@ class Command(BaseCommand):
             user.agent_key = AGENT_KEYS.get(email, "")
             user.bio = bio
             user.user_status = User.Status.ACTIVE
-            if created or not user.has_usable_password():
+            if user.agent_key:
+                # Agent seats never sign in.
+                user.set_unusable_password()
+            elif created or not user.has_usable_password():
                 user.set_password(DEMO_PASSWORD)
             user.save()
+            if not user.agent_key:
+                add_member(user, org, role)
             users[email] = user
         self.stdout.write(self.style.SUCCESS(f"Team: {len(users)} users seeded under Organization '{org.name}'"))
 
@@ -198,6 +204,6 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 f"Seeded TeamFlow SaaS Demo workspace successfully. "
-                f"Login with any @teamflow.dev email (e.g. lead@teamflow.dev, ceo@teamflow.dev) / password '{DEMO_PASSWORD}'."
+                f"Sign in as ceo@teamflow.dev with password '{DEMO_PASSWORD}'. AI agent seats cannot sign in."
             )
         )

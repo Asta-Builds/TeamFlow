@@ -22,6 +22,8 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "pretest:e2e": "npm run build",
     "test:django-compat": "node scripts/verify-django-compat.mjs",
+    "test:membership-flow": "node scripts/membership-flow.check.mjs",
+    "pretest:membership-flow": "npm run build",
     "pretest:django-compat": "npm run build"
   },
   "dependencies": {

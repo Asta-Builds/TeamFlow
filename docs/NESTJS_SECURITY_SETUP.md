@@ -25,11 +25,12 @@ not create simulated execution records or automatically retry. After a timeout,
 check traces before retrying because Django might already have queued the job.
 Agent status is now authenticated and reflects Django's runtime checks.
 
-New public registrations receive the member role in a newly created organization.
-They cannot select a privileged role or join an existing organization by omitting
-its name. Existing privileged operators must provision elevated roles through a
-trusted administrative process. Organization creation and account creation use
-one transaction.
+Every new registration founds its own workspace and becomes its CEO; the request
+cannot choose a role or join an existing workspace. Organization, account and
+membership creation use one transaction. People hold only the CEO, Admin or
+Member workspace roles; specialist roles belong to AI agent seats, which cannot
+sign in. Joining another workspace requires an invitation that the person
+accepts.
 
 New and changed passwords use Django's PBKDF2-SHA256 format. Existing NestJS
 bcrypt hashes remain supported by NestJS. Unsupported password formats fail
@@ -39,8 +40,13 @@ NestJS bcrypt hashes, so those accounts need a password change for Django login.
 
 Changing signing keys invalidates existing sessions. Old NestJS tokens without
 an explicit access/refresh token type are also rejected; users must log in again.
-This change does not implement token revocation on logout or refresh-token reuse
-detection, and does not complete frontend routing or Keycloak migration to NestJS.
+
+**Update 2026-09-16:** sessions are now registered in Django's token blacklist
+tables. Access tokens last one hour and carry a session id; refresh tokens are
+single-use, and replaying one ends every session of the user. Logout ends the
+current session and a password change ends all sessions (the caller receives a
+new one). Tokens issued before this change are rejected once. The web app routes
+all `/api` traffic to NestJS; see [the pre-production runbook](PREPROD_RUNBOOK.md).
 
 Validation from `backend-nest`:
 
@@ -67,9 +73,10 @@ Project membership replacement and project field updates use one nested Prisma
 write. Personal plan items require a visible task; focus sessions can reference
 only the caller's plan items in their current organization.
 
-NestJS deployment, rollback and SEO creation now return HTTP 503 because no real
-execution provider is wired to those endpoints. They no longer write fabricated
-success records, logs or audit scores. Existing historical records are retained.
+NestJS deployments and rollbacks are forwarded to Django, which hands them to the
+configured deploy hook and records only provider-reported results; without a hook
+they return HTTP 503. SEO audits fetch the page from NestJS with an outbound guard
+that blocks private and internal addresses. Existing historical records are retained.
 Mock billing requires both `ALLOW_MOCK_BILLING=true` and `NODE_ENV=development`
 or `NODE_ENV=test`; it is always disabled in production. Responses explicitly
 identify simulated billing with `mock: true`.

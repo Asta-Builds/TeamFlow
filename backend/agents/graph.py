@@ -16,6 +16,7 @@ from .nodes.seo_agent import seo_agent_node
 from .observability.langfuse_client import get_langfuse_callback, generate_langfuse_trace_url
 from .models import AgentExecutionTrace
 from .events import emit_agent_event, ensure_task_organization
+from .git_service import get_project_workspace, _resolve_project_repo_and_token
 
 logger = logging.getLogger(__name__)
 
@@ -134,10 +135,18 @@ def execute_ticket_swarm(
         remaining_work=["specialist work", "review", "QA decision", "release handoff"],
     )
 
+    project_workspace = get_project_workspace(task)
+    resolved_repo, _, _ = _resolve_project_repo_and_token(project_workspace, task)
+    repo_name = getattr(task.project, "github_repo", "") if task.project else ""
+    if not repo_name:
+        repo_name = resolved_repo
+
     initial_state: TicketState = {
         "ticket_id": task.id,
         "project_id": task.project_id,
         "project_name": task.project.name if task.project else "Workspace",
+        "github_repo": repo_name,
+        "workspace_path": project_workspace,
         "title": task.title,
         "description": task.description or "",
         "status": "todo",

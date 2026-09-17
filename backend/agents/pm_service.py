@@ -140,7 +140,7 @@ def _dynamic_semantic_decomposition(
             layer = "Core Service"
 
         desc = (
-            f"### 📋 Engineering Specification ({category})\n\n"
+            f"### Engineering Specification ({category})\n\n"
             f"**Initiative Context:** `{summary_title}` in `{project_name}`.\n\n"
             f"**1. Specific Requirements:**\n"
             f"- {item_clean}\n"
@@ -170,19 +170,20 @@ def _dynamic_semantic_decomposition(
             "type": Task.Type.TASK,
             "priority": Task.Priority.MEDIUM,
             "description": (
-                f"### 📋 QA Verification Specification\n\n"
-                f"**Strategic Objective:** Automated test coverage and validation contract gate for `{summary_title}`.\n\n"
-                f"**Acceptance Criteria:**\n"
-                f"- Automated integration test suite with >=95% assertion coverage\n"
-                f"- Validation contract passing all assertions\n"
-                f"- Regression safety verified before PR approval."
+                f"### QA Verification Specification\n\n"
+                f"**User Story:** As a QA Specialist, I want automated regression and contract verification so that releases maintain zero defects.\n\n"
+                f"**Acceptance Criteria (Gherkin):**\n"
+                f"- Given code changes pushed to feature branch\n"
+                f"- When automated AST analysis and test suite runs\n"
+                f"- Then all contract assertions pass with zero syntax errors\n\n"
+                f"**Definition of Done:** Automated integration test suite with >=95% assertion coverage and regression safety verified before PR approval."
             ),
             "dialogue": f"@{ceo_name.split()[0]}, I've added the QA acceptance verification harness to guarantee quality before deployment."
         })
 
     summary = (
         f"**Athena (AI PM)**: Analyzed your plan for **{summary_title}** and created **{len(tickets)} targeted sprint tickets**.\n"
-        f"- Each ticket is customized with scope boundaries, Definition of Done, and risk mitigation.\n"
+        f"- Each ticket is customized with Scrum User Stories, Definition of Done, and risk mitigation.\n"
         f"- Grounded in {len(rag_chunks)} pgvector RAG codebase chunks for `{project_name}`."
     )
 
@@ -215,8 +216,14 @@ def decompose_plan_and_create_tasks(
         f"You are collaborating with the CEO / founder ({ceo_name}) on project '{project_name}' (Overview: {project_desc}).\n"
         f"Codebase RAG Context:\n" + ("\n".join(rag_chunks[:3]) if rag_chunks else "Standard project architecture.") + "\n\n"
         f"INSTRUCTIONS:\n"
-        f"Decompose the CEO's product plan into 2 to 4 distinct, concrete, production-grade sprint tickets.\n"
-        f"Do NOT output generic templates. Every ticket title, description, and acceptance criteria MUST be tailored directly to the specific features in the plan.\n"
+        f"Decompose the CEO's product plan into 2 to 4 distinct, concrete, production-grade Scrum sprint tickets.\n"
+        f"Follow strict Scrum format for every ticket:\n"
+        f"- User Story: 'As a [Role], I want [Feature] so that [Benefit]'\n"
+        f"- Story Points estimate (1, 2, 3, 5, or 8)\n"
+        f"- Gherkin Acceptance Criteria: Given / When / Then\n"
+        f"- Definition of Done (DoD)\n"
+        f"- Specialist @mention suggestion (@backend_core, @frontend_app, @qa, @devops)\n"
+        f"Do NOT output generic templates. Every ticket MUST be tailored directly to the specific features in the plan.\n"
         f"Output MUST be a single valid JSON object in this exact schema with NO markdown wrapping:\n"
         f'{{\n'
         f'  "pm_summary": "Conversational 2-sentence note from Athena to {ceo_name} summarizing the sprint delivery plan.",\n'
@@ -225,7 +232,7 @@ def decompose_plan_and_create_tasks(
         f'      "title": "[Domain] Specific Feature Title",\n'
         f'      "type": "feature" | "task" | "bug",\n'
         f'      "priority": "low" | "medium" | "high" | "urgent",\n'
-        f'      "description": "Comprehensive specification with Scope, Acceptance Criteria (DoD), and Technical Notes.",\n'
+        f'      "description": "Scrum specification with User Story, Story Points, Gherkin Acceptance Criteria, and Definition of Done.",\n'
         f'      "dialogue": "Warm, senior 1-sentence note from Athena to @{ceo_name.split()[0]} introducing this ticket."\n'
         f'    }}\n'
         f'  ]\n'

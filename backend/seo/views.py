@@ -1,7 +1,6 @@
-from urllib.parse import urlparse
 from django.shortcuts import get_object_or_404
 from rest_framework import decorators, permissions, response, status, viewsets
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import APIException, PermissionDenied
 
 from projects.models import Project
 from tasks.models import Task
@@ -10,73 +9,17 @@ from .models import SEOAudit
 from .serializers import SEOAuditSerializer
 
 
-def run_technical_seo_audit(url):
-    """
-    Performs comprehensive technical SEO audit heuristics:
-    - Protocol & Security (HTTPS)
-    - Metadata & Tags (Meta Title, Description, OpenGraph, Canonical)
-    - Mobile & Viewport Optimization
-    - Speed / Core Web Vitals estimate
-    - Structured data (Schema.org / JSON-LD)
-    """
-    issues = []
-    parsed = urlparse(url)
-
-    if parsed.scheme != "https":
-        issues.append({
-            "severity": "critical",
-            "category": "security",
-            "message": "Page is not served over secure HTTPS. Essential for search engine trust.",
-            "recommendation": "Install SSL/TLS certificate and configure HTTP to HTTPS 301 redirection."
-        })
-
-    if len(url) > 90:
-        issues.append({
-            "severity": "low",
-            "category": "url_structure",
-            "message": "URL exceeds recommended 90 character limit.",
-            "recommendation": "Use clean, concise semantic slugs."
-        })
-
-    # Simulating audit checks
-    issues.extend([
-        {
-            "severity": "medium",
-            "category": "metadata",
-            "message": "Missing OpenGraph image tag ('og:image') for social media previews.",
-            "recommendation": "Add <meta property='og:image' content='...'> in document head."
-        },
-        {
-            "severity": "low",
-            "category": "accessibility",
-            "message": "2 image assets are missing descriptive 'alt' text attributes.",
-            "recommendation": "Provide meaningful alt text for screen readers and search bot image indexing."
-        }
-    ])
-
-    perf_score = 94 if parsed.scheme == "https" else 75
-    seo_score = 90
-    mobile_score = 96
-    overall_score = round((perf_score + seo_score + mobile_score) / 3)
-
-    metrics = {
-        "fcp_ms": 780,
-        "lcp_ms": 1420,
-        "cls": 0.02,
-        "fid_ms": 18,
-        "ttfb_ms": 120,
-        "canonical_detected": True,
-        "robots_txt_present": True,
-        "sitemap_present": True,
-    }
-
-    return overall_score, perf_score, seo_score, mobile_score, 320, issues, metrics
+class SEOAuditUnavailable(APIException):
+    status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    default_code = "seo_audit_unavailable"
+    default_detail = "SEO audits are run by the primary TeamFlow API."
 
 
 class SEOAuditViewSet(viewsets.ModelViewSet):
     serializer_class = SEOAuditSerializer
     permission_classes = [permissions.IsAuthenticated]
     ordering_fields = ["created_at", "score"]
+    http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -91,18 +34,9 @@ class SEOAuditViewSet(viewsets.ModelViewSet):
         if not user.can_audit_seo:
             raise PermissionDenied("Only SEO Specialist, Tech Lead or CEO can run audits.")
 
-        url = serializer.validated_data["url"]
-        score, perf, seo, mobile, load_time, issues, metrics = run_technical_seo_audit(url)
-        serializer.save(
-            score=score,
-            performance_score=perf,
-            seo_score=seo,
-            mobile_score=mobile,
-            load_time_ms=load_time,
-            issues=issues,
-            metrics=metrics,
-            organization=user.organization,
-        )
+        # Audits are executed by the NestJS API, which fetches and inspects the page.
+        # This service never records invented scores or metrics.
+        raise SEOAuditUnavailable()
 
     @decorators.action(detail=True, methods=["post"])
     def create_task(self, request, pk=None):

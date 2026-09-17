@@ -93,6 +93,7 @@ model Organization {
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   users              User[]
+  memberships        Membership[]
   projects           Project[]
   tasks              Task[]
   deployments        Deployment[]
@@ -126,9 +127,12 @@ model User {
   isActive    Boolean  @default(true) @map("is_active")
   dateJoined  DateTime @default(now()) @map("date_joined") @db.Timestamptz(6)
 
+  // Active workspace and the role held in it; memberships are the source of truth.
   organizationId Int?          @map("organization_id")
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
+  memberships         Membership[]          @relation("MembershipUser")
+  invitationsSent     Membership[]          @relation("MembershipInvitedBy")
   ownedProjects       Project[]             @relation("ProjectOwner")
   projectMemberships  ProjectMember[]
   assignedTasks       Task[]                @relation("TaskAssignee")
@@ -145,6 +149,26 @@ model User {
 
   @@index([agentKey])
   @@map("accounts_user")
+}
+
+/// A person's seat in a workspace. AI agent seats never have memberships.
+model Membership {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  organizationId Int      @map("organization_id")
+  role           String   @default("member") @db.VarChar(20)
+  status         String   @default("active") @db.VarChar(20)
+  invitedById    Int?     @map("invited_by_id")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user         User         @relation("MembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy    User?        @relation("MembershipInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([userId, organizationId], map: "unique_membership_per_workspace")
+  @@index([organizationId, status], map: "membership_org_status_idx")
+  @@map("organizations_membership")
 }
 
 model Project {

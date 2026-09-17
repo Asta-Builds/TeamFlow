@@ -22,9 +22,13 @@ class TicketState(TypedDict, total=False):
     history: List[Dict[str, Any]]
     subtasks: List[Dict[str, Any]]
     code_changes: Dict[str, str]
+    files_modified: List[str]
     errors: List[str]
     deployment_status: Optional[str]
     deployment_logs: Optional[str]
+    github_repo: Optional[str]
+    workspace_path: Optional[str]
+    branch_name: Optional[str]
     langfuse_session_id: Optional[str]
     total_tokens: int
     total_cost_usd: float

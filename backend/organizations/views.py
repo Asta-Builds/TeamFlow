@@ -1,11 +1,21 @@
+import logging
+
 from rest_framework import views, permissions, response, status
 from django.conf import settings
 from .models import Organization
-from teamflow.stripe_utils import create_checkout_session, create_portal_session, is_stripe_configured
+from teamflow.stripe_utils import (
+    BillingNotConfigured,
+    InvalidRedirect,
+    create_checkout_session,
+    create_portal_session,
+    mock_billing_enabled,
+)
 try:
     import stripe
 except ImportError:
     stripe = None
+
+logger = logging.getLogger(__name__)
 
 
 class CreateCheckoutSessionView(views.APIView):
@@ -27,11 +37,18 @@ class CreateCheckoutSessionView(views.APIView):
                 {"detail": "success_url and cancel_url are required."}, status=400
             )
 
+        if user.organization is None:
+            return response.Response({"detail": "An organization is required."}, status=403)
         try:
             session = create_checkout_session(user.organization, tier, success_url, cancel_url)
-            return response.Response(session, status=200)
-        except Exception as e:
-            return response.Response({"detail": str(e)}, status=400)
+        except InvalidRedirect as exc:
+            return response.Response({"detail": str(exc)}, status=400)
+        except BillingNotConfigured as exc:
+            return response.Response({"detail": str(exc)}, status=503)
+        except Exception:
+            logger.exception("Stripe checkout session creation failed")
+            return response.Response({"detail": "The billing provider rejected the request."}, status=502)
+        return response.Response(session, status=200)
 
 
 class CreatePortalSessionView(views.APIView):
@@ -46,15 +63,23 @@ class CreatePortalSessionView(views.APIView):
         if not return_url:
             return response.Response({"detail": "return_url is required."}, status=400)
 
+        if user.organization is None:
+            return response.Response({"detail": "An organization is required."}, status=403)
         try:
             session = create_portal_session(user.organization, return_url)
-            return response.Response(session, status=200)
-        except Exception as e:
-            return response.Response({"detail": str(e)}, status=400)
+        except InvalidRedirect as exc:
+            return response.Response({"detail": str(exc)}, status=400)
+        except BillingNotConfigured as exc:
+            return response.Response({"detail": str(exc)}, status=503)
+        except Exception:
+            logger.exception("Stripe portal session creation failed")
+            return response.Response({"detail": "The billing provider rejected the request."}, status=502)
+        return response.Response(session, status=200)
 
 
 class StripeWebhookView(views.APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         payload = request.body
@@ -81,8 +106,10 @@ class StripeWebhookView(views.APIView):
         obj = data.get("object", {})
 
         if event_type in ["checkout.session.completed", "invoice.payment_succeeded"]:
-            org_id = obj.get("metadata", {}).get("org_id")
-            tier = obj.get("metadata", {}).get("tier", "growth")
+            org_id = (obj.get("metadata") or {}).get("org_id")
+            tier = (obj.get("metadata") or {}).get("tier", Organization.Tier.GROWTH)
+            if tier not in {Organization.Tier.GROWTH, Organization.Tier.ENTERPRISE}:
+                tier = Organization.Tier.GROWTH
             subscription_id = obj.get("subscription")
             customer_id = obj.get("customer")
 
@@ -134,6 +161,8 @@ class MockConfirmSubscriptionView(views.APIView):
 
     def post(self, request):
         user = request.user
+        if not mock_billing_enabled():
+            return response.Response({"detail": "Mock billing is disabled."}, status=503)
         if not user.is_privileged:
             return response.Response({"detail": "Only HR admins can manage subscriptions."}, status=403)
 

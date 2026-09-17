@@ -65,10 +65,12 @@ class AuthenticationSecurityTests(APITestCase):
 
     @patch("accounts.views.verify_keycloak_token")
     def test_verified_keycloak_claims_create_user_without_request_role_escalation(self, verify):
+        Organization.objects.create(name="Secure Org")
         verify.return_value = {
             "sub": "keycloak-user-1",
             "email": "verified@example.com",
             "name": "Verified User",
+            "organization": "Secure Org",
             "realm_access": {"roles": ["member"]},
         }
         response = self.client.post(
@@ -136,3 +138,50 @@ class AuthenticationSecurityTests(APITestCase):
         self.assertEqual(response.status_code, 403)
         other_member.refresh_from_db()
         self.assertEqual(other_member.bio, "Original bio")
+
+
+class ClerkExchangeDisabledTests(APITestCase):
+    def test_unverified_clerk_identity_cannot_obtain_tokens(self):
+        from django.contrib.auth import get_user_model
+
+        get_user_model().objects.create_user(email="ceo@victim.example", password="pw-12345678")
+        response = self.client.post(
+            "/api/auth/clerk/",
+            {"email": "ceo@victim.example", "clerk_id": "user_x", "token": "a.b.c"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertNotIn("access", response.data)
+
+
+class KeycloakWorkspaceTests(APITestCase):
+    def _sign_in(self, verify, claims):
+        verify.return_value = {"sub": "kc-1", "email": "kc@acme.test", "name": "Kc Person", **claims}
+        return self.client.post("/api/auth/keycloak/", {"token": "signed-token"}, format="json")
+
+    @patch("accounts.views.verify_keycloak_token")
+    def test_new_people_found_their_own_workspace(self, verify):
+        Organization.objects.create(name="Acme Workspace")
+        response = self._sign_in(verify, {"realm_access": {"roles": ["backend"]}})
+        self.assertEqual(response.status_code, 200, response.content)
+        user = User.objects.get(email="kc@acme.test")
+        self.assertEqual(user.role, "ceo")
+        self.assertEqual(user.organization.name, "Kc Person's workspace")
+        self.assertEqual(user.organization.subscription_tier, "starter")
+        self.assertTrue(user.memberships.filter(organization=user.organization, role="ceo").exists())
+
+    @patch("accounts.views.verify_keycloak_token")
+    def test_provider_roles_map_to_workspace_roles(self, verify):
+        org = Organization.objects.create(name="Acme")
+        response = self._sign_in(verify, {"organization": "Acme", "realm_access": {"roles": ["backend"]}})
+        self.assertEqual(response.status_code, 200, response.content)
+        user = User.objects.get(email="kc@acme.test")
+        self.assertEqual((user.organization_id, user.role), (org.id, "member"))
+        self.assertTrue(user.memberships.filter(organization=org, role="member").exists())
+
+    @patch("accounts.views.verify_keycloak_token")
+    def test_agent_seats_cannot_sign_in(self, verify):
+        org = Organization.objects.create(name="Acme")
+        User.objects.create_user(email="kc@acme.test", password=None, organization=org, role="qa", agent_key="qa")
+        response = self._sign_in(verify, {"realm_access": {"roles": ["member"]}})
+        self.assertEqual(response.status_code, 401)

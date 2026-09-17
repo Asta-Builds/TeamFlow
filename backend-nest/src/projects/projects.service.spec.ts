@@ -92,3 +92,49 @@ it('decomposes plan into 3 sprint tickets with agent assignments', async () => {
   expect(prisma.task.create).toHaveBeenCalledTimes(3);
   expect(prisma.notification.create).toHaveBeenCalledTimes(1);
 });
+
+describe('devopsCreateRepo', () => {
+  const owner = { id: 4, role: 'member', organizationId: 2 };
+  function setup(project: any = { id: 1, organizationId: 2, ownerId: 4 }) {
+    const prisma = {
+      project: {
+        findUnique: vi.fn().mockResolvedValue(project),
+        update: vi.fn(),
+      },
+    };
+    const http = { axiosRef: { post: vi.fn() } };
+    return { prisma, http, service: new ProjectsService(prisma as any, http as any) };
+  }
+  beforeEach(() => {
+    vi.stubEnv('PYTHON_AI_JWT_SECRET', 'e'.repeat(48));
+    vi.stubEnv('PYTHON_AI_SERVICE_URL', 'https://exec.example');
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('rejects other workspaces and non-owners before provisioning', async () => {
+    const other = setup({ id: 1, organizationId: 9, ownerId: 4 });
+    await expect(other.service.devopsCreateRepo(1, {}, owner)).rejects.toThrow('Access denied');
+    expect(other.http.axiosRef.post).not.toHaveBeenCalled();
+
+    const notOwner = setup({ id: 1, organizationId: 2, ownerId: 99 });
+    await expect(notOwner.service.devopsCreateRepo(1, {}, owner)).rejects.toThrow('project owner');
+    expect(notOwner.http.axiosRef.post).not.toHaveBeenCalled();
+  });
+
+  it('never links a simulated repository when provisioning fails', async () => {
+    const { service, prisma, http } = setup();
+    http.axiosRef.post.mockRejectedValue(new Error('ECONNREFUSED'));
+    await expect(service.devopsCreateRepo(1, { org: 'example-org' }, owner)).rejects.toMatchObject({ status: 503 });
+
+    http.axiosRef.post.mockResolvedValue({ status: 503, data: { ok: false, error: 'GitHub is not configured' } });
+    await expect(service.devopsCreateRepo(1, {}, owner)).rejects.toThrow('GitHub is not configured');
+    expect(prisma.project.update).not.toHaveBeenCalled();
+  });
+
+  it('returns the provisioning result from the execution service', async () => {
+    const { service, http } = setup();
+    const data = { ok: true, full_name: 'example-org/app', pushed: true };
+    http.axiosRef.post.mockResolvedValue({ status: 200, data });
+    await expect(service.devopsCreateRepo(1, {}, owner)).resolves.toEqual(data);
+  });
+});

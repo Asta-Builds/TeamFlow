@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/c
 import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { ClerkService } from '../auth/clerk.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { ACTIVE_SEATS, withActiveSeat } from '../common/workspace.js';
 
 export const MCP_READ_SCOPE = 'teamflow.read';
 export const MCP_WRITE_SCOPE = 'teamflow.write';
@@ -37,6 +38,7 @@ export class McpPrincipalService {
 
     const linkedUser = await this.prisma.user.findUnique({
       where: { clerkId },
+      include: { memberships: ACTIVE_SEATS },
     });
     if (linkedUser) return this.requireActiveWorkspace(linkedUser);
 
@@ -55,10 +57,10 @@ export class McpPrincipalService {
           'This TeamFlow account is linked to a different Clerk identity.',
         );
       }
-      if (user.clerkId === clerkId) return user;
       return tx.user.update({
         where: { id: user.id },
         data: { clerkId },
+        include: { memberships: ACTIVE_SEATS },
       });
     });
 
@@ -66,13 +68,17 @@ export class McpPrincipalService {
   }
 
   private requireActiveWorkspace<T extends {
+    id: number;
+    role: string;
+    agentKey: string;
     isActive: boolean;
     organizationId: number | null;
+    memberships: { organizationId: number; role: string }[];
   }>(user: T): T {
-    if (!user.isActive) {
+    if (!user.isActive || user.agentKey) {
       throw new ForbiddenException('This TeamFlow account is disabled');
     }
-    if (!user.organizationId) {
+    if (!withActiveSeat(user).organizationId) {
       throw new ForbiddenException('This TeamFlow account has no active workspace');
     }
     return user;

@@ -8,7 +8,14 @@ import request from 'supertest';
 describe('HTTP authentication and tenant boundaries', () => {
   let app: INestApplication;
   let access: string;
-  const user = { id: 1, organizationId: 10, role: 'member', isActive: true };
+  const user = {
+    id: 1,
+    organizationId: 10,
+    role: 'member',
+    agentKey: '',
+    isActive: true,
+    memberships: [{ organizationId: 10, role: 'member' }],
+  };
   const prisma = {
     user: { findUnique: vi.fn().mockResolvedValue(user) },
     comment: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn() },
@@ -32,7 +39,7 @@ describe('HTTP authentication and tenant boundaries', () => {
     );
     await app.init();
     access = new JwtService().sign(
-      { user_id: 1, token_type: 'access' },
+      { user_id: 1, token_type: 'access', sid: 'session-1' },
       { secret: process.env.JWT_SECRET, expiresIn: '5m' },
     );
   });
@@ -69,6 +76,22 @@ describe('HTTP authentication and tenant boundaries', () => {
       }),
     );
   });
+  it('denies workspace data once the seat in the active workspace is gone', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({ ...user, memberships: [] });
+    await request(app.getHttpServer())
+      .get('/api/comments')
+      .auth(access, { type: 'bearer' })
+      .expect(403);
+    expect(prisma.comment.findMany).not.toHaveBeenCalled();
+  });
+  it('rejects sessions of AI agent seats', async () => {
+    prisma.user.findUnique.mockResolvedValueOnce({ ...user, agentKey: 'pm' });
+    await request(app.getHttpServer())
+      .get('/api/comments')
+      .auth(access, { type: 'bearer' })
+      .expect(401);
+    expect(prisma.comment.findMany).not.toHaveBeenCalled();
+  });
   it('rejects cross-project comment creation without persisting', async () => {
     await request(app.getHttpServer())
       .post('/api/comments')
@@ -84,6 +107,23 @@ describe('HTTP authentication and tenant boundaries', () => {
       .send({ status: 'not-a-status' })
       .expect(400);
     expect(prisma.task.findFirst).not.toHaveBeenCalled();
+  });
+  it('rejects access tokens without a session or with an ended session', async () => {
+    const sessionless = new JwtService().sign(
+      { user_id: 1, token_type: 'access' },
+      { secret: process.env.JWT_SECRET, expiresIn: '5m' },
+    );
+    await request(app.getHttpServer())
+      .get('/api/comments')
+      .auth(sessionless, { type: 'bearer' })
+      .expect(401);
+
+    prisma.$queryRaw.mockResolvedValueOnce([{ blacklisted: true }]);
+    await request(app.getHttpServer())
+      .get('/api/comments')
+      .auth(access, { type: 'bearer' })
+      .expect(401);
+    expect(prisma.comment.findMany).not.toHaveBeenCalled();
   });
   it('rejects refresh-typed tokens even with a valid access signature', async () => {
     const token = new JwtService().sign(

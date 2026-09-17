@@ -13,7 +13,9 @@ from typing import Dict, Any, Optional
 
 from .git_service import (
     get_project_workspace,
+    git_pull,
     git_checkout_branch,
+    run_project_build,
     git_commit,
     git_push,
     git_create_pull_request,
@@ -30,6 +32,30 @@ def clean_code_content(code_str: str) -> str:
     if cleaned.endswith("```"):
         cleaned = cleaned[:-3].strip()
     return cleaned
+
+
+def safe_workspace_path(project_workspace: str, rel_path: str) -> Optional[str]:
+    """
+    Resolve a model-supplied file path inside the project workspace.
+
+    Returns None for absolute paths, parent-directory segments, anything inside a
+    ``.git`` directory (hooks would run on the next commit), or paths that resolve
+    outside the workspace through symlinks.
+    """
+    candidate = (rel_path or "").strip().replace("\\", "/")
+    if not candidate or candidate.startswith("/") or re.match(r"^[A-Za-z]:", candidate):
+        return None
+    parts = [p for p in candidate.split("/") if p not in ("", ".")]
+    if not parts or any(p == ".." for p in parts) or any(p.lower() == ".git" for p in parts):
+        return None
+    root = os.path.realpath(project_workspace)
+    resolved = os.path.realpath(os.path.join(root, *parts))
+    try:
+        if os.path.commonpath([resolved, root]) != root or resolved == root:
+            return None
+    except ValueError:
+        return None
+    return resolved
 
 
 def parse_and_apply_code_changes(
@@ -107,12 +133,14 @@ def parse_and_apply_code_changes(
         target_repo = getattr(task.project, "github_repo", "")
         project_name = getattr(task.project, "name", "Project Codebase")
     
-    # 3. Autonomous Git Branching inside the isolated project repository
+    # 3. Autonomous Git Lifecycle: Pull latest main first
     task_id = getattr(task, "id", "dev") if task else "dev"
     task_title = getattr(task, "title", "code updates") if task else "code updates"
     clean_title = re.sub(r'[^a-zA-Z0-9]+', '-', task_title.lower()).strip('-')[:28]
     branch_name = f"feat/ticket-{task_id}-{clean_title}"
 
+    # Synchronize with main before feature branching
+    pull_res = git_pull("main", cwd=project_workspace)
     git_checkout_branch(branch_name, create_if_missing=True, cwd=project_workspace)
 
     # Relative display path for UI
@@ -121,14 +149,17 @@ def parse_and_apply_code_changes(
         workspace_rel_display = os.path.basename(project_workspace)
 
     summary_parts = []
-    summary_parts.append(f"\n\n### 🛠️ Modifications du Projet `{project_name}`")
-    summary_parts.append(f"📁 **Répertoire Dédié :** `{workspace_rel_display}/`")
+    summary_parts.append(f"\n\n### Project Modifications: `{project_name}`")
+    summary_parts.append(f"- Dedicated Workspace: `{workspace_rel_display}/`")
 
     written_files = []
 
     for rel_path, code in file_blocks:
-        rel_path = rel_path.strip().replace("..", "").strip("/")
-        abs_path = os.path.join(project_workspace, rel_path)
+        abs_path = safe_workspace_path(project_workspace, rel_path)
+        if abs_path is None:
+            summary_parts.append(f"\n- Skipped unsafe path: `{rel_path.strip()}`")
+            continue
+        rel_path = os.path.relpath(abs_path, os.path.realpath(project_workspace)).replace(os.sep, "/")
 
         old_lines = []
         if os.path.exists(abs_path):
@@ -155,18 +186,32 @@ def parse_and_apply_code_changes(
             diff_text = "".join(diff)
 
             if diff_text:
-                summary_parts.append(f"\n📂 **Fichier modifié :** `{rel_path}`")
-                summary_parts.append("```diff\n" + diff_text[:800] + ("\n... (diff tronqué)" if len(diff_text) > 800 else "") + "\n```")
+                summary_parts.append(f"\n- File Modified: `{rel_path}`")
+                summary_parts.append("```diff\n" + diff_text[:800] + ("\n... (diff truncated)" if len(diff_text) > 800 else "") + "\n```")
             else:
-                summary_parts.append(f"\n🆕 **Fichier créé :** `{rel_path}`")
-                summary_parts.append("```tsx\n" + code_cleaned[:300] + ("\n... (code tronqué)" if len(code_cleaned) > 300 else "") + "\n```")
+                summary_parts.append(f"\n- File Created: `{rel_path}`")
+                summary_parts.append("```tsx\n" + code_cleaned[:300] + ("\n... (code truncated)" if len(code_cleaned) > 300 else "") + "\n```")
 
         except Exception as e:
             logger.error(f"Failed to write file {abs_path}: {e}")
-            summary_parts.append(f"\n❌ **Erreur sur `{rel_path}` :** {e}")
+            summary_parts.append(f"\n- Error on `{rel_path}`: {e}")
 
-    # 4. Autonomous Git Commit in the project repository
+    # 4. Autonomous Project Build & Static Analysis Verification
+    build_res = run_project_build(project_workspace)
+    build_passed = build_res.get("success", False)
+
+    summary_parts.append("\n\n### Build & Static Analysis Verification")
+    if build_passed:
+        summary_parts.append(f"- Build Result: {build_res.get('output', 'Success')}")
+        summary_parts.append(f"- Analysis Duration: `{build_res.get('duration_seconds', 0)}s` ({build_res.get('files_checked', len(written_files))} files audited)")
+    else:
+        summary_parts.append(f"- Build Warning: {build_res.get('output', 'Build error')}")
+
+    # 5. Autonomous Git Commit in the project repository
     commit_msg = f"feat({agent_role}): {task_title} [ticket #{task_id}]"
+    if not build_passed:
+        commit_msg = f"wip({agent_role}): {task_title} [ticket #{task_id}] (build warnings)"
+
     commit_res = git_commit(
         message=commit_msg,
         author_name=agent_name,
@@ -175,38 +220,56 @@ def parse_and_apply_code_changes(
         cwd=project_workspace
     )
 
-    # 5. Autonomous Git Push in the project repository
-    push_res = git_push(branch_name, cwd=project_workspace)
+    # 6. Push only a successful commit
+    committed = bool(commit_res.get("success"))
+    push_res = git_push(branch_name, cwd=project_workspace) if committed else {
+        "success": False,
+        "output": "Not pushed because the commit did not succeed.",
+    }
 
-    # 6. Autonomous Pull Request Creation
+    # 7. Pull Request Creation (only for a pushed branch on a linked repository)
     pr_url = ""
-    if target_repo and "/" in target_repo:
+    if push_res.get("success") and target_repo and "/" in target_repo:
         pr_body = (
-            f"## 🤖 Automated PR by {agent_name} ({agent_role})\n\n"
-            f"**Project :** {project_name}\n"
-            f"**Ticket :** #{task_id} — {task_title}\n\n"
-            f"### 📂 Modified Files\n" +
+            f"## Autonomous Engineering PR by {agent_name} ({agent_role})\n\n"
+            f"**Project:** {project_name}\n"
+            f"**Ticket:** #{task_id} - {task_title}\n\n"
+            f"### Modified Files\n" +
             "\n".join(f"- `{f}`" for f in written_files) +
-            f"\n\n### 🛡️ Code Review Guidelines\n"
+            f"\n\n### Build & Verification\n"
+            f"- Build Status: {'PASSED' if build_passed else 'FAILED'}\n"
+            f"- Output: {build_res.get('output', '')}\n\n"
+            f"### Code Review Guidelines\n"
             f"- Built inside dedicated project workspace `{workspace_rel_display}`\n"
+            f"- Pull latest main: {pull_res.get('output', '')}\n"
             f"- Follows TeamFlow virtual company guidelines\n"
         )
         pr_res = git_create_pull_request(
             repo=target_repo,
             title=f"feat({agent_role}): {task_title} (#{task_id})",
             body=pr_body,
-            head_branch=branch_name
+            head_branch=branch_name,
+            cwd=project_workspace,
         )
         pr_url = pr_res.get("pr_url", "")
-    else:
-        pr_url = f"https://github.com/local-projects/{clean_title}/pull/1"
 
-    # 7. Format Git Activity Summary
-    summary_parts.append("\n\n### 🌿 Cycle Git & GitHub Autonome (Projet Dédié)")
-    summary_parts.append(f"- 🎋 **Branche :** `{branch_name}`")
-    if commit_res.get("sha"):
-        summary_parts.append(f"- 💾 **Commit SHA :** `{commit_res['sha']}` *(Auteur : {agent_name} `<{agent_email}>`)*")
+    # 8. Format Git Activity Summary
+    summary_parts.append("\n\n### Autonomous Git Lifecycle")
+    summary_parts.append(f"- Git Pull (main): {pull_res.get('output', 'not run')}")
+    summary_parts.append(f"- Branch: `{branch_name}`")
+    if committed and commit_res.get("committed"):
+        summary_parts.append(f"- Commit SHA: `{commit_res.get('sha', '')}` (Author: {agent_name} `<{agent_email}>`)")
+    elif committed:
+        summary_parts.append("- Commit: no new changes to commit")
+    else:
+        summary_parts.append(f"- Commit failed: {commit_res.get('output', '')}")
+    if push_res.get("success"):
+        summary_parts.append(f"- Git Push: branch `{branch_name}` pushed to the linked remote")
+    else:
+        summary_parts.append(f"- Git Push: not pushed ({push_res.get('output', '')})")
     if pr_url:
-        summary_parts.append(f"- 🚀 **Pull Request :** [#{task_id} — feat({agent_role}): {task_title}]({pr_url})")
+        summary_parts.append(f"- Pull Request: [#{task_id} - feat({agent_role}): {task_title}]({pr_url})")
+    else:
+        summary_parts.append("- Pull Request: none opened")
 
     return "\n".join(summary_parts)

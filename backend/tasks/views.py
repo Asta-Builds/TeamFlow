@@ -1,9 +1,12 @@
+import logging
 from rest_framework import decorators, permissions, response, status, viewsets
 
 from teamflow.permissions import IsOwnerOrPrivileged, visible_tasks_for
 from notifications.models import Notification
 from .models import Comment, Task, TaskActivity
 from .serializers import CommentSerializer, TaskActivitySerializer, TaskSerializer
+
+logger = logging.getLogger(__name__)
 
 
 class TaskViewSet(viewsets.ModelViewSet):
@@ -262,7 +265,7 @@ class TaskViewSet(viewsets.ModelViewSet):
         Comment.objects.create(
             task=task,
             author=request.user,
-            body=f"❌ QA Rejected: {reason}"
+            body=f"QA Rejected: {reason}"
         )
 
         TaskActivity.objects.create(
@@ -346,4 +349,31 @@ class CommentViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        comment = serializer.save(author=self.request.user)
+        self._dispatch_agent_mentions(comment)
+
+    def _dispatch_agent_mentions(self, comment):
+        """
+        Queue an agent prompt when a privileged human mentions an agent (@tech_lead, @qa, ...).
+        Uses the same authorization rule as the direct agent-run endpoint and never runs
+        for agent-authored comments, which prevents agent-to-agent loops.
+        """
+        user = self.request.user
+        if not comment.body or not comment.task or not user.is_privileged or getattr(user, "is_ai_agent", False):
+            return
+        from agents.agent_prompter import extract_agent_tags
+
+        if not extract_agent_tags(comment.body):
+            return
+        from django.db import transaction
+        from agents.queue import AgentQueueError, get_active_trace, queue_prompt_run
+
+        def _queue():
+            if get_active_trace(comment.task):
+                return
+            try:
+                queue_prompt_run(comment.task, comment.body, user)
+            except AgentQueueError as exc:
+                logger.warning("Failed to queue prompt run from comment mention: %s", exc)
+
+        transaction.on_commit(_queue)

@@ -78,7 +78,7 @@ it.each([
     comments: () => tasks.getComments(user),
     plans: () => pulse.getPlanItems(user),
     deployments: () => new DeploymentsService(prisma as any).findAll(user),
-    audits: () => new SeoService(prisma as any).findAll(user),
+    audits: () => new SeoService(prisma as any, {} as any).findAll(user),
   };
   await expect(calls[operation]()).rejects.toThrow('organization');
   expect(prisma.task.findMany).not.toHaveBeenCalled();
@@ -239,27 +239,8 @@ it('rejects inaccessible tasks in personal plans and another users plan item in 
   expect(prisma.pulsePlanItem.create).not.toHaveBeenCalled();
   expect(prisma.pulseFocusSession.create).not.toHaveBeenCalled();
 });
-it('executes deployment, rollback and SEO audit with real providers', async () => {
+it('runs SEO audits against the fetched page and refuses internal targets', async () => {
   const { prisma } = setup();
-  prisma.project.findFirst.mockResolvedValue({ id: 2, organizationId: 10 } as any);
-  prisma.project.findUnique.mockResolvedValue({ id: 2, organizationId: 10, name: 'Test' } as any);
-  prisma.deployment.findUnique.mockResolvedValue({
-    id: 5,
-    projectId: 2,
-    organizationId: 10,
-    commitSha: 'abc1234',
-    branch: 'main',
-    environment: 'staging',
-    project: { id: 2, name: 'Test' },
-  });
-  prisma.deployment.create.mockImplementation((args: any) => Promise.resolve({
-    id: 10,
-    ...args.data,
-    startedAt: new Date(),
-    finishedAt: new Date(),
-    project: { name: 'Test' },
-    triggeredBy: { name: 'Admin', email: 'admin@example.com' },
-  }));
   prisma.sEOAudit.create.mockImplementation((args: any) => Promise.resolve({
     id: 20,
     ...args.data,
@@ -279,18 +260,17 @@ it('executes deployment, rollback and SEO audit with real providers', async () =
     },
   };
 
-  const service = new DeploymentsService(prisma as any);
-  const deployRes = await service.create({ project: 2 }, admin);
-  expect(deployRes.status).toBe('success');
-  expect(prisma.deployment.create).toHaveBeenCalled();
-
-  const rollbackRes = await service.rollback(5, admin);
-  expect(rollbackRes.status).toBe('rolled_back');
-
   const seoService = new SeoService(prisma as any, httpMock as any);
   const auditRes = await seoService.create({ url: 'https://example.com' }, admin);
   expect(auditRes.score).toBeGreaterThan(0);
   expect(prisma.sEOAudit.create).toHaveBeenCalled();
+  expect(httpMock.axiosRef.get.mock.calls[0][1].lookup).toBeTypeOf('function');
+
+  httpMock.axiosRef.get.mockClear();
+  await expect(
+    seoService.create({ url: 'http://169.254.169.254/latest/meta-data/' }, admin),
+  ).rejects.toThrow();
+  expect(httpMock.axiosRef.get).not.toHaveBeenCalled();
 });
 it('rejects foreign rollback targets', async () => {
   const { prisma } = setup();
@@ -332,5 +312,29 @@ describe('mock billing', () => {
       mock: true,
       tier: 'growth',
     });
+  });
+  it('sends real checkout to the Stripe integration outside development', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('PYTHON_AI_JWT_SECRET', 'g'.repeat(48));
+    vi.stubEnv('PYTHON_AI_SERVICE_URL', 'https://exec.example');
+    const { prisma } = setup();
+    const http = {
+      axiosRef: {
+        post: vi.fn().mockResolvedValue({ status: 200, data: { id: 'cs_live', url: 'https://checkout.stripe.com/x', mock: false } }),
+      },
+    };
+    const billing = new BillingService(prisma as any, http as any);
+    await expect(
+      billing.createCheckoutSession(admin, 'growth', 'https://app.example/billing', 'https://app.example/billing'),
+    ).resolves.toMatchObject({ mock: false });
+    expect(http.axiosRef.post.mock.calls[0][0]).toBe('https://exec.example/api/billing/create-checkout-session/');
+
+    http.axiosRef.post.mockResolvedValue({ status: 503, data: { detail: 'Billing is not configured.' } });
+    await expect(
+      billing.createPortalSession(admin, 'https://app.example/billing'),
+    ).rejects.toThrow('Billing is not configured.');
+    await expect(
+      billing.createCheckoutSession({ ...admin, role: 'member' }, 'growth', 'https://a.example', 'https://a.example'),
+    ).rejects.toThrow('privileged');
   });
 });

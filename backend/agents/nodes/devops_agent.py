@@ -29,35 +29,69 @@ def devops_agent_node(state: TicketState) -> Dict[str, Any]:
         remaining_work=["record deployment result", "close orchestration run"],
     )
 
-    # 1. Merge PR to main
-    merge_info = None
-    if pr_url:
-        merge_info = merge_pull_request(pr_url)
+    # 1. Merge the reviewed branch into main inside the project workspace
+    project_workspace = state.get("workspace_path", "")
+    branch_name = state.get("branch_name", "")
+    merge_info = merge_pull_request(
+        state.get("github_repo", "") or "",
+        source_branch=branch_name,
+        target_branch="main",
+        cwd=project_workspace,
+    ) if branch_name and project_workspace else {"status": "skipped", "output": "No branch was recorded for this run."}
+    merged = merge_info.get("status") == "merged"
 
-    # 2. Trigger automated deployment
-    deploy_info = trigger_app_deployment(
-        project_id=project_id,
-        environment="staging",
-        branch="main",
-        commit_sha=f"commit-{int(time.time()) % 10000}",
+    # 2. Request a staging deployment from the configured provider
+    if merged:
+        deploy_info = trigger_app_deployment(
+            project_id=project_id,
+            environment="staging",
+            branch="main",
+            commit_sha=merge_info.get("merged_sha", ""),
+        )
+    else:
+        deploy_info = {"ok": False, "error": "Skipped because the merge did not succeed."}
+
+    if deploy_info.get("ok"):
+        deployment_status = "in_progress"
+        release_line = f"Deployment #{deploy_info.get('deployment_id')} was accepted by the provider; it reports the final outcome."
+    elif deploy_info.get("configured") is False:
+        deployment_status = "not_configured"
+        release_line = "No deployment provider is configured, so no deployment was started."
+    else:
+        deployment_status = "failed"
+        release_line = f"No deployment is running: {deploy_info.get('error') or deploy_info.get('status')}."
+
+    merge_line = (
+        f"Merged `{branch_name}` into `main` at `{merge_info.get('merged_sha', '')}`."
+        if merged
+        else f"The merge did not happen: {merge_info.get('output', 'unknown reason')}"
     )
 
-    # 3. Mark ticket as Done in TeamFlow DB
+    # 3. Only a merged ticket is marked done; the release outcome is reported as-is.
     if ticket_id:
-        update_ticket_status(ticket_id, "done", actor_email="pm")
-        add_ticket_comment(
-            ticket_id,
-            "pm",
-            "🚀 DevOps Agent: PR merged into main. Staging deployment succeeded and health verified. Ticket resolved!"
+        if merged:
+            update_ticket_status(ticket_id, "done", actor_email="devops")
+        devops_comment = (
+            f"**Joan of Arc (AI) - DevOps Engineer**\n\n"
+            f"**Release step:**\n\n"
+            f"- **Merge:** {merge_line}\n"
+            f"- **Deployment:** {release_line}\n"
+            f"- **Ticket:** {'moved to Done' if merged else 'left open for follow-up'}."
         )
-        log_task_activity(ticket_id, "Athena (AI)", "deployed_release", {"environment": "staging"})
+        add_ticket_comment(ticket_id, "devops", devops_comment)
+        log_task_activity(
+            ticket_id,
+            "Joan of Arc (AI)",
+            "release_requested",
+            {"environment": "staging", "merged": merged, "deployment_status": deployment_status},
+        )
 
     step_log = {
         "node": "devops",
         "agent_role": "DevOps Engineer",
-        "action": "deploy_staging",
-        "message": f"DevOps agent merged PR {pr_url} to main and successfully deployed to Staging cluster.",
-        "deployment_status": "success",
+        "action": "release_step",
+        "message": f"{merge_line} {release_line}",
+        "deployment_status": deployment_status,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
         "tokens": 390,
         "cost_usd": 0.0039,
@@ -67,16 +101,16 @@ def devops_agent_node(state: TicketState) -> Dict[str, Any]:
         state,
         event_type="completed",
         sender_key="devops",
-        message="I finished the current release workflow step. The run can now be reviewed and closed.",
+        message=f"Release step recorded. {merge_line} {release_line}",
         current_work="Release workflow step completed",
         remaining_work=[],
         metadata={"deployment": deploy_info, "merge": merge_info},
     )
 
     return {
-        "status": "done",
-        "deployment_status": "success",
-        "deployment_logs": "=== Pipeline completed successfully. Container live on staging ===",
+        "status": "done" if merged else "in_review",
+        "deployment_status": deployment_status,
+        "deployment_logs": release_line,
         "assigned_agent": "done",
         "history": history,
         "total_tokens": total_tokens,

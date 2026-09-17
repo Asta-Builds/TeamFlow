@@ -104,13 +104,45 @@ def generate_llm_response(
                 return (
                     f"**[PR Merge & Staging Deployment Approved]**\n\n"
                     f"I've verified the pull request for **#{task.id} : {task.title}** and successfully merged `{branch_name}` into `main`.\n\n"
-                    f"- 🎋 **Merged Branch:** `{branch_name}` ➔ `main`\n"
-                    f"- 📦 **Merge Commit:** `{merge_res.get('merged_sha', 'HEAD')}`\n"
-                    f"- 📁 **Dedicated Workspace:** `{workspace_rel}`\n"
-                    f"- ✅ **Ticket Status:** Moved to **Done**."
+                    f"- **Merged Branch:** `{branch_name}` -> `main`\n"
+                    f"- **Merge Commit:** `{merge_res.get('merged_sha', 'HEAD')}`\n"
+                    f"- **Dedicated Workspace:** `{workspace_rel}`\n"
+                    f"- **Ticket Status:** Moved to **Done**."
                 )
         except Exception as e:
             logger.error(f"Tech Lead merge failed: {e}")
+
+    # 0b. Explicit Build & Pull Directives (strict phrase matching, never for questions)
+    from .directives import detect_directives
+    directives = detect_directives(prompt)
+    if "build" in directives:
+        try:
+            from .git_service import run_project_build, get_project_workspace
+            project_workspace = get_project_workspace(task)
+            b_res = run_project_build(project_workspace)
+            return (
+                f"**[{agent_info['name']} - Build Verification]**\n\n"
+                f"I ran the static checks in `{os.path.basename(project_workspace)}`:\n\n"
+                f"- **Status:** `{'PASSED' if b_res['success'] else 'FAILED'}`\n"
+                f"- **Output:** {b_res['output']}\n"
+                f"- **Duration:** `{b_res['duration_seconds']}s`"
+            )
+        except Exception as e:
+            logger.error(f"Build failed: {e}")
+
+    if "pull" in directives:
+        try:
+            from .git_service import git_pull, get_project_workspace
+            project_workspace = get_project_workspace(task)
+            p_res = git_pull("main", cwd=project_workspace)
+            return (
+                f"**[{agent_info['name']} - Git Pull]**\n\n"
+                f"Pull of `main` in workspace `{os.path.basename(project_workspace)}`:\n\n"
+                f"- **Status:** `{'Success' if p_res['success'] else 'Not synchronized'}`\n"
+                f"- **Details:** {p_res['output']}"
+            )
+        except Exception as e:
+            logger.error(f"Git pull failed: {e}")
 
     # 1. Query Google Antigravity SDK if Gemini key available
     gemini_key = os.getenv("GEMINI_API_KEY")

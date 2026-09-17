@@ -10,6 +10,7 @@ import type { Notification } from "@/lib/types";
 import { Avatar, AgentTypeBadge } from "@/lib/ui";
 import { toast } from "sonner";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { WorkspaceInvitations } from "@/components/WorkspaceInvitations";
 import {
   LayoutDashboard,
   Kanban,
@@ -30,7 +31,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects & Kanban", icon: Kanban },
   { href: "/pulse", label: "Pulse", icon: Timer },
-  { href: "/team", label: "Team & AI Seats", icon: Users },
+  { href: "/team", label: "People & AI Agents", icon: Users },
   { href: "/deployments", label: "Deployments", icon: Rocket },
   { href: "/compliance", label: "SEO Audits", icon: SearchCheck },
   { href: "/settings", label: "Workspace Settings", icon: Settings },
@@ -97,7 +98,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
-  const isHuman = user.role === "ceo";
+  const isAi = Boolean(user.is_ai_agent);
 
   const navItems = [...NAV];
   if (user.role === "admin" || user.role === "ceo") {
@@ -193,7 +194,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-2 truncate">
               <span className="truncate font-bold text-slate-900 dark:text-white">{user.name || user.email}</span>
             </div>
-            <AgentTypeBadge role={user.role} isAi={!isHuman} />
+            <AgentTypeBadge role={user.role} isAi={isAi} />
           </Link>
 
           <button
@@ -316,7 +317,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 <div className="flex items-center gap-2 truncate">
                   <span className="truncate font-bold text-slate-900 dark:text-white">{user.name || user.email}</span>
                 </div>
-                <AgentTypeBadge role={user.role} isAi={!isHuman} />
+                <AgentTypeBadge role={user.role} isAi={isAi} />
               </Link>
               <button
                 type="button"
@@ -457,7 +458,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                   <span>{user.name || user.email}</span>
                 </div>
                 <div className="mt-0.5 flex items-center justify-end gap-1.5">
-                  <AgentTypeBadge role={user.role} isAi={!isHuman} />
+                  <AgentTypeBadge role={user.role} isAi={isAi} />
                 </div>
               </div>
               <Avatar name={user.name} email={user.email} size={34} showStatus={true} status="active" />
@@ -471,6 +472,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           tabIndex={-1}
           className="flex-1 overflow-auto p-6 lg:p-8 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none transition-colors duration-150"
         >
+          <WorkspaceInvitations />
           {children}
         </main>
       </div>

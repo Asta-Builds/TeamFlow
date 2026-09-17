@@ -36,10 +36,13 @@ def get_or_create_agent_user(agent_key: str, organization):
         return existing
 
     email = _scoped_email(spec["email_local"], organization.id)
-    user, _created = User.objects.get_or_create(
+    user, created = User.objects.get_or_create(
         email=email,
         defaults={"organization": organization},
     )
+    if not created and (not user.agent_key or user.memberships.exists()):
+        # Never turn a person's account into an agent seat.
+        raise ValueError(f"The agent address {email} belongs to a person's account.")
 
     user.organization = organization
     user.agent_key = canonical_key

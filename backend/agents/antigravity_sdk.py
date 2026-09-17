@@ -138,7 +138,7 @@ class AntigravityAgentEngine:
             thoughts.append(text)
             _broadcast("thought", text)
 
-        _broadcast("started", f"Athena is analyzing ticket #{task.id} with Google Antigravity SDK.")
+        _broadcast("started", f"{self.spec['name']} is analyzing ticket #{task.id} with Google Antigravity SDK.")
         _add_thought(f"[Antigravity SDK] Initializing agent persona '{self.spec['name']}' ({self.agent_key})")
         _add_thought(f"[Antigravity SDK] Ingesting prompt instructions: '{prompt[:60]}...'")
         _add_thought(f"[Antigravity SDK] Retrieving pgvector RAG memory embeddings ({len(rag_context)} chunks found)")
@@ -149,12 +149,39 @@ class AntigravityAgentEngine:
             tool_calls.append(tc)
             _broadcast("tool_call", f"Executed tool `{name}`: {output}", metadata={"name": name, "args": args, "output": output})
 
-        # Simulate Antigravity Tool Invocations based on role
+        # Explicit workspace directives only (see agents/directives.py)
+        from .directives import PUSH_ROLES, detect_directives
+        from .git_service import get_project_workspace, git_pull, run_project_build, git_push, get_current_branch
+        project_workspace = get_project_workspace(task)
+        directives = detect_directives(prompt)
+
+        if "pull" in directives:
+            _add_thought(f"[{self.spec['name']}] Pulling main from the linked remote in the project workspace")
+            pull_res = git_pull("main", cwd=project_workspace)
+            _add_tool_call("git_pull", {"branch": "main"}, pull_res.get("output", ""))
+
+        if "build" in directives:
+            _add_thought(f"[{self.spec['name']}] Running static checks in the project workspace")
+            build_res = run_project_build(project_workspace)
+            _add_tool_call("run_project_build", {}, build_res.get("output", ""))
+
+        if "push" in directives:
+            cur_branch = get_current_branch(cwd=project_workspace)
+            if self.role not in PUSH_ROLES:
+                _add_tool_call("git_push", {"branch": cur_branch}, f"Not pushed: the {self.role} seat does not push branches.")
+            elif cur_branch in {"main", "master", "HEAD"}:
+                _add_tool_call("git_push", {"branch": cur_branch}, "Not pushed: prompts never push the main branch.")
+            else:
+                _add_thought(f"[{self.spec['name']}] Pushing branch {cur_branch} to the linked remote")
+                push_res = git_push(cur_branch, cwd=project_workspace)
+                _add_tool_call("git_push", {"branch": cur_branch}, push_res.get("output", ""))
+
+        # Tool Invocations based on role and task context
         repo_name = getattr(task.project, "github_repo", "") or ""
 
         if self.role == "pm":
-            _add_thought("[Antigravity SDK: Thinking] Analyzing project phases (Initiation -> Planning) and defining scope boundaries")
-            _add_thought("[Antigravity SDK: Thinking] Synthesizing Work Breakdown Structure (WBS) with risk matrix and DoD acceptance criteria")
+            _add_thought(f"[{self.spec['name']}] Analyzing project phases (Initiation -> Planning) and defining scope boundaries")
+            _add_thought(f"[{self.spec['name']}] Synthesizing Work Breakdown Structure (WBS) with risk matrix and DoD acceptance criteria")
             _add_tool_call(
                 name="wbs_decomposition_and_risk_matrix",
                 args={"project": task.project.name if task.project else "Workspace", "feature": prompt},
@@ -162,67 +189,56 @@ class AntigravityAgentEngine:
             )
 
         elif self.role in {"tech_lead", "backend"}:
-            _add_thought("[Antigravity SDK: Thinking] Analyzing architectural dependencies and branch strategy")
+            _add_thought(f"[{self.spec['name']}] Analyzing architectural dependencies and branch strategy")
             _add_tool_call(
                 name="pgvector_rag_query",
                 args={"query": f"{task.title} {prompt}", "top_k": 3},
                 output=f"Retrieved {len(rag_context)} chunks from vector store"
             )
             if self.role == "backend":
-                if not repo_name:
-                    _add_tool_call(
-                        name="repository_configuration_required",
-                        args={},
-                        output="No repository is linked to this project; branch and pull-request creation were skipped."
-                    )
-                else:
-                    slug = task.title.lower().replace(" ", "-")[:24] if task.title else f"ticket-{task.id}"
-                    branch_name = f"feat/{slug}"
-                    branch_res = create_branch(repo_name, branch_name)
-                    _add_tool_call(
-                        name="create_branch",
-                        args={"repo": repo_name, "branch": branch_name},
-                        output=branch_res.get("message") or f"Checked out branch {branch_name}"
-                    )
-                    pr_title = f"feat(backend): {task.title}"
-                    pr_body = (
-                        f"## Summary\n"
-                        f"Autonomous backend implementation for #{task.id}: {task.title}.\n\n"
-                        f"### Context & Requirements\n"
-                        f"{prompt}"
-                    )
-                    pr_res = open_pull_request(repo_name, pr_title, pr_body, branch_name)
-                    _add_tool_call(
-                        name="open_pull_request",
-                        args={"repo": repo_name, "title": pr_title, "branch": branch_name},
-                        output=pr_res.get("pr_url", f"https://github.com/{repo_name}/tree/{branch_name}")
-                    )
+                # Branches and pull requests are created only when code is actually written
+                # (see code_writer.parse_and_apply_code_changes); report the workspace state here.
+                _add_tool_call(
+                    name="repository_status",
+                    args={"repo": repo_name or None},
+                    output=(
+                        f"Linked repository: {repo_name}. Current branch: {get_current_branch(cwd=project_workspace)}."
+                        if repo_name
+                        else "No repository is linked to this project; pushes and pull requests are unavailable."
+                    ),
+                )
 
         elif self.role == "qa":
-            _add_thought("[Antigravity SDK: Thinking] Evaluating test coverage and validating acceptance criteria gate")
+            _add_thought(f"[{self.spec['name']}] Evaluating test coverage and validating acceptance criteria gate")
+            qa_res = run_project_build(project_workspace)
             _add_tool_call(
-                name="run_integration_suite",
-                args={"ticket_id": task.id, "coverage": True},
-                output="Integration suite passed: 100% test gate satisfied."
+                name="run_static_checks",
+                args={"ticket_id": task.id},
+                output=qa_res.get("output", ""),
             )
 
         elif self.role == "devops":
-            _add_thought("[Antigravity SDK: Thinking] Verifying Staging Docker container health and triggering deployment")
-            try:
-                dep_res = trigger_app_deployment(task.project_id, environment="staging")
-                output_str = f"Deployment #{dep_res.get('deployment_id')} triggered (status: {dep_res.get('status')})"
-            except Exception as e:
-                output_str = f"Staging container health verified: {e}"
+            _add_thought(f"[{self.spec['name']}] Requesting a staging deployment from the configured provider")
+            dep_res = trigger_app_deployment(task.project_id, environment="staging")
+            if dep_res.get("ok"):
+                output_str = (
+                    f"Deployment #{dep_res.get('deployment_id')} accepted by the provider "
+                    f"(status: {dep_res.get('status')}). The provider reports the final outcome."
+                )
+            elif dep_res.get("configured") is False:
+                output_str = "No deployment provider is configured; no deployment was started."
+            else:
+                output_str = f"Deployment request failed: {dep_res.get('error') or dep_res.get('status')}"
             _add_tool_call(
-                name="verify_staging_pipeline",
-                args={"environment": "staging", "health_endpoint": "/api/health/"},
-                output=output_str
+                name="request_staging_deployment",
+                args={"environment": "staging"},
+                output=output_str,
             )
 
         # Generate intelligent response
         _broadcast("progress", f"Synthesizing dynamic response for {task.title}...")
         response_text = self._build_antigravity_response(task, prompt, rag_context, tool_calls, user=user)
-        _broadcast("completed", f"Athena response ready ({len(response_text)} chars).", metadata={"response_preview": response_text[:140]})
+        _broadcast("completed", f"{self.spec['name']} response ready ({len(response_text)} chars).", metadata={"response_preview": response_text[:140]})
 
         duration = round(time.time() - start_time, 2)
         tokens = 350 + len(prompt.split()) * 10
@@ -292,8 +308,10 @@ class AntigravityAgentEngine:
         project_desc = getattr(task.project, "description", "") or ""
 
         system_prompt = (
-            f"You are Athena, Senior AI Product Manager & Delivery Architect at TeamFlow.\n"
-            f"You are collaborating directly with the CEO / human founder.\n"
+            f"You are {self.spec['name']}, {self.spec['title']} at TeamFlow.\n"
+            f"Your specialty: {self.spec['specialty']}.\n"
+            f"Persona & Tone: {self.spec.get('persona_voice', '')}\n"
+            f"You are collaborating directly with the CEO and your fellow engineering teammates.\n"
             f"Project: '{project_name}' (Overview: {project_desc})\n"
             f"Ticket: #{task.id} - {task.title}\n"
             f"Status: {task.status} | Priority: {task.priority}\n"
@@ -302,10 +320,10 @@ class AntigravityAgentEngine:
             f"Recent Conversation History on Ticket:\n" + (comments_history if comments_history else "No previous comments.") + "\n\n"
             f"Tools Executed This Turn: " + (", ".join(t.name for t in tool_calls) if tool_calls else "None") + "\n\n"
             f"HUMAN COLLABORATION PRINCIPLES:\n"
-            f"1. Tone: Speak like an exceptional, senior human colleague (like a Staff PM at Stripe or Linear). Warm, professional, proactive, and concise.\n"
-            f"2. No Robotic Prefixes: Never start with rigid robot declarations like '[Google Antigravity SDK · Athena] Phase Governance Status...'. Start naturally.\n"
-            f"3. Active Listening: Address the user's specific prompt directly. If the prompt is a question, answer it. If it is an instruction, report on the plan or action taken.\n"
-            f"4. Constructive Pushback: If a request introduces scope creep or technical debt, gently flag the trade-off and propose a pragmatic path forward.\n"
+            f"1. Tone: Speak like an authentic, high-caliber senior software engineer (warm, technically grounded, proactive, and concise).\n"
+            f"2. Never use robotic declarations like '[Google Antigravity SDK · Athena] Phase Governance Status...'. Speak directly as {self.spec['name']}.\n"
+            f"3. Active Listening: Address the user's specific prompt directly. If asked to pull, build, or push, confirm what was executed and summarize the build/git status.\n"
+            f"4. Constructive Pushback: If a request introduces scope creep, technical debt, or architectural conflicts, gently flag the trade-off and propose a pragmatic path forward.\n"
             f"5. Code Generation: If the user asks to implement, create, or modify code, output each standalone file block in this exact format:\n"
             f"FILE: [path/to/file_relative_to_workspace]\n"
             f"CODE:\n"
@@ -376,7 +394,7 @@ class AntigravityAgentEngine:
             if not author_name and comments_history:
                 for match in re.finditer(r"\[(.*?)\]", comments_history):
                     candidate = match.group(1).strip()
-                    if "athena" not in candidate.lower() and "agent" not in candidate.lower():
+                    if "agent" not in candidate.lower() and candidate.lower() not in self.spec["name"].lower():
                         author_name = candidate
             author_greet = f"Hey {author_name.split()[0]}!" if author_name else "Hey!"
 
@@ -384,20 +402,25 @@ class AntigravityAgentEngine:
             is_question = any(w in prompt_lower for w in ["?", "how", "what", "why", "when", "can we", "should we", "est-ce que", "comment"])
             is_approval = any(w in prompt_lower for w in ["approve", "looks good", "lgmt", "valide", "merge", "ship it", "go ahead"])
             is_scope_risk = any(w in prompt_lower for w in ["everything", "all features", "crypto", "blockchain", "asap", "demain", "immediately"])
-            is_code_request = any(w in prompt_lower for w in ["implement", "code", "write", "build", "create", "fix", "add", "développe", "ajoute"])
+            workspace_tools = [t for t in tool_calls if t.name in {"git_pull", "run_project_build", "git_push"}]
+            is_git_request = bool(workspace_tools)
 
             lines = []
-            lines.append(f"{author_greet} I've reviewed your note regarding **#{task.id}: {task.title}**.")
+            lines.append(f"{author_greet} {self.spec['name']} here ({self.spec['title']}). I've reviewed your note regarding **#{task.id}: {task.title}**.")
 
-            if is_approval:
+            if is_git_request:
+                lines.append("\nHere is what happened in the project workspace:")
+                for tool in workspace_tools:
+                    lines.append(f"- `{tool.name}`: {tool.output}")
+            elif is_approval:
                 lines.append(
                     f"\nGreat! Moving ahead with the plan. I've verified the Definition of Done acceptance criteria "
                     f"and ensured our branch changes remain strictly isolated."
                 )
             elif is_question:
                 lines.append(
-                    f"\nRegarding your question: *\"{prompt_clean}\"*\n"
-                    f"Looking at the current state (`{task.status}` priority: `{task.priority}`), our primary objective is delivering "
+                    f"\nRegarding your question (*\"{prompt_clean}\"*):\n"
+                    f"Looking at our current state (`{task.status}`, priority: `{task.priority}`), our primary objective is delivering "
                     f"the core functionality cleanly. Grounded in our {len(rag_context)} architectural RAG context chunks, "
                     f"we can achieve this while keeping the sprint timeline on track."
                 )
@@ -429,7 +452,7 @@ class AntigravityAgentEngine:
                 task=task,
                 agent_info={
                     "name": self.spec["name"],
-                    "email": getattr(user, "email", "") if user else "",
+                    "email": f"{self.spec['email_local']}@teamflow.dev",
                     "role": self.role
                 }
             )

@@ -13,6 +13,8 @@ const activeUser = {
   isActive: true,
   organizationId: 3,
   role: 'member',
+  agentKey: '',
+  memberships: [{ organizationId: 3, role: 'member' }],
 };
 
 function auth(scopes: string[], userId = 'user_existing'): AuthInfo {
@@ -72,10 +74,32 @@ describe('McpPrincipalService', () => {
     await expect(
       service.resolve(auth([MCP_READ_SCOPE], 'user_new'), false),
     ).resolves.toEqual(updatedUser);
-    expect(tx.user.update).toHaveBeenCalledWith({
-      where: { id: activeUser.id },
-      data: { clerkId: 'user_new' },
-    });
+    expect(tx.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: activeUser.id },
+        data: { clerkId: 'user_new' },
+      }),
+    );
+  });
+
+  it('refuses a workspace the account no longer has a seat in', async () => {
+    const prisma = {
+      user: { findUnique: vi.fn().mockResolvedValue({ ...activeUser, memberships: [] }) },
+    };
+    const service = new McpPrincipalService(prisma as any, { getUserProfile: vi.fn() } as any);
+
+    await expect(service.resolve(auth([MCP_READ_SCOPE]), false)).rejects.toThrow(
+      'no active workspace',
+    );
+  });
+
+  it('refuses AI agent seats', async () => {
+    const prisma = {
+      user: { findUnique: vi.fn().mockResolvedValue({ ...activeUser, agentKey: 'qa', memberships: [] }) },
+    };
+    const service = new McpPrincipalService(prisma as any, { getUserProfile: vi.fn() } as any);
+
+    await expect(service.resolve(auth([MCP_READ_SCOPE]), false)).rejects.toThrow('disabled');
   });
 
   it('refuses to provision a TeamFlow account from an OAuth connection', async () => {

@@ -5,12 +5,37 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
+import type { Organization } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthService } from '../auth/auth.service.js';
 import { CreateOrganizationDto } from './dto/create-organization.dto.js';
 import { UpdateOrganizationDto } from './dto/update-organization.dto.js';
 import { InviteMemberDto } from './dto/invite-member.dto.js';
 import { randomUUID } from 'node:crypto';
+import {
+  INVITED_PASSWORD_PREFIX,
+  MANAGER_ROLES,
+  assertCanLeave,
+  changeMemberRole,
+  endSeat,
+  ensureActiveWorkspace,
+  isHumanRole,
+  isPlatformStaff,
+  isReservedAgentEmail,
+  isWorkspaceOwner,
+  removeMember,
+  unsupportedRole,
+} from '../common/workspace.js';
+
+function serializeOrganization(org: Organization) {
+  return {
+    id: org.id,
+    name: org.name,
+    subscription_tier: org.subscriptionTier,
+    subscription_status: org.subscriptionStatus,
+    created_at: org.createdAt.toISOString(),
+  };
+}
 
 @Injectable()
 export class OrganizationsService {
@@ -69,6 +94,13 @@ export class OrganizationsService {
     }
   }
 
+  /** Return fresh tokens and the serialized user after a workspace change. */
+  private async session(user: { id: number; email: string; role: string }) {
+    const tokens = await this.authService.generateTokens(user.id, user.email, user.role);
+    const serializedUser = await this.authService.serializeUser(user.id);
+    return { ...tokens, user: serializedUser };
+  }
+
   async getCurrent(user: any) {
     if (!user.organizationId) {
       throw new NotFoundException('User does not belong to an active organization');
@@ -90,7 +122,8 @@ export class OrganizationsService {
       deploymentsCount,
       seoAuditsCount,
     ] = await Promise.all([
-      this.prisma.user.count({ where: { organizationId: org.id } }),
+      // Seats are held by people; AI agents do not count against them.
+      this.prisma.membership.count({ where: { organizationId: org.id, status: 'active' } }),
       this.prisma.project.count({ where: { organizationId: org.id } }),
       this.prisma.task.count({ where: { organizationId: org.id } }),
       this.prisma.task.count({
@@ -101,11 +134,8 @@ export class OrganizationsService {
     ]);
 
     return {
-      id: org.id,
-      name: org.name,
-      subscription_tier: org.subscriptionTier,
-      subscription_status: org.subscriptionStatus,
-      created_at: org.createdAt.toISOString(),
+      ...serializeOrganization(org),
+      role: user.role,
       metrics: {
         members_count: membersCount,
         projects_count: projectsCount,
@@ -118,54 +148,40 @@ export class OrganizationsService {
     };
   }
 
+  /** The caller's workspaces and pending invitations; platform staff see every workspace. */
   async findAll(user: any) {
-    if (
-      user.isSuperuser ||
-      user.isStaff ||
-      user.role === 'admin' ||
-      user.role === 'ceo'
-    ) {
-      const allOrgs = await this.prisma.organization.findMany({
-        orderBy: { createdAt: 'desc' },
-      });
-      return allOrgs.map((org) => ({
-        id: org.id,
-        name: org.name,
-        subscription_tier: org.subscriptionTier,
-        subscription_status: org.subscriptionStatus,
-        is_current: org.id === user.organizationId,
-        created_at: org.createdAt.toISOString(),
-      }));
-    }
-
-    const userOrgs = await this.prisma.organization.findMany({
-      where: {
-        OR: [
-          { id: user.organizationId ?? -1 },
-          {
-            projects: {
-              some: {
-                OR: [
-                  { ownerId: user.id },
-                  { members: { some: { userId: user.id } } },
-                ],
-              },
-            },
-          },
-          { tasks: { some: { createdById: user.id } } },
-        ],
+    const seats = await this.prisma.membership.findMany({
+      where: { userId: user.id },
+      include: {
+        organization: true,
+        invitedBy: { select: { name: true, email: true } },
       },
+      orderBy: { createdAt: 'asc' },
+    });
+    const rows = seats.map((seat) => ({
+      ...serializeOrganization(seat.organization),
+      role: seat.role,
+      membership_status: seat.status,
+      invited_by: seat.invitedBy ? seat.invitedBy.name || seat.invitedBy.email : null,
+      is_current: seat.status === 'active' && seat.organizationId === user.organizationId,
+    }));
+    if (!isPlatformStaff(user)) return rows;
+
+    const seated = new Set(seats.map((seat) => seat.organizationId));
+    const others = await this.prisma.organization.findMany({
+      where: { id: { notIn: [...seated] } },
       orderBy: { createdAt: 'desc' },
     });
-
-    return userOrgs.map((org) => ({
-      id: org.id,
-      name: org.name,
-      subscription_tier: org.subscriptionTier,
-      subscription_status: org.subscriptionStatus,
-      is_current: org.id === user.organizationId,
-      created_at: org.createdAt.toISOString(),
-    }));
+    return [
+      ...rows,
+      ...others.map((org) => ({
+        ...serializeOrganization(org),
+        role: null,
+        membership_status: null,
+        invited_by: null,
+        is_current: org.id === user.organizationId,
+      })),
+    ];
   }
 
   async updateCurrent(user: any, dto: UpdateOrganizationDto) {
@@ -189,22 +205,19 @@ export class OrganizationsService {
       data: updateData,
     });
 
-    return {
-      id: org.id,
-      name: org.name,
-      subscription_tier: org.subscriptionTier,
-      subscription_status: org.subscriptionStatus,
-      created_at: org.createdAt.toISOString(),
-    };
+    return serializeOrganization(org);
   }
 
+  /** Found a new workspace. The creator is its CEO and keeps their other workspaces. */
   async create(user: any, dto: CreateOrganizationDto) {
-    const tier = dto.tier || 'starter';
+    // Paid tiers are granted only by the billing flow.
+    const tier = isPlatformStaff(user) && dto.tier ? dto.tier : 'starter';
     const org = await this.prisma.organization.create({
       data: {
         name: dto.name.trim(),
         subscriptionTier: tier,
         subscriptionStatus: 'active',
+        memberships: { create: { userId: user.id, role: 'ceo' } },
       },
     });
 
@@ -217,130 +230,91 @@ export class OrganizationsService {
       },
     });
 
-    const tokens = this.authService.generateTokens(user.id, user.email, 'ceo');
-    const serializedUser = await this.authService.serializeUser(user.id);
-
     return {
-      organization: {
-        id: org.id,
-        name: org.name,
-        subscription_tier: org.subscriptionTier,
-        subscription_status: org.subscriptionStatus,
-        created_at: org.createdAt.toISOString(),
-      },
-      ...tokens,
-      user: serializedUser,
+      organization: serializeOrganization(org),
+      ...(await this.session({ id: user.id, email: user.email, role: 'ceo' })),
     };
   }
 
+  /** Make a workspace the active one. Switching to an invitation accepts it. */
   async switchOrganization(user: any, orgId: number) {
     if (!orgId || orgId < 1) {
       throw new BadRequestException('Invalid organization ID');
     }
 
-    const targetOrg = await this.prisma.organization.findUnique({
-      where: { id: orgId },
+    const seat = await this.prisma.membership.findUnique({
+      where: { userId_organizationId: { userId: user.id, organizationId: orgId } },
+      include: { organization: true },
     });
-
+    // Only platform staff may enter a workspace without a seat. The workspace
+    // name is not revealed to anyone else.
+    if (!seat && !isPlatformStaff(user)) {
+      throw new ForbiddenException('You do not have access to this workspace');
+    }
+    const targetOrg =
+      seat?.organization ??
+      (await this.prisma.organization.findUnique({ where: { id: orgId } }));
     if (!targetOrg) {
-      throw new NotFoundException(`Organization #${orgId} not found`);
+      throw new NotFoundException('Workspace not found');
     }
 
-    // Verify tenant access permissions
-    let hasAccess =
-      user.isSuperuser ||
-      user.isStaff ||
-      user.role === 'ceo' ||
-      user.role === 'admin';
-
-    if (!hasAccess) {
-      const existingMember = await this.prisma.user.findFirst({
-        where: {
-          organizationId: orgId,
-          email: user.email.toLowerCase(),
-        },
+    const role = seat?.role ?? user.role;
+    const updatedUser = await this.prisma.$transaction(async (tx) => {
+      if (seat && seat.status !== 'active') {
+        await tx.membership.update({ where: { id: seat.id }, data: { status: 'active' } });
+      }
+      return tx.user.update({
+        where: { id: user.id },
+        data: { organizationId: targetOrg.id, role },
       });
-      if (existingMember) {
-        hasAccess = true;
-      }
-    }
-
-    if (!hasAccess) {
-      const associatedProject = await this.prisma.project.findFirst({
-        where: {
-          organizationId: orgId,
-          OR: [
-            { ownerId: user.id },
-            { members: { some: { userId: user.id } } },
-          ],
-        },
-      });
-      if (associatedProject) {
-        hasAccess = true;
-      }
-    }
-
-    if (!hasAccess) {
-      const associatedTask = await this.prisma.task.findFirst({
-        where: {
-          organizationId: orgId,
-          createdById: user.id,
-        },
-      });
-      if (associatedTask) {
-        hasAccess = true;
-      }
-    }
-
-    if (!hasAccess) {
-      // Check if domain matches organization convention
-      const domain = user.email.split('@')[1]?.toLowerCase();
-      const orgNameLower = targetOrg.name.toLowerCase();
-      const domainPrefix = domain?.split('.')[0];
-      const isDomainMatch =
-        domainPrefix && orgNameLower.includes(domainPrefix);
-
-      if (isDomainMatch) {
-        hasAccess = true;
-      }
-    }
-
-    if (!hasAccess) {
-      throw new ForbiddenException(
-        `You do not have access to switch to workspace "${targetOrg.name}"`,
-      );
-    }
-
-    // Switch tenant context
-    const updatedUser = await this.prisma.user.update({
-      where: { id: user.id },
-      data: {
-        organizationId: targetOrg.id,
-      },
     });
-
-    const tokens = this.authService.generateTokens(
-      updatedUser.id,
-      updatedUser.email,
-      updatedUser.role,
-    );
-    const serializedUser = await this.authService.serializeUser(updatedUser.id);
 
     return {
       message: `Switched active workspace to ${targetOrg.name}`,
-      organization: {
-        id: targetOrg.id,
-        name: targetOrg.name,
-        subscription_tier: targetOrg.subscriptionTier,
-        subscription_status: targetOrg.subscriptionStatus,
-      },
-      ...tokens,
-      user: serializedUser,
+      organization: serializeOrganization(targetOrg),
+      ...(await this.session(updatedUser)),
     };
   }
 
+  /** Leave a workspace, or decline an invitation to it. */
+  async leaveOrganization(user: any, orgId: number) {
+    const updatedUser = await this.prisma.$transaction(async (tx) => {
+      const seat = await tx.membership.findUnique({
+        where: { userId_organizationId: { userId: user.id, organizationId: orgId } },
+      });
+      if (!seat) {
+        throw new NotFoundException('You are not a member of this workspace');
+      }
+      await assertCanLeave(tx, seat);
+      const remaining = await endSeat(tx, seat);
+      return ensureActiveWorkspace(tx, remaining);
+    });
+    return {
+      message: 'You left the workspace',
+      ...(await this.session(updatedUser)),
+    };
+  }
+
+  async updateMemberRole(user: any, memberId: number, role: string) {
+    const seat = await this.prisma.$transaction((tx) =>
+      changeMemberRole(tx, user, memberId, role),
+    );
+    return { user_id: memberId, organization_id: seat.organizationId, role: seat.role };
+  }
+
+  async removeMember(user: any, memberId: number) {
+    await this.prisma.$transaction((tx) => removeMember(tx, user, memberId));
+    return { detail: 'Member removed from the workspace' };
+  }
+
+  /**
+   * Invite a person. A new email gets an account that joins when they first sign
+   * in; an existing account gets an invitation it must accept. Invitations never
+   * move anyone out of another workspace.
+   */
   async inviteMember(user: any, dto: InviteMemberDto) {
-    if (!user.organizationId) {
+    const organizationId = user.organizationId;
+    if (!organizationId) {
       throw new NotFoundException('An active workspace organization is required');
     }
 
@@ -351,48 +325,70 @@ export class OrganizationsService {
     }
 
     const email = dto.email.trim().toLowerCase();
-    const role = dto.role || 'member';
+    const role = (dto.role || 'member').trim();
+    if (!isHumanRole(role)) {
+      throw unsupportedRole(role);
+    }
+    if (MANAGER_ROLES.includes(role) && !isWorkspaceOwner(user)) {
+      throw new ForbiddenException(
+        'Only workspace owners can grant owner or admin roles',
+      );
+    }
+    if (isReservedAgentEmail(email)) {
+      throw new BadRequestException('This email address is reserved for AI agent seats');
+    }
 
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
+      include: { memberships: { where: { organizationId } } },
     });
 
     if (existingUser) {
-      if (existingUser.organizationId === user.organizationId) {
+      if (existingUser.agentKey) {
+        throw new ConflictException('This email belongs to an AI agent seat');
+      }
+      const [seat] = existingUser.memberships;
+      if (seat) {
         throw new ConflictException(
-          'User is already a member of this workspace organization',
+          seat.status === 'invited'
+            ? 'This person already has a pending invitation'
+            : 'User is already a member of this workspace organization',
         );
       }
-      // Re-assign or add to workspace
-      const updated = await this.prisma.user.update({
-        where: { id: existingUser.id },
+      await this.prisma.membership.create({
         data: {
-          organizationId: user.organizationId,
+          userId: existingUser.id,
+          organizationId,
           role,
+          status: 'invited',
+          invitedById: user.id,
         },
       });
       return {
-        id: updated.id,
-        email: updated.email,
-        name: updated.name,
-        role: updated.role,
-        user_status: updated.userStatus,
-        organization_id: updated.organizationId,
-        message: 'Existing user linked to workspace',
+        id: existingUser.id,
+        email: existingUser.email,
+        name: existingUser.name,
+        role,
+        is_ai_agent: false,
+        user_status: existingUser.userStatus,
+        membership_status: 'invited',
+        organization_id: organizationId,
+        message: 'Invitation sent; it appears in their workspace list until they accept it',
       };
     }
 
-    const unusablePassword = `!invited_${randomUUID()}`;
-    const name = dto.name || email.split('@')[0];
+    // A placeholder account holds the invitation until the person signs up with
+    // this email; they found their own workspace and accept from there.
     const newUser = await this.prisma.user.create({
       data: {
         email,
-        password: unusablePassword,
-        name,
-        role,
-        organizationId: user.organizationId,
+        password: `${INVITED_PASSWORD_PREFIX}${randomUUID()}`,
+        name: dto.name?.trim() || email.split('@')[0],
+        role: 'member',
         userStatus: 'pending',
-        avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(email)}`,
+        memberships: {
+          create: { organizationId, role, status: 'invited', invitedById: user.id },
+        },
       },
     });
 
@@ -400,10 +396,12 @@ export class OrganizationsService {
       id: newUser.id,
       email: newUser.email,
       name: newUser.name,
-      role: newUser.role,
+      role,
+      is_ai_agent: false,
       user_status: newUser.userStatus,
-      organization_id: newUser.organizationId,
-      message: 'Invitation sent and member provisioned',
+      membership_status: 'invited',
+      organization_id: organizationId,
+      message: 'Invitation created; they can accept it after signing up with this email',
     };
   }
 }

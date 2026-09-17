@@ -6,6 +6,8 @@ import {
   Param,
   UseGuards,
   ParseIntPipe,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service.js';
@@ -31,7 +33,15 @@ export class NotificationsController {
     return this.notificationsService.markAsRead(id, user);
   }
 
-  @Post('mark-all-read')
+  @Post([':id/read', ':id/read/'])
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mark a notification as read (POST alias used by the web app)' })
+  async markAsReadPost(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: any) {
+    return this.notificationsService.markAsRead(id, user);
+  }
+
+  @Post(['mark-all-read', 'read_all', 'read_all/'])
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Mark all notifications as read' })
   async markAllRead(@CurrentUser() user: any) {
     return this.notificationsService.markAllRead(user);

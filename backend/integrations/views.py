@@ -12,6 +12,7 @@ from django.shortcuts import get_object_or_404
 from .models import SlackIntegration, GitHubIntegration
 from .serializers import SlackIntegrationSerializer, GitHubIntegrationSerializer
 from .slack_service import send_slack_notification
+from agents.git_service import platform_github_org, platform_github_token
 
 logger = logging.getLogger(__name__)
 
@@ -151,14 +152,14 @@ class GitHubIntegrationView(views.APIView):
             organization=request.user.organization
         )
         data = GitHubIntegrationSerializer(integration).data
-        env_token = os.environ.get("GITHUB_TOKEN", "").strip()
-        env_org = os.environ.get("GITHUB_ORG", "").strip()
-        if not data.get("github_token_configured") and env_token:
+        # The operator token is never previewed; tenants only learn whether it is available to them.
+        if not data.get("github_token_configured") and platform_github_token():
             data["github_token_configured"] = True
-            data["github_token_preview"] = f"{env_token[:4]}...{env_token[-4:]}" if len(env_token) > 8 else "****"
+            data["github_token_preview"] = ""
             data["is_env_configured"] = True
-        if not data.get("github_org") and env_org:
-            data["github_org"] = env_org
+        platform_org = platform_github_org()
+        if not data.get("github_org") and platform_org:
+            data["github_org"] = platform_org
         return Response(data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -169,7 +170,7 @@ class GitHubIntegrationView(views.APIView):
         serializer = GitHubIntegrationSerializer(integration, data=request.data, partial=True)
         if serializer.is_valid():
             integration = serializer.save()
-            tok = integration.github_token or os.environ.get("GITHUB_TOKEN", "").strip()
+            tok = integration.github_token or platform_github_token()
             if tok:
                 try:
                     resp = requests.get(
@@ -208,7 +209,7 @@ class GitHubTestView(views.APIView):
         if not token and integration:
             token = integration.github_token
         if not token:
-            token = os.environ.get("GITHUB_TOKEN", os.environ.get("GH_TOKEN", "")).strip()
+            token = platform_github_token()
 
         if not token:
             return Response(

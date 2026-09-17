@@ -5,9 +5,12 @@ import { AppModule } from './app.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  if (process.env.MCP_ENABLED === 'true') {
+  const isProduction = process.env.NODE_ENV === 'production';
+  // Production runs behind the bundled nginx proxy, which sets X-Forwarded-* headers.
+  if (process.env.MCP_ENABLED === 'true' || (isProduction && process.env.TRUST_PROXY !== 'false')) {
     app.getHttpAdapter().getInstance().set('trust proxy', 1);
   }
+  app.getHttpAdapter().getInstance().disable('x-powered-by');
   const corsOrigins = (process.env.CORS_ALLOWED_ORIGINS || process.env.FRONTEND_URL || '')
     .split(',')
     .map((origin) => origin.trim())
@@ -40,15 +43,17 @@ async function bootstrap() {
     }),
   );
 
-  // Configure OpenAPI / Swagger documentation
-  const config = new DocumentBuilder()
-    .setTitle('TeamFlow API (NestJS)')
-    .setDescription('Virtual Tech Company Autonomous Swarm Management API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  // OpenAPI / Swagger documentation is public only outside production unless enabled.
+  if (!isProduction || process.env.ENABLE_API_DOCS === 'true') {
+    const config = new DocumentBuilder()
+      .setTitle('TeamFlow API (NestJS)')
+      .setDescription('Virtual Tech Company Autonomous Swarm Management API')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   await app.listen(port);
   console.log(`TeamFlow NestJS Backend is listening on port ${port}`);

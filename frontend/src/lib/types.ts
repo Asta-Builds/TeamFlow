@@ -13,6 +13,12 @@ export type Role =
 
 export type UserStatus = "active" | "offline" | "pending" | "disabled";
 
+/** Roles a person can hold in a workspace; the others belong to AI agent seats. */
+export type HumanRole = "ceo" | "admin" | "member";
+
+/** A person's seat in a workspace: joined, or invited and not yet accepted. */
+export type MembershipStatus = "active" | "invited";
+
 export interface User {
   id: number;
   email: string;
@@ -20,6 +26,7 @@ export interface User {
   role: Role;
   agent_key?: string;
   is_ai_agent?: boolean;
+  membership_status?: MembershipStatus | null;
   user_status?: UserStatus;
   avatar_url: string;
   bio?: string;
@@ -61,6 +68,10 @@ export interface Organization {
   metrics?: OrganizationMetrics;
   limits?: OrganizationLimits;
   is_current?: boolean;
+  /** The caller's role and seat in this workspace (null for staff without a seat). */
+  role?: Role | null;
+  membership_status?: MembershipStatus | null;
+  invited_by?: string | null;
 }
 
 export type ProjectStatus = "active" | "on_hold" | "completed" | "archived";

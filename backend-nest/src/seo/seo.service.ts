@@ -10,6 +10,13 @@ import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateSeoAuditDto } from './dto/create-seo-audit.dto.js';
 import { CreateSeoTaskDto } from './dto/create-seo-task.dto.js';
+import {
+  assertAuditableUrl,
+  privateTargetsAllowed,
+  publicOnlyLookup,
+} from '../common/outbound-url.js';
+
+const MAX_AUDIT_BYTES = 5 * 1024 * 1024;
 
 export interface SeoIssue {
   severity: 'critical' | 'high' | 'medium' | 'low';
@@ -87,9 +94,9 @@ export class SeoService {
     const targetUrl = dto.url.trim();
     let parsedUrl: URL;
     try {
-      parsedUrl = new URL(targetUrl);
-    } catch {
-      throw new BadRequestException(`Invalid URL format: ${targetUrl}`);
+      parsedUrl = assertAuditableUrl(targetUrl);
+    } catch (err: any) {
+      throw new BadRequestException(err?.message || `Invalid URL format: ${targetUrl}`);
     }
 
     const issues: SeoIssue[] = [];
@@ -120,9 +127,13 @@ export class SeoService {
     let robotsTxtPresent = false;
     let sitemapPresent = false;
 
-    // Resolve localhost to Docker service name when inside container
-    let probeUrl = targetUrl;
-    if (process.env.DATABASE_URL?.includes('@db:') || process.env.PYTHON_AI_SERVICE_URL?.includes('backend')) {
+    // Local development only: reach the frontend container when auditing localhost.
+    let probeUrl = parsedUrl.toString();
+    if (
+      privateTargetsAllowed() &&
+      (process.env.DATABASE_URL?.includes('@db:') ||
+        process.env.PYTHON_AI_SERVICE_URL?.includes('backend'))
+    ) {
       probeUrl = probeUrl
         .replace('localhost:3000', 'frontend:3000')
         .replace('127.0.0.1:3000', 'frontend:3000');
@@ -133,6 +144,9 @@ export class SeoService {
       const response = await this.httpService.axiosRef.get(probeUrl, {
         timeout: 10000,
         maxRedirects: 5,
+        lookup: publicOnlyLookup,
+        maxContentLength: MAX_AUDIT_BYTES,
+        responseType: 'text',
         headers: {
           'User-Agent':
             'Mozilla/5.0 (compatible; TeamFlowBot/1.0)',
@@ -158,6 +172,8 @@ export class SeoService {
       const robotsUrl = `${parsedUrl.origin}/robots.txt`;
       const rResp = await this.httpService.axiosRef.head(robotsUrl, {
         timeout: 3000,
+        maxRedirects: 3,
+        lookup: publicOnlyLookup,
       });
       if (rResp.status >= 200 && rResp.status < 400) robotsTxtPresent = true;
     } catch {
@@ -168,6 +184,8 @@ export class SeoService {
       const sitemapUrl = `${parsedUrl.origin}/sitemap.xml`;
       const sResp = await this.httpService.axiosRef.head(sitemapUrl, {
         timeout: 3000,
+        maxRedirects: 3,
+        lookup: publicOnlyLookup,
       });
       if (sResp.status >= 200 && sResp.status < 400) sitemapPresent = true;
     } catch {

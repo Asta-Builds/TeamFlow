@@ -3,7 +3,7 @@ import os
 import time
 from typing import Dict, Any, List, Tuple
 from agents.state import TicketState
-from agents.tools.app_tool import set_ticket_qa_decision, log_task_activity
+from agents.tools.app_tool import set_ticket_qa_decision, log_task_activity, add_ticket_comment
 from agents.tools.github_tool import post_pr_comment
 from agents.events import emit_state_event
 
@@ -14,7 +14,8 @@ def verify_code_artifacts(files_modified: List[str], project_workspace: str = ""
     syntax_errors = []
 
     if not files_modified and project_workspace and os.path.exists(project_workspace):
-        for root, _, files in os.walk(project_workspace):
+        for root, dirs, files in os.walk(project_workspace):
+            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in {"node_modules", "__pycache__"}]
             for file in files:
                 if not file.startswith(".") and not file.endswith((".pyc", ".log")):
                     checked_files.append(os.path.join(root, file))
@@ -78,19 +79,40 @@ def qa_agent_node(state: TicketState) -> Dict[str, Any]:
         qa_result = "passed"
         rejection_reason = None
         checked_count = metrics.get("checked_count", 0)
-        message = f"QA Agent: Static syntax analysis and automated assertions passed for {checked_count} file(s) on PR {pr_url}."
+        message = f"QA Agent: Python syntax checks passed for {checked_count} file(s)" + (f" on PR {pr_url}." if pr_url else ".")
         if pr_url:
-            post_pr_comment(pr_url, f"✅ **QA Sign-Off:** Automated syntax, contract invariant, and regression checks verified ({checked_count} files). Ready for deployment.")
+            post_pr_comment(pr_url, f"**QA Sign-Off:** Python syntax checks passed for {checked_count} file(s).")
         if ticket_id:
             set_ticket_qa_decision(ticket_id, qa_passed=True, reason="")
+            qa_comment = (
+                f"**Alan Turing (AI) - QA Specialist**\n\n"
+                f"**Sprint Quality Gate Sign-Off for @devops & @tech_lead:**\n\n"
+                f"- **Validation Gate:** PASSED ({checked_count} file(s) checked).\n"
+                f"- **Checks Performed:** Python syntax verification of the changed files.\n"
+                f"- **Next:** Handing off to DevOps for the merge and release step.\n"
+                f"- **PR:** {pr_url or 'none'}"
+            )
+            add_ticket_comment(ticket_id, "qa", qa_comment)
+            log_task_activity(ticket_id, "Alan Turing (AI)", "qa_validated", {"checked_count": checked_count, "decision": "passed"})
     else:
         qa_result = "failed"
         rejection_reason = error_reason or "Artifact validation failed: Invariant or syntax check error."
         message = f"QA Agent: Rejection recorded for PR {pr_url}. Reason: {rejection_reason}. Reopening ticket for developer fix."
         if pr_url:
-            post_pr_comment(pr_url, f"❌ **QA Rejection:** {rejection_reason}")
+            post_pr_comment(pr_url, f"**QA Rejection:** {rejection_reason}")
         if ticket_id:
             set_ticket_qa_decision(ticket_id, qa_passed=False, reason=rejection_reason)
+            qa_comment = (
+                f"**Alan Turing (AI) - QA Specialist**\n\n"
+                f"**Sprint Quality Gate REJECTION for @backend_core & @tech_lead:**\n\n"
+                f"- **Validation Gate:** FAILED.\n"
+                f"- **Reason / Defect:** {rejection_reason}\n"
+                f"- **Action Required:** @backend_core please inspect the syntax and schema invariant failures, fix in your feature branch, and re-commit for validation.\n"
+                f"- **Blockers:** Ticket blocked until automated verification passes.\n"
+                f"- **PR:** {pr_url}"
+            )
+            add_ticket_comment(ticket_id, "qa", qa_comment)
+            log_task_activity(ticket_id, "Alan Turing (AI)", "qa_rejected", {"reason": rejection_reason, "decision": "failed"})
 
     step_log = {
         "node": "qa",

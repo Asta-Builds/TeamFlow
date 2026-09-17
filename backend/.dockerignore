@@ -21,3 +21,10 @@ coverage.xml
 .env
 .DS_Store
 staticfiles/
+
+# Local runtime state and secrets must never enter the image
+generated_projects/
+db.sqlite3
+*.sqlite3
+.env*
+server.log
