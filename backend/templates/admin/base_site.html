@@ -7,9 +7,9 @@
 {{ block.super }}
 <link rel="stylesheet" href="{% static 'admin/css/teamflow_admin.css' %}">
 <script>
-  // Theme toggler with localStorage persistence
   (function() {
-    const savedTheme = localStorage.getItem('teamflow_admin_theme') || 'dark';
+    const savedTheme = localStorage.getItem('theme') || localStorage.getItem('teamflow_admin_theme') || 'dark';
+    document.documentElement.dataset.theme = savedTheme;
     if (savedTheme === 'dark') {
       document.documentElement.classList.add('theme-dark');
       document.documentElement.classList.remove('theme-light');
@@ -20,15 +20,17 @@
   })();
 
   function toggleAdminTheme() {
-    const isDark = document.documentElement.classList.contains('theme-dark');
-    if (isDark) {
-      document.documentElement.classList.remove('theme-dark');
-      document.documentElement.classList.add('theme-light');
-      localStorage.setItem('teamflow_admin_theme', 'light');
-    } else {
-      document.documentElement.classList.remove('theme-light');
+    const currentTheme = (document.documentElement.dataset.theme === 'light' || document.documentElement.classList.contains('theme-light')) ? 'light' : 'dark';
+    const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = nextTheme;
+    localStorage.setItem('theme', nextTheme);
+    localStorage.setItem('teamflow_admin_theme', nextTheme);
+    if (nextTheme === 'dark') {
       document.documentElement.classList.add('theme-dark');
-      localStorage.setItem('teamflow_admin_theme', 'dark');
+      document.documentElement.classList.remove('theme-light');
+    } else {
+      document.documentElement.classList.add('theme-light');
+      document.documentElement.classList.remove('theme-dark');
     }
   }
 </script>
@@ -44,7 +46,7 @@
         </div>
         <div class="tf-brand-text">
             <span class="tf-brand-title">TeamFlow</span>
-            <span class="tf-brand-subtitle">Virtual Tech Company Admin</span>
+            <span class="tf-brand-subtitle">Virtual Tech Company Console</span>
         </div>
     </a>
 </div>
@@ -52,7 +54,7 @@
 
 {% block userlinks %}
 <div class="tf-nav-tools">
-    <a href="http://localhost:3000" target="_blank" class="tf-nav-btn tf-app-btn" title="Open Next.js Web App">
+    <a href="{{ FRONTEND_URL|default:'/' }}" target="_blank" class="tf-nav-btn tf-app-btn" title="Open Next.js Web App">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
             <line x1="8" y1="21" x2="16" y2="21"/>
@@ -79,6 +81,9 @@
             <line x1="21" y1="12" x2="23" y2="12"/>
             <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="tf-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
     </button>
 </div>

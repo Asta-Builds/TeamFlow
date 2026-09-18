@@ -1,7 +1,18 @@
-{% extends "admin/index.html" %}
+{% extends "admin/base_site.html" %}
 {% load i18n static %}
 
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static "admin/css/dashboard.css" %}">
+{% endblock %}
+
+{% block coltype %}colMS{% endblock %}
+{% block bodyclass %}{{ block.super }} dashboard{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block nav-sidebar %}{% endblock %}
+
 {% block content %}
+<!-- Executive Operational Cards Banner -->
 <div class="tf-dashboard-deck">
     <!-- Card 1: RabbitMQ & DLQ -->
     <div class="tf-stat-card tf-card-rabbitmq">
@@ -18,20 +29,20 @@
         </div>
         <div class="tf-card-body">
             <h3 class="tf-card-title">RabbitMQ & DLQ</h3>
-            <p class="tf-card-desc">Asynchronous AMQP messaging, Celery tasks & Dead Letter routing (<code>teamflow.dlq</code>).</p>
+            <p class="tf-card-desc">Asynchronous AMQP messaging, Celery worker pool & Dead Letter routing (<code>teamflow.dlq</code>).</p>
             <div class="tf-card-actions">
                 <a href="{% url 'admin:queues_deadlettermessage_changelist' %}" class="tf-btn-primary">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     Manage DLQ
                 </a>
-                <a href="{% url 'admin:queues_deadlettermessage_replay_all' %}" class="tf-btn-secondary" onclick="return confirm('Replay all pending messages?');">
+                <a href="{% url 'admin:queues_deadlettermessage_replay_all' %}" class="tf-btn-secondary" onclick="return confirm('Replay all pending dead letter messages?');">
                     Replay All
                 </a>
             </div>
         </div>
     </div>
 
-    <!-- Card 2: Infrastructure Health -->
+    <!-- Card 2: Infrastructure & Database -->
     <div class="tf-stat-card tf-card-infra">
         <div class="tf-card-header">
             <div class="tf-card-icon tf-icon-db">
@@ -48,7 +59,7 @@
             <p class="tf-card-desc">PostgreSQL 16 with <code>pgvector</code> embeddings and Redis 7 Pub/Sub event streaming.</p>
             <div class="tf-card-actions">
                 <a href="{% url 'admin:projects_project_changelist' %}" class="tf-btn-outline">Projects</a>
-                <a href="{% url 'admin:tasks_task_changelist' %}" class="tf-btn-outline">Kanban Tasks</a>
+                <a href="{% url 'admin:tasks_task_changelist' %}" class="tf-btn-outline">Tasks</a>
             </div>
         </div>
     </div>
@@ -68,12 +79,49 @@
             <h3 class="tf-card-title">LangGraph AI Swarm</h3>
             <p class="tf-card-desc">Athena, Tech Lead, Backend, Frontend, QA & DevOps operating in sandboxed workspaces.</p>
             <div class="tf-card-actions">
-                <a href="{% url 'admin:agents_agentexecutiontrace_changelist' %}" class="tf-btn-outline">Execution Traces</a>
+                <a href="{% url 'admin:agents_agentexecutiontrace_changelist' %}" class="tf-btn-outline">Traces</a>
                 <a href="{% url 'admin:deployments_deployment_changelist' %}" class="tf-btn-outline">Deployments</a>
             </div>
         </div>
     </div>
 </div>
 
-{{ block.super }}
+<!-- Dashboard Content Split (Main Models & Recent Actions) -->
+<div class="tf-dashboard-grid">
+  <div id="content-main">
+    {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
+  </div>
+  <div id="content-related">
+    <div class="module" id="recent-actions-module">
+      <h2>{% translate 'Recent actions' %}</h2>
+      <h3>{% translate 'My actions' %}</h3>
+      {% load log %}
+      {% get_admin_log 10 as admin_log for_user user %}
+      {% if not admin_log %}
+        <p class="tf-empty-text">{% translate 'None available' %}</p>
+      {% else %}
+        <ul class="actionlist">
+        {% for entry in admin_log %}
+        <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+          <span class="visually-hidden">{% if entry.is_addition %}{% translate 'Added:' %}{% elif entry.is_change %}{% translate 'Changed:' %}{% elif entry.is_deletion %}{% translate 'Deleted:' %}{% endif %}</span>
+          {% if entry.is_deletion or not entry.get_admin_url %}
+            {{ entry.object_repr }}
+          {% else %}
+            <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+          {% endif %}
+          <br>
+          {% if entry.content_type %}
+            <span class="mini quiet">{% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}</span>
+          {% else %}
+            <span class="mini quiet">{% translate 'Unknown content' %}</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    </div>
+  </div>
+</div>
 {% endblock %}
+
+{% block sidebar %}{% endblock %}
