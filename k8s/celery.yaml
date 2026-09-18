@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teamflow-celery
+  namespace: teamflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teamflow-celery
+  template:
+    metadata:
+      labels:
+        app: teamflow-celery
+    spec:
+      containers:
+        - name: celery-worker
+          image: ghcr.io/yourorg/teamflow-backend:latest
+          command: ["celery", "-A", "teamflow", "worker", "--loglevel=info"]
+          env:
+            - name: APP_ROLE
+              value: "worker"
+          envFrom:
+            - configMapRef:
+                name: teamflow-config
+            - secretRef:
+                name: teamflow-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"

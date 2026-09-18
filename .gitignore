@@ -30,3 +30,15 @@ generated_projects/
 # External prototypes and temp design files
 /Pulse/
 .superdesign/temp/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+*.tfvars
+!*.tfvars.example
+
+# Kubernetes local secrets
+k8s/secrets.yaml
+!k8s/secrets.yaml.example
