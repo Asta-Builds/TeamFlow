@@ -36,7 +36,10 @@ env = environ.Env(
     STRIPE_PRICE_GROWTH=(str, ""),
     STRIPE_PRICE_ENTERPRISE=(str, ""),
     AGENT_EMAIL_DOMAIN=(str, ""),
+    FRONTEND_URL=(str, ""),
 )
+
+FRONTEND_URL = env("FRONTEND_URL")
 
 if TESTING:
     # Tests are hermetic: no developer .env, no GitHub credentials, and agent
