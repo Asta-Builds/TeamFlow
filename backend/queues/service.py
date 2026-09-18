@@ -276,3 +276,84 @@ class RabbitMQService:
                 "state": "active" if pending_dlq_count == 0 else "requires_attention",
             },
         ]
+
+    @classmethod
+    def record_outbox_message(
+        cls,
+        event_type: str,
+        payload: Dict[str, Any],
+        routing_key: str = "events",
+        exchange: str = "teamflow.events",
+        headers: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Records a domain event in the Transactional Outbox.
+        Executed within the caller's active database transaction to guarantee atomicity.
+        """
+        from .models import OutboxMessage
+
+        return OutboxMessage.objects.create(
+            event_type=event_type,
+            exchange=exchange,
+            routing_key=routing_key,
+            payload=payload,
+            headers=headers or {},
+            status=OutboxMessage.Status.PENDING,
+        )
+
+    @classmethod
+    def relay_pending_outbox(cls, batch_size: int = 50) -> Dict[str, Any]:
+        """
+        Drains pending Transactional Outbox messages and publishes them
+        to the RabbitMQ / AMQP topic exchange.
+        """
+        from .models import OutboxMessage, DeadLetterMessage
+
+        pending_messages = list(
+            OutboxMessage.objects.filter(status=OutboxMessage.Status.PENDING).order_by("created_at")[:batch_size]
+        )
+        published_count = 0
+        failed_count = 0
+        errors = []
+
+        for msg in pending_messages:
+            success = cls.publish_async_message(
+                queue_name=msg.routing_key,
+                payload=msg.payload,
+                routing_key=msg.routing_key,
+                exchange_name=msg.exchange,
+                headers=msg.headers,
+            )
+            if success:
+                msg.status = OutboxMessage.Status.PUBLISHED
+                msg.published_at = timezone.now()
+                msg.save(update_fields=["status", "published_at"])
+                published_count += 1
+            else:
+                msg.retry_count += 1
+                msg.last_error = "Failed to deliver message to broker."
+                if msg.retry_count >= 5:
+                    msg.status = OutboxMessage.Status.FAILED
+                    # Log into DeadLetterMessage for visibility
+                    DeadLetterMessage.objects.create(
+                        task_id=str(msg.event_id),
+                        task_name=f"outbox.{msg.event_type}",
+                        queue_name=msg.routing_key,
+                        routing_key=msg.routing_key,
+                        exchange=msg.exchange,
+                        payload=msg.payload,
+                        exception_class="OutboxDeliveryError",
+                        exception_message="Failed to deliver outbox event to AMQP broker after 5 attempts.",
+                        status=DeadLetterMessage.Status.PENDING,
+                    )
+                msg.save(update_fields=["status", "retry_count", "last_error"])
+                failed_count += 1
+                errors.append(f"Event {msg.event_id} ({msg.event_type}) failed delivery.")
+
+        return {
+            "total_processed": len(pending_messages),
+            "published_count": published_count,
+            "failed_count": failed_count,
+            "errors": errors,
+        }
+

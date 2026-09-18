@@ -4,13 +4,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.utils import timezone
 
-from .models import DeadLetterMessage
+from .models import DeadLetterMessage, OutboxMessage
 from .service import RabbitMQService
 from .tasks import simulate_failing_task
 
 
 class QueueMetricsView(APIView):
-    """Returns real-time RabbitMQ and DLQ metrics."""
+    """Returns real-time RabbitMQ, DLQ, and Transactional Outbox metrics."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -22,6 +22,11 @@ class QueueMetricsView(APIView):
         replayed_dlq = DeadLetterMessage.objects.filter(status=DeadLetterMessage.Status.REPLAYED).count()
         purged_dlq = DeadLetterMessage.objects.filter(status=DeadLetterMessage.Status.PURGED).count()
 
+        total_outbox = OutboxMessage.objects.count()
+        pending_outbox = OutboxMessage.objects.filter(status=OutboxMessage.Status.PENDING).count()
+        published_outbox = OutboxMessage.objects.filter(status=OutboxMessage.Status.PUBLISHED).count()
+        failed_outbox = OutboxMessage.objects.filter(status=OutboxMessage.Status.FAILED).count()
+
         return Response({
             "broker": broker_status,
             "queues": queue_stats,
@@ -30,6 +35,12 @@ class QueueMetricsView(APIView):
                 "pending": pending_dlq,
                 "replayed": replayed_dlq,
                 "purged": purged_dlq,
+            },
+            "outbox_summary": {
+                "total": total_outbox,
+                "pending": pending_outbox,
+                "published": published_outbox,
+                "failed": failed_outbox,
             },
             "timestamp": timezone.now().isoformat(),
         })
@@ -141,3 +152,47 @@ class SimulateTaskFailureView(APIView):
             {"message": "Simulated task queued for execution", "task_id": task.id},
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+class OutboxListView(APIView):
+    """Lists Transactional Outbox messages."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        status_filter = request.query_params.get("status")
+        queryset = OutboxMessage.objects.all()
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        limit = min(int(request.query_params.get("limit", 50)), 100)
+        messages = queryset[:limit]
+
+        data = [
+            {
+                "id": msg.id,
+                "event_id": str(msg.event_id),
+                "event_type": msg.event_type,
+                "exchange": msg.exchange,
+                "routing_key": msg.routing_key,
+                "payload": msg.payload,
+                "headers": msg.headers,
+                "status": msg.status,
+                "retry_count": msg.retry_count,
+                "last_error": msg.last_error,
+                "created_at": msg.created_at.isoformat(),
+                "published_at": msg.published_at.isoformat() if msg.published_at else None,
+            }
+            for msg in messages
+        ]
+        return Response({"results": data, "count": queryset.count()})
+
+
+class OutboxRelayView(APIView):
+    """Triggers an outbox relay execution to drain pending messages to RabbitMQ."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        batch_size = min(int(request.data.get("batch_size", 50)), 200)
+        result = RabbitMQService.relay_pending_outbox(batch_size=batch_size)
+        return Response(result, status=status.HTTP_200_OK)
+

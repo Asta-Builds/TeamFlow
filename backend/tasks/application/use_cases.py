@@ -67,6 +67,10 @@ class TaskApplicationService:
         )
         return task
 
+    def transition_status(self, task: Task, target_status: str, actor=None) -> Task:
+        """Convenience alias for change_task_status."""
+        return self.change_task_status(task, target_status, actor)
+
     @transaction.atomic
     def validate_qa(self, task: Task, actor) -> Task:
         """

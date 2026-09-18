@@ -7,6 +7,8 @@ from .views import (
     ReplayAllDeadLettersView,
     PurgeDeadLettersView,
     SimulateTaskFailureView,
+    OutboxListView,
+    OutboxRelayView,
 )
 
 urlpatterns = [
@@ -16,5 +18,8 @@ urlpatterns = [
     path("dlq/<int:pk>/replay/", ReplayDeadLetterView.as_view(), name="dead-letter-replay"),
     path("dlq/replay-all/", ReplayAllDeadLettersView.as_view(), name="dead-letter-replay-all"),
     path("dlq/purge-all/", PurgeDeadLettersView.as_view(), name="dead-letter-purge-all"),
+    path("outbox/", OutboxListView.as_view(), name="outbox-list"),
+    path("outbox/relay/", OutboxRelayView.as_view(), name="outbox-relay"),
     path("simulate-failure/", SimulateTaskFailureView.as_view(), name="simulate-failure"),
 ]
+

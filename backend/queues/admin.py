@@ -3,8 +3,9 @@ from django.utils.html import format_html
 from django.urls import path, reverse
 from django.shortcuts import redirect, get_object_or_404
 from django.http import HttpResponseRedirect
+from django.utils import timezone
 
-from .models import DeadLetterMessage
+from .models import DeadLetterMessage, OutboxMessage
 from .service import RabbitMQService
 
 
@@ -183,3 +184,93 @@ class DeadLetterMessageAdmin(admin.ModelAdmin):
     def mark_as_resolved(self, request, queryset):
         count = queryset.update(status=DeadLetterMessage.Status.RESOLVED)
         self.message_user(request, f"{count} messages marked as resolved.", messages.SUCCESS)
+
+
+@admin.register(OutboxMessage)
+class OutboxMessageAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "status_badge",
+        "event_type_display",
+        "event_id_truncated",
+        "routing_key",
+        "exchange",
+        "retry_count",
+        "created_at",
+        "published_at",
+    )
+    list_filter = ("status", "event_type", "created_at", "exchange")
+    search_fields = ("event_id", "event_type", "routing_key", "last_error")
+    readonly_fields = (
+        "event_id",
+        "event_type",
+        "exchange",
+        "routing_key",
+        "retry_count",
+        "last_error",
+        "created_at",
+        "published_at",
+        "formatted_payload",
+        "formatted_headers",
+    )
+    actions = ["relay_selected_messages", "mark_as_failed"]
+
+    def status_badge(self, obj):
+        colors = {
+            OutboxMessage.Status.PENDING: ("#d97706", "#fef3c7"),
+            OutboxMessage.Status.PUBLISHED: ("#059669", "#d1fae5"),
+            OutboxMessage.Status.FAILED: ("#dc2626", "#fee2e2"),
+        }
+        text_color, bg_color = colors.get(obj.status, ("#4b5563", "#f3f4f6"))
+        return format_html(
+            '<span style="display:inline-block; padding:3px 8px; font-size:11px; font-weight:600; border-radius:9999px; background-color:{}; color:{}; text-transform:uppercase;">{}</span>',
+            bg_color,
+            text_color,
+            obj.get_status_display(),
+        )
+    status_badge.short_description = "Status"
+    status_badge.admin_order_field = "status"
+
+    def event_type_display(self, obj):
+        return format_html('<span style="font-family:monospace; font-weight:600; color:#2563eb;">{}</span>', obj.event_type)
+    event_type_display.short_description = "Event Type"
+    event_type_display.admin_order_field = "event_type"
+
+    def event_id_truncated(self, obj):
+        short_id = str(obj.event_id)[:8] + "..."
+        return format_html('<code style="font-size:11px; color:#64748b;">{}</code>', short_id)
+    event_id_truncated.short_description = "Event UUID"
+
+    def formatted_payload(self, obj):
+        import json
+        return format_html('<pre style="background:#1e293b; color:#e2e8f0; padding:10px; border-radius:6px; font-size:12px;">{}</pre>', json.dumps(obj.payload, indent=2))
+    formatted_payload.short_description = "Payload"
+
+    def formatted_headers(self, obj):
+        import json
+        return format_html('<pre style="background:#1e293b; color:#e2e8f0; padding:10px; border-radius:6px; font-size:12px;">{}</pre>', json.dumps(obj.headers, indent=2))
+    formatted_headers.short_description = "Headers"
+
+    @admin.action(description="Relay selected outbox messages to RabbitMQ")
+    def relay_selected_messages(self, request, queryset):
+        success_count = 0
+        for obj in queryset.filter(status__in=[OutboxMessage.Status.PENDING, OutboxMessage.Status.FAILED]):
+            ok = RabbitMQService.publish_async_message(
+                queue_name=obj.routing_key,
+                payload=obj.payload,
+                routing_key=obj.routing_key,
+                exchange_name=obj.exchange,
+                headers=obj.headers,
+            )
+            if ok:
+                obj.status = OutboxMessage.Status.PUBLISHED
+                obj.published_at = timezone.now()
+                obj.save(update_fields=["status", "published_at"])
+                success_count += 1
+        self.message_user(request, f"{success_count} outbox messages successfully relayed to RabbitMQ.", messages.SUCCESS)
+
+    @admin.action(description="Mark selected messages as Failed")
+    def mark_as_failed(self, request, queryset):
+        count = queryset.update(status=OutboxMessage.Status.FAILED)
+        self.message_user(request, f"{count} outbox messages marked as Failed.", messages.WARNING)
+

@@ -5,7 +5,7 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 from rest_framework import status
 
-from .models import DeadLetterMessage
+from .models import DeadLetterMessage, OutboxMessage
 from .service import RabbitMQService
 from .signals import handle_celery_task_failure
 
@@ -188,3 +188,95 @@ class QueueAPITests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.dlq_msg.refresh_from_db()
         self.assertEqual(self.dlq_msg.status, DeadLetterMessage.Status.PURGED)
+
+
+class TransactionalOutboxTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="outbox_tester@teamflow.dev",
+            password="test-password-123",
+            role=User.Role.TECH_LEAD,
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_record_outbox_message(self):
+        msg = RabbitMQService.record_outbox_message(
+            event_type="TaskStatusChangedEvent",
+            payload={"task_id": 101, "from_status": "todo", "to_status": "in_progress"},
+            routing_key="task.status.changed",
+        )
+        self.assertEqual(msg.status, OutboxMessage.Status.PENDING)
+        self.assertEqual(msg.event_type, "TaskStatusChangedEvent")
+        self.assertEqual(msg.routing_key, "task.status.changed")
+        self.assertIn("Outbox [pending] TaskStatusChangedEvent", str(msg))
+
+    @patch.object(RabbitMQService, "publish_async_message", return_value=True)
+    def test_relay_pending_outbox_success(self, mock_publish):
+        RabbitMQService.record_outbox_message(
+            event_type="TaskCreatedEvent",
+            payload={"task_id": 202, "title": "Implement RabbitMQ Topology"},
+            routing_key="task.created",
+        )
+        res = RabbitMQService.relay_pending_outbox()
+        self.assertEqual(res["total_processed"], 1)
+        self.assertEqual(res["published_count"], 1)
+        self.assertEqual(res["failed_count"], 0)
+
+        outbox = OutboxMessage.objects.first()
+        self.assertEqual(outbox.status, OutboxMessage.Status.PUBLISHED)
+        self.assertIsNotNone(outbox.published_at)
+        mock_publish.assert_called_once()
+
+    @patch.object(RabbitMQService, "publish_async_message", return_value=False)
+    def test_relay_pending_outbox_max_retries_to_dlq(self, mock_publish):
+        msg = RabbitMQService.record_outbox_message(
+            event_type="PoisonEvent",
+            payload={"broken": True},
+            routing_key="task.broken",
+        )
+        msg.retry_count = 4
+        msg.save()
+
+        res = RabbitMQService.relay_pending_outbox()
+        self.assertEqual(res["failed_count"], 1)
+
+        msg.refresh_from_db()
+        self.assertEqual(msg.status, OutboxMessage.Status.FAILED)
+        self.assertEqual(msg.retry_count, 5)
+
+        # Confirm DLQ incident record was generated
+        dlq = DeadLetterMessage.objects.filter(task_name="outbox.PoisonEvent").first()
+        self.assertIsNotNone(dlq)
+        self.assertEqual(dlq.exception_class, "OutboxDeliveryError")
+
+    def test_outbox_api_list_and_metrics(self):
+        RabbitMQService.record_outbox_message(
+            event_type="TaskAssignedEvent",
+            payload={"task_id": 303},
+            routing_key="task.assigned",
+        )
+
+        # Check metrics endpoint includes outbox
+        metrics_resp = self.client.get(reverse("queue-metrics"))
+        self.assertEqual(metrics_resp.status_code, status.HTTP_200_OK)
+        outbox_summary = metrics_resp.json()["outbox_summary"]
+        self.assertEqual(outbox_summary["total"], 1)
+        self.assertEqual(outbox_summary["pending"], 1)
+
+        # Check outbox list endpoint
+        list_resp = self.client.get(reverse("outbox-list"))
+        self.assertEqual(list_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(list_resp.json()["count"], 1)
+
+    @patch.object(RabbitMQService, "publish_async_message", return_value=True)
+    def test_outbox_relay_api(self, mock_publish):
+        RabbitMQService.record_outbox_message(
+            event_type="TaskQAValidatedEvent",
+            payload={"task_id": 404},
+            routing_key="task.qa.validated",
+        )
+        resp = self.client.post(reverse("outbox-relay"), {"batch_size": 10}, format="json")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(resp.json()["published_count"], 1)
+

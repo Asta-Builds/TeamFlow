@@ -28,3 +28,14 @@ def dispatch_rabbitmq_event(self, event_type: str, payload: dict, routing_key: s
         payload={"event_type": event_type, "data": payload},
         routing_key=routing_key,
     )
+
+
+@shared_task(bind=True)
+def relay_outbox_messages_task(self, batch_size: int = 50):
+    """
+    Background Celery worker task that drains pending Transactional Outbox messages
+    and publishes them to RabbitMQ topic exchange.
+    """
+    logger.debug("Executing relay_outbox_messages_task with batch_size=%d", batch_size)
+    return RabbitMQService.relay_pending_outbox(batch_size=batch_size)
+

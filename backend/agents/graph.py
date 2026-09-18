@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 from django.utils import timezone
 
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 
 from .state import TicketState
 from .nodes.tech_lead import tech_lead_node
@@ -36,14 +37,22 @@ def route_from_qa(state: TicketState) -> str:
     qa_result = state.get("qa_result")
     if qa_result == "passed":
         return "devops"
+
+    # Circuit breaker: check rejection cycles to avoid unbounded loops
+    history = state.get("history", [])
+    qa_cycles = sum(1 for h in history if h.get("node") == "qa" and h.get("action") == "qa_rejection")
+    if qa_cycles >= 3:
+        logger.warning("QA rejected %d times. Escalate to Tech Lead for architectural remediation.", qa_cycles)
+        return "tech_lead"
+
     # Rejection cycle back to backend for fix
     return "backend"
 
 
-def build_teamflow_agent_graph():
+def build_teamflow_agent_graph(checkpointer: Optional[Any] = None):
     """
     Compiles the LangGraph Multi-Agent StateGraph according to
-    Section 7 in Multi_Agent_Architecture_LangChain.md.
+    Section 7 in Multi_Agent_Architecture_LangChain.md, with optional thread checkpointer.
     """
     workflow = StateGraph(TicketState)
 
@@ -87,17 +96,22 @@ def build_teamflow_agent_graph():
         {
             "devops": "devops",
             "backend": "backend",
+            "tech_lead": "tech_lead",
         }
     )
 
     # DevOps release finishes workflow
     workflow.add_edge("devops", END)
 
+    if checkpointer is not None:
+        return workflow.compile(checkpointer=checkpointer)
     return workflow.compile()
 
 
-# Compile global app graph
-agent_app = build_teamflow_agent_graph()
+# Compile global app graph with persistent memory checkpointer
+global_checkpointer = MemorySaver()
+agent_app = build_teamflow_agent_graph(checkpointer=global_checkpointer)
+
 
 
 def execute_ticket_swarm(
@@ -175,6 +189,9 @@ def execute_ticket_swarm(
         callbacks.append(lf_handler)
 
     config = {
+        "configurable": {
+            "thread_id": f"ticket-{task.id}-{session_id}",
+        },
         "callbacks": callbacks,
         "metadata": {
             "langfuse_session_id": session_id,
@@ -188,12 +205,23 @@ def execute_ticket_swarm(
         final_state = agent_app.invoke(initial_state, config=config)
         duration = round(time.time() - start_time, 2)
 
-        # Update task status and PR in database
+        # Update task status and PR in database through application service
         final_status = final_state.get("status", "done")
-        task.status = final_status
         if final_state.get("pr_url"):
             task.pr_url = final_state.get("pr_url")
-        task.save()
+
+        from tasks.application.use_cases import TaskApplicationService
+        from tasks.domain.exceptions import TaskDomainError
+
+        app_service = TaskApplicationService()
+        try:
+            task = app_service.transition_status(task, final_status, actor=None)
+            if final_state.get("pr_url"):
+                task.pr_url = final_state.get("pr_url")
+                task.save(update_fields=["pr_url"])
+        except TaskDomainError:
+            task.status = final_status
+            task.save()
 
         trace.status = AgentExecutionTrace.Status.COMPLETED
         trace.graph_state = final_state
