@@ -71,12 +71,23 @@ auth_patterns = [
     path("clerk/", ClerkAuthView.as_view(), name="clerk-auth"),
 ]
 
+from teamflow.admin_operations import (
+    admin_clear_cache,
+    admin_flush_outbox,
+    admin_reindex_vector,
+    admin_restart_workers,
+)
+
 # Customize Django Admin branding
 admin.site.site_header = "TeamFlow Platform Administration"
 admin.site.site_title = "TeamFlow Admin"
 admin.site.index_title = "Virtual Tech Company Command & Swarm Console"
 
 urlpatterns = [
+    path("admin/operations/clear-cache/", admin_clear_cache, name="admin-clear-cache"),
+    path("admin/operations/flush-outbox/", admin_flush_outbox, name="admin-flush-outbox"),
+    path("admin/operations/reindex-vector/", admin_reindex_vector, name="admin-reindex-vector"),
+    path("admin/operations/restart-workers/", admin_restart_workers, name="admin-restart-workers"),
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
     path("api/auth/", include(auth_patterns)),

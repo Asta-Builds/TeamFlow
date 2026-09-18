@@ -973,3 +973,872 @@ body.tf-login-page {
   color: var(--tf-text-dim);
   font-family: var(--tf-font-mono);
 }
+
+/* ==========================================================================
+   Stitch MCP Modernization: Command Center Layout & Precision Tokens
+   ========================================================================== */
+
+/* Top Telemetry Strip */
+.tf-top-telemetry-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--tf-font-mono);
+  font-size: 11px;
+  color: var(--tf-text-muted);
+  padding: 6px 14px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  backdrop-filter: blur(8px);
+}
+
+.tf-telemetry-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.tf-telemetry-status {
+  color: var(--tf-success);
+  font-weight: 600;
+}
+
+.tf-telemetry-divider {
+  color: #475569;
+}
+
+/* Header Userlinks Enhancements */
+.tf-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--tf-font-mono);
+}
+
+.tf-pill-danger {
+  background: var(--tf-danger);
+  color: #ffffff;
+}
+
+.tf-user-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--tf-radius);
+}
+
+.tf-user-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  background: var(--tf-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.tf-user-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.tf-user-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tf-text-main);
+}
+
+.tf-user-role {
+  font-size: 9px;
+  color: var(--tf-text-dim);
+  font-family: var(--tf-font-mono);
+}
+
+.tf-user-dropdown-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+}
+
+.tf-user-action-link,
+.tf-user-logout-btn {
+  background: transparent;
+  border: none;
+  color: var(--tf-text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  transition: var(--tf-transition);
+}
+
+.tf-user-action-link:hover,
+.tf-user-logout-btn:hover {
+  color: var(--tf-text-main);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Three-Column Command Center Workspace */
+.tf-modern-dashboard #content {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: 100% !important;
+}
+
+.tf-screen-layout {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) 340px;
+  min-height: calc(100vh - 58px);
+  background: var(--tf-bg-canvas);
+}
+
+/* 1. Left Rail */
+.tf-left-rail {
+  width: 210px;
+  background: #090d16;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px 10px;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 58px);
+  overflow-y: auto;
+}
+
+.tf-rail-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tf-rail-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+  transition: var(--tf-transition);
+}
+
+.tf-rail-link:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: #f8fafc;
+}
+
+.tf-rail-link-active {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa !important;
+  font-weight: 600;
+}
+
+.tf-rail-badge {
+  margin-left: auto;
+  background: var(--tf-danger);
+  color: #ffffff;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  font-family: var(--tf-font-mono);
+}
+
+.tf-rail-footer {
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tf-health-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.tf-health-label {
+  color: #94a3b8;
+}
+
+.tf-health-val {
+  color: var(--tf-success);
+  font-weight: 600;
+}
+
+.tf-health-progress-bg {
+  width: 100%;
+  height: 4px;
+  background: #1e293b;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.tf-health-progress-bar {
+  height: 100%;
+  background: var(--tf-success);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+/* 2. Center Column: Ops Deck, KPIs, Registry */
+.tf-center-deck {
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.tf-btn-counter {
+  margin-left: 4px;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 1px 5px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--tf-font-mono);
+}
+
+/* 4 KPI Cards Grid */
+.tf-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.tf-kpi-card {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: transform 150ms cubic-bezier(0.16, 1, 0.3, 1), border-color 150ms;
+}
+
+.tf-kpi-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.tf-kpi-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tf-kpi-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  font-family: var(--tf-font-mono);
+}
+
+.tf-kpi-icon-box {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tf-icon-purple {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+}
+
+.tf-icon-green {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+.tf-icon-red {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.tf-icon-blue {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+}
+
+.tf-kpi-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: -0.3px;
+}
+
+.tf-kpi-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.tf-kpi-link {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+.tf-pulse-dot-sm {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: var(--tf-success);
+  display: inline-block;
+  margin-right: 2px;
+}
+
+.tf-dot-danger {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--tf-danger);
+  display: inline-block;
+  margin-left: 4px;
+}
+
+.text-emerald {
+  color: #34d399 !important;
+}
+
+.text-rose {
+  color: #f87171 !important;
+}
+
+/* 3. Registry Section */
+.tf-registry-section {
+  margin-top: 6px;
+}
+
+.tf-registry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.tf-registry-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tf-registry-icon {
+  color: #60a5fa;
+  display: flex;
+}
+
+.tf-registry-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.tf-registry-pill {
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-family: var(--tf-font-mono);
+}
+
+.tf-registry-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.tf-btn-ghost-sm {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: var(--tf-transition);
+}
+
+.tf-btn-ghost-sm:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f8fafc;
+}
+
+.tf-modules-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tf-module-card {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tf-card-highlight {
+  border-color: rgba(239, 68, 68, 0.25) !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.06);
+}
+
+.tf-mod-header {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 9px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tf-mod-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #60a5fa;
+}
+
+.tf-mod-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f8fafc;
+  letter-spacing: 0.5px;
+}
+
+.tf-mod-path {
+  font-size: 10px;
+  color: #64748b;
+  font-family: var(--tf-font-mono);
+}
+
+.tf-mod-count-pill {
+  font-size: 10px;
+  color: #64748b;
+  font-family: var(--tf-font-mono);
+}
+
+.tf-mod-table-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.tf-table-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  transition: background 100ms;
+}
+
+.tf-table-row:last-child {
+  border-bottom: none;
+}
+
+.tf-table-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.tf-row-alert {
+  background: rgba(239, 68, 68, 0.05) !important;
+}
+
+.tf-table-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tf-table-icon {
+  color: #64748b;
+  display: flex;
+  align-items: center;
+}
+
+.tf-table-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f8fafc;
+  text-decoration: none;
+}
+
+.tf-table-link:hover {
+  color: #60a5fa;
+}
+
+.tf-table-tag {
+  font-size: 10px;
+  color: #64748b;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  font-family: var(--tf-font-mono);
+}
+
+.tf-tag-emerald {
+  color: #34d399 !important;
+  background: rgba(16, 185, 129, 0.1) !important;
+}
+
+.tf-tag-purple {
+  color: #a78bfa !important;
+  background: rgba(139, 92, 246, 0.1) !important;
+}
+
+.tf-tag-danger {
+  color: #f87171 !important;
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+.tf-table-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tf-row-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  min-width: 48px;
+  text-align: right;
+}
+
+.tf-act-btn {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-decoration: none;
+  transition: var(--tf-transition);
+}
+
+.tf-act-add {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.tf-act-add:hover {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.tf-act-change {
+  background: rgba(255, 255, 255, 0.03);
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tf-act-change:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+.tf-act-inspect {
+  background: var(--tf-danger);
+  color: #ffffff !important;
+  border: none;
+  font-weight: 600;
+}
+
+.tf-act-inspect:hover {
+  background: #dc2626;
+}
+
+.tf-status-indicator {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+}
+
+.tf-status-pending {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.tf-status-optimal {
+  font-size: 10px;
+  font-weight: 600;
+  color: #34d399;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 1px 7px;
+  border-radius: 9999px;
+}
+
+/* 4. Right Sidebar: Audit Feed & Cluster Ops */
+.tf-right-sidebar {
+  width: 340px;
+  background: #090d16;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 58px);
+  overflow-y: auto;
+}
+
+.tf-audit-module {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tf-audit-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.tf-audit-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.tf-audit-subtitle {
+  font-size: 10px;
+  color: #64748b;
+  font-family: var(--tf-font-mono);
+}
+
+.tf-live-beacon {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--tf-success);
+  font-family: var(--tf-font-mono);
+  background: rgba(16, 185, 129, 0.1);
+  padding: 2px 6px;
+  border-radius: 9999px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.tf-audit-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.tf-audit-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tf-audit-item-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tf-audit-badge {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--tf-font-mono);
+}
+
+.tf-badge-add {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.tf-badge-change {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.tf-badge-delete {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.tf-audit-target {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tf-audit-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: #f8fafc;
+  text-decoration: none;
+}
+
+.tf-audit-name:hover {
+  color: #60a5fa;
+}
+
+.tf-audit-time {
+  font-size: 9px;
+  color: #64748b;
+}
+
+.tf-audit-desc {
+  font-size: 10px;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tf-audit-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  color: #64748b;
+}
+
+.tf-actor-badge {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: #94a3b8;
+}
+
+.tf-audit-app-dot {
+  color: #475569;
+}
+
+.tf-audit-app-label {
+  color: #64748b;
+}
+
+.tf-audit-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tf-audit-footer-text {
+  color: #64748b;
+}
+
+.tf-audit-footer-link {
+  color: #60a5fa;
+  text-decoration: none;
+}
+
+.tf-audit-footer-link:hover {
+  text-decoration: underline;
+}
+
+/* Cluster Quick Operations Card */
+.tf-ops-cluster-card {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tf-ops-cluster-title {
+  font-size: 9px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  font-family: var(--tf-font-mono);
+}
+
+.tf-ops-cluster-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.tf-cluster-btn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  padding: 8px 6px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  transition: var(--tf-transition);
+}
+
+.tf-cluster-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.tf-cluster-btn-danger {
+  border-color: rgba(239, 68, 68, 0.25) !important;
+  color: #f87171 !important;
+}
+
+.tf-cluster-btn-danger:hover {
+  background: rgba(239, 68, 68, 0.15) !important;
+}
+
+@media (max-width: 1200px) {
+  .tf-screen-layout {
+    grid-template-columns: 1fr;
+  }
+  .tf-left-rail,
+  .tf-right-sidebar {
+    display: none;
+  }
+  .tf-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+

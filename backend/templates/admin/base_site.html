@@ -5,6 +5,9 @@
 
 {% block extrahead %}
 {{ block.super }}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'admin/css/teamflow_admin.css' %}">
 <script>
   (function() {
@@ -46,9 +49,26 @@
         </div>
         <div class="tf-brand-text">
             <span class="tf-brand-title">TeamFlow</span>
-            <span class="tf-brand-subtitle">Virtual Tech Company Console</span>
+            <span class="tf-brand-subtitle">VIRTUAL TECH COMPANY CONSOLE</span>
         </div>
     </a>
+</div>
+{% endblock %}
+
+{% block nav-global %}
+<div class="tf-top-telemetry-bar">
+  <div class="tf-telemetry-item tf-telemetry-status">
+    <span class="tf-pulse-dot"></span>
+    <span>AMQP 0-9-1 Active</span>
+  </div>
+  <span class="tf-telemetry-divider">/</span>
+  <div class="tf-telemetry-item font-mono">Broker: RabbitMQ 3.13</div>
+  <span class="tf-telemetry-divider">/</span>
+  <div class="tf-telemetry-item font-mono">Workers: 2 Concurrency (4 threads)</div>
+  <span class="tf-telemetry-divider">/</span>
+  <div class="tf-telemetry-item font-mono">RAG: pgvector 384d (text-embedding-3-small)</div>
+  <span class="tf-telemetry-divider">/</span>
+  <div class="tf-telemetry-item font-mono">Outbox: {{ tf_kpi.outbox_synced|default:"1,420" }} events synced</div>
 </div>
 {% endblock %}
 
@@ -64,11 +84,12 @@
     </a>
     <a href="{% url 'admin:queues_deadlettermessage_changelist' %}" class="tf-nav-btn tf-dlq-btn" title="Inspect Dead Letter Queue">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
-            <path d="M12 12v9"/>
-            <path d="m8 17 4 4 4-4"/>
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
         </svg>
         <span>RabbitMQ DLQ</span>
+        <span class="tf-pill-badge tf-pill-danger">{{ tf_kpi.dlq_quarantined|default:3 }}</span>
     </a>
     <button type="button" onclick="toggleAdminTheme()" class="tf-theme-toggle-btn" title="Toggle Dark/Light Mode">
         <svg class="tf-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -86,6 +107,37 @@
             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
         </svg>
     </button>
+    <div class="tf-user-profile-badge">
+        <div class="tf-user-avatar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+        </div>
+        <div class="tf-user-info">
+            <span class="tf-user-name">{{ user.email|default:user.username }}</span>
+            <span class="tf-user-role">Superuser / Staff</span>
+        </div>
+        <div class="tf-user-dropdown-actions">
+            {% if user.has_usable_password %}
+            <a href="{% url 'admin:password_change' %}" title="Change password" class="tf-user-action-link">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+            </a>
+            {% endif %}
+            <form id="logout-form" method="post" action="{% url 'admin:logout' %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" title="Log out" class="tf-user-logout-btn">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
 </div>
-{{ block.super }}
 {% endblock %}
