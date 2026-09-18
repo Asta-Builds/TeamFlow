@@ -167,12 +167,13 @@ class MultiAgentTestCase(TestCase):
         self.assertTrue(results)
         self.assertNotIn("private/secret.md", {item["file_path"] for item in results})
 
-    @patch("agents.nodes.frontend_agent.generate_text")
-    @patch("agents.nodes.backend_agent.generate_text")
+    @patch("agents.nodes.frontend_agent.generate_text_detailed")
+    @patch("agents.nodes.backend_agent.generate_text_detailed")
     def test_multi_agent_swarm_execution(self, mock_backend_llm, mock_frontend_llm):
         """The swarm runs a ticket to done when a model generates the code."""
-        mock_backend_llm.return_value = "FILE: api/views.py\nCODE:\nclass View:\n    pass\n---\n"
-        mock_frontend_llm.return_value = "FILE: frontend/src/components/generated/widget.tsx\nCODE:\nexport default function Widget() { return null; }\n---\n"
+        from agents.llm import LLMResult
+        mock_backend_llm.return_value = LLMResult(text="FILE: api/views.py\nCODE:\nclass View:\n    pass\n---\n", provider="gemini", model="test", attempts=1)
+        mock_frontend_llm.return_value = LLMResult(text="FILE: frontend/src/components/generated/widget.tsx\nCODE:\nexport default function Widget() { return null; }\n---\n", provider="gemini", model="test", attempts=1)
         ingest_sample_knowledge_base(project=self.project)
         result = execute_ticket_swarm(self.task)
 
@@ -191,10 +192,13 @@ class MultiAgentTestCase(TestCase):
         self.task.refresh_from_db()
         self.assertEqual(self.task.status, Task.Status.DONE)
 
-    @patch("agents.nodes.frontend_agent.generate_text", return_value=None)
-    @patch("agents.nodes.backend_agent.generate_text", return_value=None)
+    @patch("agents.nodes.frontend_agent.generate_text_detailed")
+    @patch("agents.nodes.backend_agent.generate_text_detailed")
     def test_multi_agent_swarm_writes_nothing_without_a_model(self, _backend_llm, _frontend_llm):
         """With no model configured the swarm stops instead of inventing work."""
+        from agents.llm import LLMResult
+        _backend_llm.return_value = LLMResult(error="no provider", attempts=0)
+        _frontend_llm.return_value = LLMResult(error="no provider", attempts=0)
         ingest_sample_knowledge_base(project=self.project)
         result = execute_ticket_swarm(self.task)
 
@@ -553,13 +557,14 @@ class PMBackendFrontendWorkflowTestCase(TestCase):
         with self.assertRaises(ModelUnavailable):
             require_text("System", "User")
 
-    @patch("agents.nodes.frontend_agent.generate_text")
-    @patch("agents.nodes.backend_agent.generate_text")
+    @patch("agents.nodes.frontend_agent.generate_text_detailed")
+    @patch("agents.nodes.backend_agent.generate_text_detailed")
     @patch("agents.tools.github_tool.open_pull_request")
     @patch("agents.tools.github_tool.create_branch")
     def test_end_to_end_pm_backend_frontend_workflow(self, mock_create_branch, mock_open_pr, mock_back_llm, mock_front_llm):
-        mock_back_llm.return_value = "FILE: api/views.py\nCODE:\nclass View:\n pass\n---\n"
-        mock_front_llm.return_value = "FILE: frontend/src/components/generated/widget.tsx\nCODE:\nexport default function Widget() { return <div></div>; }\n---\n"
+        from agents.llm import LLMResult
+        mock_back_llm.return_value = LLMResult(text="FILE: api/views.py\nCODE:\nclass View:\n pass\n---\n", provider="gemini", model="test", attempts=1)
+        mock_front_llm.return_value = LLMResult(text="FILE: frontend/src/components/generated/widget.tsx\nCODE:\nexport default function Widget() { return <div></div>; }\n---\n", provider="gemini", model="test", attempts=1)
 
         mock_create_branch.return_value = {"success": True, "branch": "feat/mock"}
         mock_open_pr.return_value = {"pr_url": "https://github.com/example-org/example-repo/pull/42", "is_live_pr": True}
@@ -670,9 +675,10 @@ class PMBackendFrontendWorkflowTestCase(TestCase):
 
 
 
-    @patch("agents.nodes.backend_agent.generate_text")
+    @patch("agents.nodes.backend_agent.generate_text_detailed")
     def test_backend_agent_no_model_configured_writes_no_files(self, mock_llm):
-        mock_llm.return_value = None
+        from agents.llm import LLMResult
+        mock_llm.return_value = LLMResult(error="No model provider configured or available.", attempts=0)
         task = Task.objects.create(
             project=self.project,
             title="Demo",
@@ -700,9 +706,10 @@ class PMBackendFrontendWorkflowTestCase(TestCase):
         self.assertNotIn("tokens", res["history"][-1])
         self.assertNotIn("cost_usd", res["history"][-1])
 
-    @patch("agents.nodes.backend_agent.generate_text")
+    @patch("agents.nodes.backend_agent.generate_text_detailed")
     def test_mocked_generate_text_writes_one_file(self, mock_llm):
-        mock_llm.return_value = "FILE: api/hello.py\nCODE:\nprint('hi')\n---\n"
+        from agents.llm import LLMResult
+        mock_llm.return_value = LLMResult(text="FILE: api/hello.py\nCODE:\nprint('hi')\n---\n", provider="gemini", model="test", attempts=1)
         task = Task.objects.create(
             project=self.project,
             title="Demo 2",
@@ -1056,3 +1063,37 @@ class LLMProviderTestCase(TestCase):
         self.assertIsNone(result.text)
         self.assertNotIn("secret-key-value", result.error)
         self.assertIn("***", result.error)
+
+    @override_settings(GEMINI_API_KEY="secret-key", OPENAI_API_KEY="")
+    @patch("time.sleep")
+    @patch("google.antigravity.Agent")
+    def test_permanent_error_not_retried_with_digits(self, mock_agent_class, mock_sleep):
+        from agents.llm import generate_text_detailed
+        
+        class AsyncMockContextManager:
+            def __init__(self):
+                self.calls = 0
+            async def __aenter__(self):
+                self.calls += 1
+                raise Exception("context length 8502 exceeded")
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+                
+        manager = AsyncMockContextManager()
+        mock_agent_class.return_value = manager
+
+        result = generate_text_detailed("System", "User")
+        
+        self.assertEqual(manager.calls, 1)
+        self.assertEqual(result.attempts, 1)
+        mock_sleep.assert_not_called()
+        self.assertIn("8502", result.error)
+
+    @override_settings(GEMINI_API_KEY="secret-key", OPENAI_API_KEY="", OLLAMA_BASE_URL="")
+    @patch.dict('sys.modules', {'google.antigravity': None})
+    def test_sdk_import_failure_raises_modelcallfailed(self):
+        from agents.llm import require_text
+        from agents.llm import ModelCallFailed, ModelUnavailable
+        
+        with self.assertRaises(ModelCallFailed):
+            require_text("System", "User")

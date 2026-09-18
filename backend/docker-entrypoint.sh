@@ -64,6 +64,9 @@ if [ "$APP_ROLE" = "web" ]; then
   echo "Applying database migrations..."
   python manage.py migrate --noinput
 
+  echo "Ensuring platform admin account..."
+  python manage.py init_admin || echo "Admin initialization skipped."
+
   if [ "${SEED_DEMO_DATA:-false}" = "true" ]; then
     echo "Seeding demo data..."
     python manage.py seed_demo || echo "Demo data already initialized or skipped."

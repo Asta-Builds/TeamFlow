@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import os
 import random
+import re
 from typing import Optional
 from dataclasses import dataclass
 
@@ -65,13 +66,22 @@ def _sanitize_error(error_msg: str) -> str:
 
 
 def _is_transient_error(error_str: str, exception_type: type) -> bool:
-    err_lower = error_str.lower()
-    if any(code in err_lower for code in ("429", "resource_exhausted", "500", "502", "503", "504", "timeout")):
-        return True
     if issubclass(exception_type, TimeoutError) or issubclass(exception_type, asyncio.TimeoutError):
         return True
-    if exception_type.__name__ == "TimeoutError" or exception_type.__name__ == "Timeout":
+    if exception_type.__name__ in ("TimeoutError", "Timeout"):
         return True
+        
+    err_lower = error_str.lower()
+    
+    if any(name in err_lower for name in ("resource_exhausted", "unavailable", "deadline_exceeded", "internal", "aborted")):
+        return True
+        
+    if "timeout" in err_lower:
+        return True
+        
+    if re.search(r'\b(429|500|502|503|504)\b', err_lower):
+        return True
+        
     return False
 
 def generate_text_detailed(system_prompt: str, user_prompt: str, *, timeout: int = 120) -> LLMResult:
@@ -108,6 +118,7 @@ def generate_text_detailed(system_prompt: str, user_prompt: str, *, timeout: int
                 f.write(text)
 
     last_error_result = None
+    total_attempts = 0
 
     # 1. Antigravity SDK (Gemini)
     if settings.GEMINI_API_KEY:
@@ -139,6 +150,7 @@ def generate_text_detailed(system_prompt: str, user_prompt: str, *, timeout: int
             attempts = 0
             while attempts < 3:
                 attempts += 1
+                total_attempts += 1
                 try:
                     text, prompt_tokens, output_tokens, total_tokens = asyncio.run(
                         asyncio.wait_for(_run_agy(), timeout=timeout)
@@ -146,7 +158,7 @@ def generate_text_detailed(system_prompt: str, user_prompt: str, *, timeout: int
                     save_record(text)
                     return LLMResult(
                         text=text, provider="gemini", model=settings.GEMINI_MODEL,
-                        duration_s=time.monotonic() - start_time, attempts=attempts,
+                        duration_s=time.monotonic() - start_time, attempts=total_attempts,
                         prompt_tokens=prompt_tokens, output_tokens=output_tokens, total_tokens=total_tokens
                     )
                 except Exception as agy_err:
@@ -160,13 +172,17 @@ def generate_text_detailed(system_prompt: str, user_prompt: str, *, timeout: int
                     logger.warning(f"Gemini ({settings.GEMINI_MODEL}) failed: {err_str}", exc_info=True)
                     last_error_result = LLMResult(
                         error=f"Gemini ({settings.GEMINI_MODEL}) failed: {err_str}", provider="gemini", model=settings.GEMINI_MODEL,
-                        duration_s=time.monotonic() - start_time, attempts=attempts
+                        duration_s=time.monotonic() - start_time, attempts=total_attempts
                     )
                     break
         except Exception as e:
-            # Import errors or setup errors fall here
-            logger.warning(f"Antigravity SDK decomposition bypassed: {e}")
-            pass
+            total_attempts += 1
+            err_str = _sanitize_error(str(e))
+            logger.warning(f"Antigravity SDK import or configuration failed: {e}", exc_info=True)
+            last_error_result = LLMResult(
+                error=f"Antigravity SDK import or configuration failed: {err_str}", provider="gemini", model=settings.GEMINI_MODEL,
+                duration_s=time.monotonic() - start_time, attempts=total_attempts
+            )
 
     # 2. Local Ollama GPU
     try:
@@ -175,13 +191,14 @@ def generate_text_detailed(system_prompt: str, user_prompt: str, *, timeout: int
             attempts = 0
             while attempts < 3:
                 attempts += 1
+                total_attempts += 1
                 try:
                     ollama_out = query_ollama(prompt=user_prompt, system_prompt=system_prompt, timeout=timeout)
                     if ollama_out:
                         save_record(ollama_out)
                         return LLMResult(
                             text=ollama_out, provider="ollama", model=getattr(settings, "OLLAMA_MODEL", "ollama"),
-                            duration_s=time.monotonic() - start_time, attempts=attempts
+                            duration_s=time.monotonic() - start_time, attempts=total_attempts
                         )
                     break
                 except Exception as e:
@@ -195,7 +212,7 @@ def generate_text_detailed(system_prompt: str, user_prompt: str, *, timeout: int
                     logger.warning(f"Ollama ({getattr(settings, 'OLLAMA_MODEL', 'ollama')}) failed: {err_str}", exc_info=True)
                     last_error_result = LLMResult(
                         error=f"Ollama ({getattr(settings, 'OLLAMA_MODEL', 'ollama')}) failed: {err_str}", provider="ollama", model=getattr(settings, 'OLLAMA_MODEL', 'ollama'),
-                        duration_s=time.monotonic() - start_time, attempts=attempts
+                        duration_s=time.monotonic() - start_time, attempts=total_attempts
                     )
                     break
     except Exception as e:
@@ -210,13 +227,14 @@ def generate_text_detailed(system_prompt: str, user_prompt: str, *, timeout: int
             attempts = 0
             while attempts < 3:
                 attempts += 1
+                total_attempts += 1
                 try:
                     llm = ChatOpenAI(model=settings.OPENAI_MODEL, temperature=0.2, openai_api_key=settings.OPENAI_API_KEY, timeout=timeout)
                     res = llm.invoke([SystemMessage(content=system_prompt), HumanMessage(content=user_prompt)])
                     save_record(res.content)
                     return LLMResult(
                         text=res.content, provider="openai", model=settings.OPENAI_MODEL,
-                        duration_s=time.monotonic() - start_time, attempts=attempts
+                        duration_s=time.monotonic() - start_time, attempts=total_attempts
                     )
                 except Exception as e:
                     err_str = _sanitize_error(str(e))
@@ -229,7 +247,7 @@ def generate_text_detailed(system_prompt: str, user_prompt: str, *, timeout: int
                     logger.warning(f"OpenAI ({settings.OPENAI_MODEL}) failed: {err_str}", exc_info=True)
                     last_error_result = LLMResult(
                         error=f"OpenAI ({settings.OPENAI_MODEL}) failed: {err_str}", provider="openai", model=settings.OPENAI_MODEL,
-                        duration_s=time.monotonic() - start_time, attempts=attempts
+                        duration_s=time.monotonic() - start_time, attempts=total_attempts
                     )
                     break
         except Exception as e:

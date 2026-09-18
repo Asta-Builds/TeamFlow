@@ -107,7 +107,7 @@ class ProviderHonestyTests(TestCase):
     @patch("agents.antigravity_sdk.AntigravityAgentEngine._check_sdk")
     @patch("agents.observability.langfuse_client.log_agent_execution_to_langfuse")
     def test_antigravity_agent_result_tokens(self, mock_log, mock_check, mock_generate):
-        """3. AntigravityAgentResult uses real tokens_used from LLMResult, and 4. subagents_spawned is empty."""
+        """3. AntigravityAgentResult uses real tokens_used from LLMResult."""
         mock_check.return_value = False
         
         # Test with 77 tokens
@@ -115,12 +115,23 @@ class ProviderHonestyTests(TestCase):
         engine = AntigravityAgentEngine(agent_role="tech_lead")
         res1 = engine.execute_agent_sync(self.task, "test", [])
         self.assertEqual(res1.tokens_used, 77)
-        self.assertEqual(res1.subagents_spawned, [])
         
         # Test with None tokens
         mock_generate.return_value = LLMResult(text="response", total_tokens=None)
         res2 = engine.execute_agent_sync(self.task, "test", [])
         self.assertIsNone(res2.tokens_used)
+
+    @patch("agents.llm.generate_text_detailed")
+    @patch("agents.antigravity_sdk.AntigravityAgentEngine._check_sdk")
+    @patch("agents.observability.langfuse_client.log_agent_execution_to_langfuse")
+    def test_tech_lead_spawned_subagents_empty(self, mock_log, mock_check, mock_generate):
+        """4. subagents_spawned is empty for a tech_lead prompt."""
+        mock_check.return_value = False
+        mock_generate.return_value = LLMResult(text="response", total_tokens=77)
+        
+        engine = AntigravityAgentEngine(agent_role="tech_lead")
+        res1 = engine.execute_agent_sync(self.task, "test", [])
+        self.assertEqual(res1.subagents_spawned, [])
 
     @patch("agents.nodes.backend_agent.generate_text_detailed")
     @patch("agents.nodes.backend_agent.git_pull")

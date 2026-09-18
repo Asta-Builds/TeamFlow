@@ -227,7 +227,7 @@ class AntigravityAgentEngine:
                 output_str = f"deployment request failed: {dep_res.get('error') or dep_res.get('status')}"
             _add_tool_call(
                 name="request_staging_deployment",
-                args={"environment": "staging"},
+                args={"environment": "staging", "ok": dep_res.get("ok"), "configured": dep_res.get("configured")},
                 output=output_str,
             )
 
@@ -414,13 +414,18 @@ def run_antigravity_agent(
         task.assignee = agent_user
         tc = next((t for t in result.tool_calls if t.name == "request_staging_deployment"), None)
         if tc:
-            if "accepted" in tc.output:
+            is_ok = tc.args.get("ok")
+            is_configured = tc.args.get("configured")
+            
+            if is_ok:
                 task.status = Task.Status.DONE
-                result.response_text = "Deployment requested and accepted."
-            elif "not configured" in tc.output.lower() or "no deployment provider" in tc.output.lower():
-                result.response_text = "No deployment provider is configured, so no deployment was started."
+                
+            if is_ok:
+                result.response_text += "\n\nDeployment requested and accepted."
+            elif is_configured is False:
+                result.response_text += "\n\nNo deployment provider is configured, so no deployment was started."
             else:
-                result.response_text = tc.output.capitalize()
+                result.response_text += f"\n\n{tc.output.capitalize()}"
 
     task.save()
 
