@@ -71,12 +71,18 @@ auth_patterns = [
     path("clerk/", ClerkAuthView.as_view(), name="clerk-auth"),
 ]
 
+# Customize Django Admin branding
+admin.site.site_header = "TeamFlow Platform Administration"
+admin.site.site_title = "TeamFlow Admin"
+admin.site.index_title = "Virtual Tech Company Command & Swarm Console"
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
     path("api/auth/", include(auth_patterns)),
     path("api/agents/", include("agents.urls")),
     path("api/integrations/", include("integrations.urls")),
+    path("api/queues/", include("queues.urls")),
     path("api/pulse/dashboard/", PulseDashboardView.as_view(), name="pulse-dashboard"),
     path("api/pulse/note/", PulseNoteView.as_view(), name="pulse-note"),
     path("api/", include(router.urls)),

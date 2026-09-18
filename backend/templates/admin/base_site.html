@@ -1,0 +1,86 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | TeamFlow Console{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/teamflow_admin.css' %}">
+<script>
+  // Theme toggler with localStorage persistence
+  (function() {
+    const savedTheme = localStorage.getItem('teamflow_admin_theme') || 'dark';
+    if (savedTheme === 'dark') {
+      document.documentElement.classList.add('theme-dark');
+      document.documentElement.classList.remove('theme-light');
+    } else {
+      document.documentElement.classList.add('theme-light');
+      document.documentElement.classList.remove('theme-dark');
+    }
+  })();
+
+  function toggleAdminTheme() {
+    const isDark = document.documentElement.classList.contains('theme-dark');
+    if (isDark) {
+      document.documentElement.classList.remove('theme-dark');
+      document.documentElement.classList.add('theme-light');
+      localStorage.setItem('teamflow_admin_theme', 'light');
+    } else {
+      document.documentElement.classList.remove('theme-light');
+      document.documentElement.classList.add('theme-dark');
+      localStorage.setItem('teamflow_admin_theme', 'dark');
+    }
+  }
+</script>
+{% endblock %}
+
+{% block branding %}
+<div class="tf-admin-brand">
+    <a href="{% url 'admin:index' %}" class="tf-brand-link">
+        <div class="tf-logo-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+        </div>
+        <div class="tf-brand-text">
+            <span class="tf-brand-title">TeamFlow</span>
+            <span class="tf-brand-subtitle">Virtual Tech Company Admin</span>
+        </div>
+    </a>
+</div>
+{% endblock %}
+
+{% block userlinks %}
+<div class="tf-nav-tools">
+    <a href="http://localhost:3000" target="_blank" class="tf-nav-btn tf-app-btn" title="Open Next.js Web App">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+            <line x1="8" y1="21" x2="16" y2="21"/>
+            <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <span>Open App</span>
+    </a>
+    <a href="{% url 'admin:queues_deadlettermessage_changelist' %}" class="tf-nav-btn tf-dlq-btn" title="Inspect Dead Letter Queue">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+            <path d="M12 12v9"/>
+            <path d="m8 17 4 4 4-4"/>
+        </svg>
+        <span>RabbitMQ DLQ</span>
+    </a>
+    <button type="button" onclick="toggleAdminTheme()" class="tf-theme-toggle-btn" title="Toggle Dark/Light Mode">
+        <svg class="tf-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+    </button>
+</div>
+{{ block.super }}
+{% endblock %}

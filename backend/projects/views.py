@@ -1,6 +1,6 @@
 import csv
 import json
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from rest_framework import decorators, permissions, response, viewsets
 from rest_framework.exceptions import PermissionDenied
@@ -27,13 +27,21 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated or user.organization is None:
             return Project.objects.none()
 
-        qs = Project.objects.filter(organization=user.organization).select_related("owner").prefetch_related("members", "tasks")
+        qs = (
+            Project.objects.filter(organization=user.organization)
+            .select_related("owner")
+            .prefetch_related("members")
+            .annotate(
+                annotated_task_count=Count("tasks", distinct=True),
+                annotated_done_task_count=Count("tasks", filter=Q(tasks__status="done"), distinct=True),
+            )
+        )
 
         # Members can only view projects they are owner or member of unless privileged (CEO, Tech Lead, Admin)
         if not user.is_privileged:
             qs = qs.filter(Q(owner=user) | Q(members=user)).distinct()
 
-        return qs
+        return qs.order_by("-created_at")
 
     def perform_create(self, serializer):
         if not self.request.user.can_create_project:

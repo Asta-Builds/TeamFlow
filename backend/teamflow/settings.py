@@ -23,6 +23,7 @@ env = environ.Env(
     CORS_ALLOWED_ORIGINS=(list, []),
     CSRF_TRUSTED_ORIGINS=(list, []),
     DATABASE_URL=(str, ""),
+    REDIS_URL=(str, ""),
     CELERY_BROKER_URL=(str, ""),
     KEYCLOAK_URL=(str, ""),
     KEYCLOAK_ISSUER_URL=(str, ""),
@@ -103,6 +104,7 @@ INSTALLED_APPS = [
     "agents",
     "integrations",
     "pulse",
+    "queues",
 ]
 
 MIDDLEWARE = [
@@ -122,7 +124,7 @@ ROOT_URLCONF = "teamflow.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -151,7 +153,13 @@ if db_url and "@db:" in db_url and DEBUG and not TESTING:
         db_url = db_url.replace("@db:", "@localhost:")
 
 if db_url:
-    DATABASES = {"default": env.db_url_config(db_url)}
+    DATABASES = {
+        "default": {
+            **env.db_url_config(db_url),
+            "CONN_MAX_AGE": env.int("DB_CONN_MAX_AGE", default=0 if TESTING else 600),
+            "CONN_HEALTH_CHECKS": True,
+        }
+    }
 else:
     DATABASES = {
         "default": {
@@ -178,6 +186,9 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -224,13 +235,81 @@ STORAGES = {
     },
 }
 
-# Celery Configuration
-CELERY_BROKER_URL = env("CELERY_BROKER_URL")
-CELERY_RESULT_BACKEND = env("CELERY_BROKER_URL")
+# Cache Configuration — Redis in Docker/production, LocMemCache in tests
+REDIS_URL = env("REDIS_URL", default="")
+if REDIS_URL and not TESTING:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+            "KEY_PREFIX": "teamflow:cache",
+            "TIMEOUT": 300,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "teamflow-locmem",
+        }
+    }
+
+# Celery & RabbitMQ Broker Configuration
+RABBITMQ_URL = env("RABBITMQ_URL", default="")
+RABBITMQ_MANAGEMENT_URL = env("RABBITMQ_MANAGEMENT_URL", default="http://localhost:15672")
+RABBITMQ_MANAGEMENT_USER = env("RABBITMQ_DEFAULT_USER", default="teamflow")
+RABBITMQ_MANAGEMENT_PASS = env("RABBITMQ_DEFAULT_PASS", default="teamflow_password")
+
+# If RABBITMQ_URL is provided, prioritize it as the Celery broker; otherwise fallback to CELERY_BROKER_URL / Redis
+if RABBITMQ_URL and not TESTING:
+    CELERY_BROKER_URL = RABBITMQ_URL
+else:
+    CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=REDIS_URL or "redis://localhost:6379/0")
+
+CELERY_RESULT_BACKEND = env("CELERY_BROKER_URL", default=REDIS_URL or "redis://localhost:6379/0")
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
+# These must stay below the 1200 s stale-trace reaper in agents/queue.py so a hung provider frees the worker.
+CELERY_TASK_SOFT_TIME_LIMIT = env.int("CELERY_TASK_SOFT_TIME_LIMIT", default=900)
+CELERY_TASK_TIME_LIMIT = env.int("CELERY_TASK_TIME_LIMIT", default=960)
+
+# Kombu & RabbitMQ Dead Letter Queue (DLQ) Architecture
+from kombu import Exchange, Queue
+
+default_exchange = Exchange("teamflow", type="direct", durable=True)
+dlx_exchange = Exchange("teamflow.dlx", type="direct", durable=True)
+
+CELERY_QUEUES = (
+    Queue(
+        "teamflow.tasks",
+        exchange=default_exchange,
+        routing_key="tasks",
+        queue_arguments={
+            "x-dead-letter-exchange": "teamflow.dlx",
+            "x-dead-letter-routing-key": "dlq",
+        },
+    ),
+    Queue(
+        "teamflow.dlq",
+        exchange=dlx_exchange,
+        routing_key="dlq",
+    ),
+    Queue(
+        "celery",
+        exchange=default_exchange,
+        routing_key="celery",
+        queue_arguments={
+            "x-dead-letter-exchange": "teamflow.dlx",
+            "x-dead-letter-routing-key": "dlq",
+        },
+    ),
+)
+CELERY_DEFAULT_QUEUE = "teamflow.tasks"
+CELERY_DEFAULT_EXCHANGE = "teamflow"
+CELERY_DEFAULT_ROUTING_KEY = "tasks"
+CELERY_TASK_DEFAULT_QUEUE = "teamflow.tasks"
 
 # Keycloak uses a back-channel URL for token exchange/JWKS and a public issuer
 # Keycloak uses a back-channel URL for token exchange/JWKS and a public issuer
@@ -287,10 +366,12 @@ AGENT_ALLOW_PLATFORM_GITHUB_TOKEN = env.bool("AGENT_ALLOW_PLATFORM_GITHUB_TOKEN"
 GITHUB_API_URL = env("GITHUB_API_URL", default="https://api.github.com").rstrip("/")
 GITHUB_WEB_URL = env("GITHUB_WEB_URL", default="https://github.com").rstrip("/")
 GEMINI_API_KEY = env("GEMINI_API_KEY", default="").strip()
-GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-2.0-flash").strip()
+GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-3.8-flash").strip()
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="").strip()
 OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini").strip()
 # Local Ollama is used only when OLLAMA_BASE_URL is set.
 OLLAMA_BASE_URL = env("OLLAMA_BASE_URL", default="").strip().rstrip("/")
 OLLAMA_MODEL = env("OLLAMA_MODEL", default="qwen2.5-coder:7b").strip()
 GITHUB_ORG = env("GITHUB_ORG", default="").strip()
+LLM_FIXTURE_DIR = env("LLM_FIXTURE_DIR", default="").strip()
+LLM_RECORD_DIR = env("LLM_RECORD_DIR", default="").strip()

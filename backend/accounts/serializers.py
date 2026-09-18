@@ -15,6 +15,38 @@ def validate_person_email(value):
     return value
 
 
+class UserBriefSerializer(serializers.ModelSerializer):
+    """
+    High-performance lightweight serializer for nested representations
+    (e.g., project members, task assignees, comment authors) avoiding N+1 queries.
+    """
+    organization_name = serializers.SerializerMethodField()
+    is_ai_agent = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "name",
+            "role",
+            "agent_key",
+            "is_ai_agent",
+            "user_status",
+            "avatar_url",
+            "bio",
+            "organization",
+            "organization_name",
+        ]
+        read_only_fields = fields
+
+    def get_organization_name(self, obj):
+        if hasattr(obj, "_state") and "organization" in obj._state.fields_cache:
+            org = obj._state.fields_cache["organization"]
+            return org.name if org else None
+        return None
+
+
 class UserSerializer(serializers.ModelSerializer):
     organization_name = serializers.CharField(source="organization.name", read_only=True)
     organization_tier = serializers.CharField(source="organization.subscription_tier", read_only=True)

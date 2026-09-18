@@ -38,6 +38,9 @@ class Project(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["organization", "status"], name="proj_org_stat_idx"),
+        ]
 
     def __str__(self):
         return self.name

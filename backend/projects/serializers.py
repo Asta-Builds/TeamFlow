@@ -1,13 +1,13 @@
 from rest_framework import serializers
 
-from accounts.serializers import UserSerializer
+from accounts.serializers import UserBriefSerializer, UserSerializer
 from .models import Project
 
 
 class ProjectSerializer(serializers.ModelSerializer):
-    owner_detail = UserSerializer(source="owner", read_only=True)
-    members_detail = UserSerializer(source="members", many=True, read_only=True)
-    task_count = serializers.IntegerField(source="tasks.count", read_only=True)
+    owner_detail = UserBriefSerializer(source="owner", read_only=True)
+    members_detail = UserBriefSerializer(source="members", many=True, read_only=True)
+    task_count = serializers.SerializerMethodField()
     done_task_count = serializers.SerializerMethodField()
     progress_percentage = serializers.SerializerMethodField()
 
@@ -31,14 +31,21 @@ class ProjectSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
+    def get_task_count(self, obj):
+        if hasattr(obj, "annotated_task_count"):
+            return obj.annotated_task_count
+        return obj.tasks.count()
+
     def get_done_task_count(self, obj):
+        if hasattr(obj, "annotated_done_task_count"):
+            return obj.annotated_done_task_count
         return obj.tasks.filter(status="done").count()
 
     def get_progress_percentage(self, obj):
-        total = obj.tasks.count()
-        if total == 0:
+        total = self.get_task_count(obj)
+        if not total:
             return 0
-        done = obj.tasks.filter(status="done").count()
+        done = self.get_done_task_count(obj)
         return round((done / total) * 100)
 
     def create(self, validated_data):

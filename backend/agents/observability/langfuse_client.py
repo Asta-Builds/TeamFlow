@@ -103,8 +103,8 @@ def log_agent_execution_to_langfuse(
     response_text: str,
     thoughts: List[str],
     tool_calls: List[Any],
-    tokens: int,
-    cost: float,
+    tokens: Optional[int] = None,
+    cost: Optional[float] = None,
     session_id: Optional[str] = None,
 ) -> Optional[str]:
     """
@@ -124,9 +124,11 @@ def log_agent_execution_to_langfuse(
             "project_id": task.project_id if getattr(task, "project", None) else None,
             "agent_role": agent_role,
             "session_id": session_id,
-            "tokens": tokens,
-            "cost_usd": cost,
         }
+        if tokens is not None:
+            metadata["tokens"] = tokens
+        if cost is not None:
+            metadata["cost_usd"] = cost
 
         trace_kwargs = {
             "name": f"agent-{agent_role}",
@@ -143,17 +145,21 @@ def log_agent_execution_to_langfuse(
             **trace_kwargs,
         )
 
-        trace.generation(
-            name=f"{agent_role}-execution",
-            input={"prompt": prompt},
-            output={"response": response_text, "thoughts": thoughts},
-            metadata={
+        gen_kwargs = {
+            "name": f"{agent_role}-execution",
+            "input": {"prompt": prompt},
+            "output": {"response": response_text, "thoughts": thoughts},
+            "metadata": {
                 "tool_calls": [str(tc) for tc in tool_calls],
                 "thoughts": thoughts,
-                "cost_usd": cost,
             },
-            usage={"total": tokens},
-        )
+        }
+        if cost is not None:
+            gen_kwargs["metadata"]["cost_usd"] = cost
+        if tokens is not None:
+            gen_kwargs["usage"] = {"total": tokens}
+
+        trace.generation(**gen_kwargs)
 
         client.flush()
         logger.info(f"Successfully logged agent trace {session_id} to Langfuse")

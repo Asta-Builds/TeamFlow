@@ -5,12 +5,14 @@ from __future__ import annotations
 from celery import shared_task
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+import logging
 
 from .events import emit_agent_event
 from .graph import execute_ticket_swarm
 from .models import AgentExecutionTrace
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 def _load_trace(trace_id: int) -> AgentExecutionTrace:
@@ -69,8 +71,8 @@ def execute_chain_run(trace_id: int, instruction: str = ""):
                 response_text=f"Swarm chain completed with {len(events)} events",
                 thoughts=[event.get("message", "") for event in events if isinstance(event, dict)],
                 tool_calls=[],
-                tokens=450,
-                cost=0.0045,
+                tokens=None,
+                cost=None,
                 session_id=trace.session_id,
             )
             if lf_url:

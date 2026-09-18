@@ -31,6 +31,25 @@ services:
       timeout: 3s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: teamflow-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-teamflow}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-teamflow_password}
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -47,6 +66,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:?Set CELERY_BROKER_URL in .env}
+      RABBITMQ_URL: ${RABBITMQ_URL:-}
+      RABBITMQ_MANAGEMENT_URL: ${RABBITMQ_MANAGEMENT_URL:-}
       KEYCLOAK_URL: ${KEYCLOAK_URL:-}
       KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
@@ -83,6 +104,8 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      LLM_FIXTURE_DIR: ${LLM_FIXTURE_DIR:-}
+      LLM_RECORD_DIR: ${LLM_RECORD_DIR:-}
       GITHUB_API_URL: ${GITHUB_API_URL:-}
       GITHUB_WEB_URL: ${GITHUB_WEB_URL:-}
       DEMO_OWNER_EMAIL: ${DEMO_OWNER_EMAIL:-}
@@ -118,6 +141,8 @@ services:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
       CELERY_BROKER_URL: ${CELERY_BROKER_URL:?Set CELERY_BROKER_URL in .env}
+      RABBITMQ_URL: ${RABBITMQ_URL:-}
+      RABBITMQ_MANAGEMENT_URL: ${RABBITMQ_MANAGEMENT_URL:-}
       KEYCLOAK_URL: ${KEYCLOAK_URL:-}
       KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL:-}
       KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-}
@@ -147,6 +172,8 @@ services:
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+      LLM_FIXTURE_DIR: ${LLM_FIXTURE_DIR:-}
+      LLM_RECORD_DIR: ${LLM_RECORD_DIR:-}
       GITHUB_API_URL: ${GITHUB_API_URL:-}
       GITHUB_WEB_URL: ${GITHUB_WEB_URL:-}
       DEMO_OWNER_EMAIL: ${DEMO_OWNER_EMAIL:-}
@@ -245,5 +272,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  rabbitmq_data:
   backend_staticfiles:
   generated_projects:

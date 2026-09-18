@@ -73,6 +73,11 @@ class Task(models.Model):
 
     class Meta:
         ordering = ["order", "-created_at"]
+        indexes = [
+            models.Index(fields=["project", "status", "order"], name="task_proj_stat_ord_idx"),
+            models.Index(fields=["organization", "status"], name="task_org_stat_idx"),
+            models.Index(fields=["assignee", "status"], name="task_assignee_stat_idx"),
+        ]
 
     def save(self, *args, **kwargs):
         """Keep every ticket in the same workspace as its parent project."""
@@ -99,6 +104,9 @@ class Comment(models.Model):
 
     class Meta:
         ordering = ["created_at"]
+        indexes = [
+            models.Index(fields=["task", "created_at"], name="comment_task_created_idx"),
+        ]
 
     def __str__(self):
         return f"Comment by {self.author} on {self.task}"
@@ -120,6 +128,9 @@ class TaskActivity(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["task", "-created_at"], name="act_task_created_idx"),
+        ]
 
     def __str__(self):
         return f"{self.actor} {self.action} on {self.task} at {self.created_at}"

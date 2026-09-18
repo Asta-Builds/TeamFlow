@@ -875,3 +875,184 @@ class CodeWriterPathSafetyTestCase(TestCase):
         resolved = safe_workspace_path(workspace, "./api/views.py")
         self.assertEqual(resolved, os.path.join(os.path.realpath(workspace), "api", "views.py"))
 
+from unittest.mock import MagicMock
+
+class LLMProviderTestCase(TestCase):
+    @override_settings(GEMINI_API_KEY="", OPENAI_API_KEY="", OLLAMA_BASE_URL="", LLM_FIXTURE_DIR="")
+    @patch("agents.ollama_service.is_ollama_available", return_value=False)
+    def test_no_provider_configured(self, mock_ollama):
+        from agents.llm import generate_text_detailed, require_text, ModelUnavailable
+        result = generate_text_detailed("System", "User")
+        self.assertIsNone(result.text)
+        self.assertIsNotNone(result.error)
+        
+        with self.assertRaises(ModelUnavailable):
+            require_text("System", "User")
+
+    @override_settings(GEMINI_API_KEY="secret-gemini-key", OPENAI_API_KEY="", OLLAMA_BASE_URL="")
+    @patch("google.antigravity.Agent")
+    def test_gemini_call_raises(self, mock_agent_class):
+        from agents.llm import require_text, ModelCallFailed
+        from google.antigravity.types import AntigravityValidationError
+
+        mock_agent_instance = MagicMock()
+        mock_agent_instance.__aenter__.side_effect = AntigravityValidationError("A Gemini API key is required.")
+        mock_agent_class.return_value = mock_agent_instance
+
+        with self.assertRaises(ModelCallFailed) as context:
+            require_text("System", "User")
+            
+        self.assertIn("gemini", str(context.exception).lower())
+        self.assertIn("gemini-3.8-flash", str(context.exception))
+
+    @override_settings(GEMINI_API_KEY="secret-gemini-key")
+    @patch("google.antigravity.Agent")
+    def test_non_transient_failure_not_retried(self, mock_agent_class):
+        from agents.llm import generate_text_detailed
+        
+        mock_agent_instance = MagicMock()
+        mock_agent_instance.__aenter__.side_effect = Exception("API key not valid.")
+        mock_agent_class.return_value = mock_agent_instance
+
+        result = generate_text_detailed("System", "User")
+        self.assertEqual(result.attempts, 1)
+        self.assertIsNone(result.text)
+        self.assertIn("API key not valid", result.error)
+
+    @override_settings(GEMINI_API_KEY="secret-gemini-key")
+    @patch("agents.llm.time.sleep")
+    @patch("google.antigravity.Agent")
+    def test_transient_failure_is_retried(self, mock_agent_class, mock_sleep):
+        from agents.llm import generate_text_detailed
+        
+        class MockResponse:
+            async def text(self):
+                return "Success!"
+            
+            @property
+            def usage_metadata(self):
+                return None
+        
+        class AsyncMockContextManager:
+            def __init__(self):
+                self.calls = 0
+            
+            async def __aenter__(self):
+                self.calls += 1
+                if self.calls == 1:
+                    raise Exception("RESOURCE_EXHAUSTED (code 429)")
+                return self
+                
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+                
+            async def chat(self, prompt):
+                return MockResponse()
+
+        manager = AsyncMockContextManager()
+        mock_agent_class.return_value = manager
+
+        result = generate_text_detailed("System", "User")
+        self.assertEqual(result.attempts, 2)
+        self.assertEqual(result.text, "Success!")
+        mock_sleep.assert_called_once()
+
+    @override_settings(GEMINI_API_KEY="", OPENAI_API_KEY="")
+    @patch("google.antigravity.Agent")
+    def test_fixture_mode(self, mock_agent_class):
+        from agents.llm import generate_text_detailed
+        import tempfile
+        import os
+        import hashlib
+        
+        system_prompt = "System"
+        user_prompt = "User"
+        digest = hashlib.sha256(f"{system_prompt}\n---\n{user_prompt}".encode('utf-8')).hexdigest()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with override_settings(LLM_FIXTURE_DIR=tmpdir):
+                result = generate_text_detailed(system_prompt, user_prompt)
+                self.assertIsNone(result.text)
+                self.assertIn("not found in", result.error)
+                self.assertEqual(result.attempts, 1)
+                mock_agent_class.assert_not_called()
+                
+                fixture_path = os.path.join(tmpdir, f"{digest}.txt")
+                with open(fixture_path, "w", encoding="utf-8") as f:
+                    f.write("Fixture content")
+                
+                result2 = generate_text_detailed(system_prompt, user_prompt)
+                self.assertEqual(result2.text, "Fixture content")
+                self.assertEqual(result2.provider, "fixture")
+                self.assertEqual(result2.attempts, 1)
+                mock_agent_class.assert_not_called()
+
+    @override_settings(GEMINI_API_KEY="secret-gemini-key")
+    @patch("google.antigravity.Agent")
+    def test_usage_metadata_passed_through(self, mock_agent_class):
+        from agents.llm import generate_text_detailed
+        
+        class MockUsage:
+            prompt_token_count = 11
+            candidates_token_count = 22
+            total_token_count = 33
+            
+        class MockResponse:
+            async def text(self):
+                return "Tokens response"
+            
+            @property
+            def usage_metadata(self):
+                return MockUsage()
+
+        class AsyncMockContextManager:
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+            async def chat(self, prompt):
+                return MockResponse()
+
+        mock_agent_class.return_value = AsyncMockContextManager()
+
+        result = generate_text_detailed("System", "User")
+        self.assertEqual(result.prompt_tokens, 11)
+        self.assertEqual(result.output_tokens, 22)
+        self.assertEqual(result.total_tokens, 33)
+
+        class MockResponseNoUsage:
+            async def text(self):
+                return "No tokens"
+            
+            @property
+            def usage_metadata(self):
+                return None
+
+        class AsyncMockContextManagerNoUsage:
+            async def __aenter__(self):
+                return self
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                pass
+            async def chat(self, prompt):
+                return MockResponseNoUsage()
+
+        mock_agent_class.return_value = AsyncMockContextManagerNoUsage()
+        
+        result2 = generate_text_detailed("System", "User")
+        self.assertIsNone(result2.prompt_tokens)
+        self.assertIsNone(result2.output_tokens)
+        self.assertIsNone(result2.total_tokens)
+
+    @override_settings(GEMINI_API_KEY="secret-key-value", OPENAI_API_KEY="")
+    @patch("google.antigravity.Agent")
+    def test_api_key_never_leaked(self, mock_agent_class):
+        from agents.llm import generate_text_detailed
+        
+        mock_agent_instance = MagicMock()
+        mock_agent_instance.__aenter__.side_effect = Exception("Failed auth for secret-key-value in Gemini")
+        mock_agent_class.return_value = mock_agent_instance
+
+        result = generate_text_detailed("System", "User")
+        self.assertIsNone(result.text)
+        self.assertNotIn("secret-key-value", result.error)
+        self.assertIn("***", result.error)

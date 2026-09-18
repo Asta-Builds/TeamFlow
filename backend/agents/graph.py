@@ -222,8 +222,9 @@ def execute_ticket_swarm(
                 response_text=f"Swarm orchestration completed with status {final_status}. PR: {final_state.get('pr_url') or 'N/A'}",
                 thoughts=thoughts,
                 tool_calls=[],
-                tokens=trace.tokens_used or 500,
-                cost=float(trace.cost_usd or 0.005),
+                # 0 means no node reported usage, so treat it as None
+                tokens=trace.tokens_used or None,
+                cost=float(trace.cost_usd) if trace.cost_usd else None,
                 session_id=session_id,
             )
         except Exception as lf_err:

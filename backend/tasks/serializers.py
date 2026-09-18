@@ -1,12 +1,12 @@
 from rest_framework import serializers
 
-from accounts.serializers import UserSerializer
+from accounts.serializers import UserBriefSerializer, UserSerializer
 from teamflow.permissions import user_can_access_project
 from .models import Comment, Task, TaskActivity
 
 
 class CommentSerializer(serializers.ModelSerializer):
-    author_detail = UserSerializer(source="author", read_only=True)
+    author_detail = UserBriefSerializer(source="author", read_only=True)
 
     class Meta:
         model = Comment
@@ -28,7 +28,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
 
 class TaskActivitySerializer(serializers.ModelSerializer):
-    actor_detail = UserSerializer(source="actor", read_only=True)
+    actor_detail = UserBriefSerializer(source="actor", read_only=True)
 
     class Meta:
         model = TaskActivity
@@ -37,8 +37,8 @@ class TaskActivitySerializer(serializers.ModelSerializer):
 
 
 class TaskSerializer(serializers.ModelSerializer):
-    assignee_detail = UserSerializer(source="assignee", read_only=True)
-    created_by_detail = UserSerializer(source="created_by", read_only=True)
+    assignee_detail = UserBriefSerializer(source="assignee", read_only=True)
+    created_by_detail = UserBriefSerializer(source="created_by", read_only=True)
     comments = CommentSerializer(many=True, read_only=True)
     activities = TaskActivitySerializer(many=True, read_only=True)
     project_name = serializers.CharField(source="project.name", read_only=True)

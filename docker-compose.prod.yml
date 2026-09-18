@@ -22,6 +22,8 @@ x-django-env: &django-env
   DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env.production}
   REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env.production}
   CELERY_BROKER_URL: ${CELERY_BROKER_URL:?Set CELERY_BROKER_URL in .env.production}
+  RABBITMQ_URL: ${RABBITMQ_URL:-}
+  RABBITMQ_MANAGEMENT_URL: ${RABBITMQ_MANAGEMENT_URL:-}
   WORKSPACE_ROOT: /workspace
   AGENT_EMAIL_DOMAIN: ${AGENT_EMAIL_DOMAIN:?Set AGENT_EMAIL_DOMAIN in .env.production}
   GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:?Set GIT_AUTHOR_NAME in .env.production}
@@ -47,6 +49,10 @@ x-django-env: &django-env
   OPENAI_MODEL: ${OPENAI_MODEL:-}
   OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-}
   OLLAMA_MODEL: ${OLLAMA_MODEL:-}
+  LLM_FIXTURE_DIR: ${LLM_FIXTURE_DIR:-}
+  LLM_RECORD_DIR: ${LLM_RECORD_DIR:-}
+  CELERY_TASK_SOFT_TIME_LIMIT: ${CELERY_TASK_SOFT_TIME_LIMIT:-900}
+  CELERY_TASK_TIME_LIMIT: ${CELERY_TASK_TIME_LIMIT:-960}
   GITHUB_API_URL: ${GITHUB_API_URL:-}
   GITHUB_WEB_URL: ${GITHUB_WEB_URL:-}
   LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
@@ -88,6 +94,25 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: always
+    logging: *default-logging
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-teamflow}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-replace-with-a-strong-password}
+      RABBITMQ_DEFAULT_VHOST: /
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_prod_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
@@ -212,5 +237,6 @@ services:
 volumes:
   postgres_prod_data:
   redis_prod_data:
+  rabbitmq_prod_data:
   backend_prod_staticfiles:
   generated_projects:

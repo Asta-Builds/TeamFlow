@@ -46,8 +46,7 @@ class AntigravityAgentResult:
     thoughts: List[str] = field(default_factory=list)
     tool_calls: List[AntigravityToolCall] = field(default_factory=list)
     subagents_spawned: List[str] = field(default_factory=list)
-    tokens_used: int = 0
-    cost_usd: float = 0.0
+    tokens_used: Optional[int] = None
     duration_seconds: float = 0.0
     session_id: str = ""
     langfuse_url: str = ""
@@ -219,16 +218,13 @@ class AntigravityAgentEngine:
 
         elif self.role == "devops":
             _add_thought(f"[{self.spec['name']}] Requesting a staging deployment from the configured provider")
-            dep_res = trigger_app_deployment(task.project_id, environment="staging")
+            dep_res = trigger_app_deployment(project_id=task.project_id, environment="staging", branch="main", commit_sha="")
             if dep_res.get("ok"):
-                output_str = (
-                    f"Deployment #{dep_res.get('deployment_id')} accepted by the provider "
-                    f"(status: {dep_res.get('status')}). The provider reports the final outcome."
-                )
+                output_str = "deployment requested and accepted"
             elif dep_res.get("configured") is False:
-                output_str = "No deployment provider is configured; no deployment was started."
+                output_str = "No deployment provider is configured, so no deployment was started."
             else:
-                output_str = f"Deployment request failed: {dep_res.get('error') or dep_res.get('status')}"
+                output_str = f"deployment request failed: {dep_res.get('error') or dep_res.get('status')}"
             _add_tool_call(
                 name="request_staging_deployment",
                 args={"environment": "staging"},
@@ -237,12 +233,10 @@ class AntigravityAgentEngine:
 
         # Generate intelligent response
         _broadcast("progress", f"Synthesizing dynamic response for {task.title}...")
-        response_text = self._build_antigravity_response(task, prompt, rag_context, tool_calls, user=user)
+        response_text, tokens = self._build_antigravity_response(task, prompt, rag_context, tool_calls, user=user)
         _broadcast("completed", f"{self.spec['name']} response ready ({len(response_text)} chars).", metadata={"response_preview": response_text[:140]})
 
         duration = round(time.time() - start_time, 2)
-        tokens = 350 + len(prompt.split()) * 10
-        cost = round(tokens * 0.00001, 5)
 
         # Stream active trace to Langfuse server
         from .observability.langfuse_client import log_agent_execution_to_langfuse
@@ -254,7 +248,7 @@ class AntigravityAgentEngine:
             thoughts=thoughts,
             tool_calls=tool_calls,
             tokens=tokens,
-            cost=cost,
+            cost=None,
             session_id=session_id,
         ) or langfuse_url
 
@@ -264,15 +258,8 @@ class AntigravityAgentEngine:
             response_text=response_text,
             thoughts=thoughts,
             tool_calls=tool_calls,
-            subagents_spawned=[
-                "backend_core",
-                "backend_integrations",
-                "frontend_app",
-                "frontend_design_system",
-                "qa",
-            ] if self.agent_key in {"pm", "tech_lead"} else [],
+            subagents_spawned=[],
             tokens_used=tokens,
-            cost_usd=cost,
             duration_seconds=duration,
             session_id=session_id,
             langfuse_url=langfuse_url,
@@ -285,7 +272,7 @@ class AntigravityAgentEngine:
         rag_context: List[str],
         tool_calls: List[AntigravityToolCall],
         user: Optional[Any] = None
-    ) -> str:
+    ) -> tuple[str, Optional[int]]:
         """Constructs an Antigravity SDK response with real multi-provider LLM inference, conversation history, and live workspace code edits."""
         # 1. Fetch conversation history for natural turn-taking
         comments_history = ""
@@ -332,13 +319,11 @@ class AntigravityAgentEngine:
             f"Always use Tailwind CSS, Lucide React icons, and Sonner toasts for frontend components."
         )
 
-        response_text = ""
-
-        response_text = ""
-
         # Query Language Model via centralized llm service
-        from .llm import generate_text, ModelUnavailable
-        response_text = generate_text(system_prompt, prompt)
+        from .llm import generate_text_detailed, ModelUnavailable
+        llm_result = generate_text_detailed(system_prompt, prompt)
+        response_text = llm_result.text
+        tokens = llm_result.total_tokens
 
         # Fallback when no model is configured
         if not response_text:
@@ -373,7 +358,7 @@ class AntigravityAgentEngine:
         except Exception as e:
             logger.warning(f"Failed to parse and apply code changes: {e}")
 
-        return response_text
+        return response_text, tokens
 
 
 def run_antigravity_agent(
@@ -426,21 +411,16 @@ def run_antigravity_agent(
             task.qa_rejected = False
         task.assignee = agent_user
     elif engine.role == "devops":
-        task.status = Task.Status.DONE
         task.assignee = agent_user
-        from deployments.models import Deployment
-        Deployment.objects.create(
-            project=task.project,
-            environment=Deployment.Environment.STAGING,
-            status=Deployment.Status.SUCCESS,
-            commit_sha=f"commit-{int(time.time()) % 10000}",
-            branch="main",
-            triggered_by=agent_user,
-            organization=task.organization,
-            logs=f"=== Antigravity SDK Automated Release ===\nTask: #{task.id} - {task.title}\nStatus: Container live on Staging.",
-            duration_seconds=24,
-            finished_at=timezone.now(),
-        )
+        tc = next((t for t in result.tool_calls if t.name == "request_staging_deployment"), None)
+        if tc:
+            if "accepted" in tc.output:
+                task.status = Task.Status.DONE
+                result.response_text = "Deployment requested and accepted."
+            elif "not configured" in tc.output.lower() or "no deployment provider" in tc.output.lower():
+                result.response_text = "No deployment provider is configured, so no deployment was started."
+            else:
+                result.response_text = tc.output.capitalize()
 
     task.save()
 
@@ -484,8 +464,7 @@ def run_antigravity_agent(
                 {"node": t.name, "agent_role": result.agent_name, "message": f"Executed tool {t.name}: {t.output}", "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ")}
                 for t in result.tool_calls
             ],
-            "tokens_used": result.tokens_used,
-            "cost_usd": result.cost_usd,
+            "tokens_used": result.tokens_used or 0,
             "duration_seconds": result.duration_seconds,
             "langfuse_url": result.langfuse_url,
             "finished_at": timezone.now(),
