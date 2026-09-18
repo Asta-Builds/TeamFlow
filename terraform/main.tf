@@ -1,100 +1,66 @@
 terraform {
   required_version = ">= 1.5.0"
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
+    railway = {
+      source  = "terraform-community-providers/railway"
+      version = ">= 0.4.0"
     }
   }
 }
 
-provider "aws" {
-  region = var.aws_region
+provider "railway" {
+  token = var.railway_token != "" ? var.railway_token : null
 }
 
-# VPC Configuration
-resource "aws_vpc" "teamflow_vpc" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
+# 1. TeamFlow Managed Project
+resource "railway_project" "teamflow" {
+  name        = var.project_name
+  description = "TeamFlow: Autonomous AI Multi-Agent Virtual Tech Management Platform"
+}
 
-  tags = {
-    Name        = "teamflow-vpc"
-    Environment = var.environment
+# 2. Database Service (PostgreSQL 16 + pgvector)
+resource "railway_service" "db" {
+  name       = "teamflow-db"
+  project_id = railway_project.teamflow.id
+}
+
+# 3. Redis Service (Cache & Broker)
+resource "railway_service" "redis" {
+  name       = "teamflow-redis"
+  project_id = railway_project.teamflow.id
+}
+
+# 4. Django REST Backend Core API
+resource "railway_service" "backend" {
+  name       = "teamflow-backend"
+  project_id = railway_project.teamflow.id
+}
+
+# 5. Celery Autonomous Swarm Worker
+resource "railway_service" "celery" {
+  name       = "teamflow-celery"
+  project_id = railway_project.teamflow.id
+}
+
+# 6. Next.js 16 SuperDesign Frontend
+resource "railway_service" "frontend" {
+  name       = "teamflow-frontend"
+  project_id = railway_project.teamflow.id
+}
+
+# Outputs
+output "railway_project_id" {
+  value       = railway_project.teamflow.id
+  description = "ID of the provisioned Railway project"
+}
+
+output "services" {
+  value = {
+    db       = railway_service.db.id
+    redis    = railway_service.redis.id
+    backend  = railway_service.backend.id
+    celery   = railway_service.celery.id
+    frontend = railway_service.frontend.id
   }
-}
-
-# Public Subnets
-resource "aws_subnet" "public_1" {
-  vpc_id                  = aws_vpc.teamflow_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "${var.aws_region}a"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "teamflow-public-1"
-  }
-}
-
-resource "aws_subnet" "public_2" {
-  vpc_id                  = aws_vpc.teamflow_vpc.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "${var.aws_region}b"
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "teamflow-public-2"
-  }
-}
-
-# Internet Gateway
-resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.teamflow_vpc.id
-
-  tags = {
-    Name = "teamflow-igw"
-  }
-}
-
-# Route Table
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.teamflow_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.gw.id
-  }
-
-  tags = {
-    Name = "teamflow-public-rt"
-  }
-}
-
-resource "aws_route_table_association" "a" {
-  subnet_id      = aws_subnet.public_1.id
-  route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table_association" "b" {
-  subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.public.id
-}
-
-# ECS Cluster
-resource "aws_ecs_cluster" "main" {
-  name = "teamflow-${var.environment}-cluster"
-}
-
-# S3 Bucket for Media & Deployments
-resource "aws_s3_bucket" "storage" {
-  bucket = "teamflow-${var.environment}-storage-${var.aws_region}"
-}
-
-resource "aws_s3_bucket_public_access_block" "storage" {
-  bucket = aws_s3_bucket.storage.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+  description = "IDs of the provisioned TeamFlow services on Railway"
 }

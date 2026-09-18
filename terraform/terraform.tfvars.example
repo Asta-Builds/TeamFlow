@@ -1,3 +1,5 @@
-# Example Terraform variables
-aws_region  = "us-east-1"
-environment = "prod"
+# Railway Terraform Configuration Example
+# Generate a personal or workspace token at: https://railway.app/account/tokens
+railway_token    = "your-railway-api-token"
+project_name     = "teamflow"
+environment_name = "production"
