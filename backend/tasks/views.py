@@ -5,6 +5,15 @@ from teamflow.permissions import IsOwnerOrPrivileged, visible_tasks_for
 from notifications.models import Notification
 from .models import Comment, Task, TaskActivity
 from .serializers import CommentSerializer, TaskActivitySerializer, TaskSerializer
+from tasks.application.use_cases import TaskApplicationService
+from tasks.domain.bus import default_event_bus
+from tasks.domain.events import TaskStatusChangedEvent
+from tasks.domain.exceptions import (
+    TaskDomainError,
+    UnauthorizedTransitionError,
+    RejectionExplanationMissingError,
+    InvalidStateTransitionError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -218,72 +227,30 @@ class TaskViewSet(viewsets.ModelViewSet):
     def qa_validate(self, request, pk=None):
         """QA Engineer / Tech Lead validates a ticket in QA -> transitions to DONE."""
         task = self.get_object()
-        if not request.user.can_validate_qa:
-            return response.Response({"detail": "Only QA Engineer, Tech Lead or CEO can validate QA."}, status=403)
-
-        task.status = Task.Status.DONE
-        task.qa_rejected = False
-        task.qa_rejection_reason = ""
-        task.save()
-
-        TaskActivity.objects.create(
-            task=task,
-            actor=request.user,
-            action="qa_validated",
-            details={"note": "QA passed and ticket closed"}
-        )
-
-        if task.assignee and task.assignee != request.user:
-            Notification.objects.create(
-                recipient=task.assignee,
-                actor=request.user,
-                title=f"QA Approved: {task.title}",
-                message=f"QA verified ticket '{task.title}'. Ticket is now Done.",
-                link=f"/projects/{task.project_id}",
-                organization=request.user.organization,
-            )
-
-        return response.Response(TaskSerializer(task).data)
+        app_service = TaskApplicationService()
+        try:
+            task = app_service.validate_qa(task, request.user)
+            return response.Response(TaskSerializer(task).data)
+        except UnauthorizedTransitionError as exc:
+            return response.Response({"detail": "Only QA Engineer, Tech Lead or CEO can validate QA."}, status=status.HTTP_403_FORBIDDEN)
+        except TaskDomainError as exc:
+            return response.Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
     @decorators.action(detail=True, methods=["post"])
     def qa_reject(self, request, pk=None):
         """QA Engineer / Tech Lead rejects a ticket -> transitions back to IN_PROGRESS with mandatory comment."""
         task = self.get_object()
-        if not request.user.can_validate_qa:
-            return response.Response({"detail": "Only QA Engineer, Tech Lead or CEO can reject QA."}, status=403)
-
         reason = request.data.get("reason", "").strip()
-        if not reason:
-            return response.Response({"reason": ["A rejection explanation is mandatory."]}, status=400)
-
-        task.status = Task.Status.IN_PROGRESS
-        task.qa_rejected = True
-        task.qa_rejection_reason = reason
-        task.save()
-
-        # Add comment with rejection reason
-        Comment.objects.create(
-            task=task,
-            author=request.user,
-            body=f"QA Rejected: {reason}"
-        )
-
-        TaskActivity.objects.create(
-            task=task,
-            actor=request.user,
-            action="qa_rejected",
-            details={"reason": reason}
-        )
-
-        if task.assignee and task.assignee != request.user:
-            Notification.objects.create(
-                recipient=task.assignee,
-                actor=request.user,
-                title=f"QA Rejected: {task.title}",
-                message=f"Ticket '{task.title}' failed QA review: {reason}",
-                link=f"/projects/{task.project_id}",
-                organization=request.user.organization,
-            )
+        app_service = TaskApplicationService()
+        try:
+            task = app_service.reject_qa(task, request.user, reason)
+            return response.Response(TaskSerializer(task).data)
+        except UnauthorizedTransitionError:
+            return response.Response({"detail": "Only QA Engineer, Tech Lead or CEO can reject QA."}, status=status.HTTP_403_FORBIDDEN)
+        except RejectionExplanationMissingError:
+            return response.Response({"reason": ["A rejection explanation is mandatory."]}, status=status.HTTP_400_BAD_REQUEST)
+        except TaskDomainError as exc:
+            return response.Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return response.Response(TaskSerializer(task).data)
 

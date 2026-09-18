@@ -8,7 +8,7 @@ from agents.tools.app_tool import add_ticket_comment, log_task_activity
 from agents.tools.redis_tool import publish_agent_event
 from agents.events import emit_state_event
 
-from agents.llm import generate_text
+from agents.llm import generate_text, generate_text_detailed
 from agents.code_writer import parse_file_blocks, safe_workspace_path, clean_code_content
 from agents.registry import get_agent_spec
 from agents.users import get_agent_user_for_task
@@ -81,7 +81,18 @@ def backend_agent_node(state: TicketState) -> Dict[str, Any]:
 
 
     
-    llm_output = generate_text(sys_prompt, user_prompt)
+    total_tokens = state.get("total_tokens", 0) or 0
+    total_cost = state.get("total_cost_usd", 0.0) or 0.0
+
+    llm_res = generate_text_detailed(sys_prompt, user_prompt)
+    if llm_res and llm_res.ok and llm_res.text:
+        llm_output = llm_res.text
+        if llm_res.total_tokens is not None:
+            total_tokens += llm_res.total_tokens
+    else:
+        # Fallback to generate_text for backward compatibility with older test suites and direct mocks
+        fallback_text = generate_text(sys_prompt, user_prompt)
+        llm_output = fallback_text if fallback_text else None
     if not llm_output:
         step_log = {
             "node": "backend",
