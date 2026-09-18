@@ -29,11 +29,30 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  skipTrailingSlashRedirect: true,
   async headers() {
     return [
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+    ];
+  },
+  async rewrites() {
+    const rawBackendUrl =
+      process.env.INTERNAL_API_URL ||
+      (process.env.RAILWAY_SERVICE_TEAMFLOW_BACKEND_URL
+        ? `https://${process.env.RAILWAY_SERVICE_TEAMFLOW_BACKEND_URL}`
+        : "") ||
+      process.env.NEXT_PUBLIC_BACKEND_URL ||
+      "https://teamflow-backend-production-830a.up.railway.app";
+
+    const backendUrl = rawBackendUrl.replace(/\/$/, "");
+
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },
