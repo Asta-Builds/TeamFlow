@@ -82,11 +82,15 @@ export default function LoginPage() {
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>All systems operational</span>
             </div>
-            <span>•</span>
-            <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Clerk Authentication Active</span>
-            </div>
+            {Boolean(CLERK_PUBLISHABLE_KEY) && (
+              <>
+                <span>•</span>
+                <div className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Clerk Authentication Active</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -113,29 +117,31 @@ export default function LoginPage() {
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {mode === "login"
-                ? "Enter your email or use Clerk to continue"
+                ? (CLERK_PUBLISHABLE_KEY ? "Enter your email or use Clerk to continue" : "Enter your email and password to continue")
                 : "Enter your workspace details to get started"}
             </p>
           </div>
 
           {/* Clerk SSO Button */}
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={loginWithClerk}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 dark:border-indigo-500/40 bg-indigo-50 dark:bg-gradient-to-r dark:from-indigo-950/80 dark:to-purple-950/80 px-4 text-xs font-bold text-indigo-900 dark:text-white shadow-xs hover:border-indigo-300 dark:hover:border-indigo-400 hover:bg-indigo-100 dark:hover:from-indigo-900 dark:hover:to-purple-900 transition cursor-pointer"
-            >
-              <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-              <span>{mode === "register" ? "Sign up with Clerk" : "Continue with Clerk"}</span>
-            </button>
+          {Boolean(CLERK_PUBLISHABLE_KEY) && (
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={loginWithClerk}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 dark:border-indigo-500/40 bg-indigo-50 dark:bg-gradient-to-r dark:from-indigo-950/80 dark:to-purple-950/80 px-4 text-xs font-bold text-indigo-900 dark:text-white shadow-xs hover:border-indigo-300 dark:hover:border-indigo-400 hover:bg-indigo-100 dark:hover:from-indigo-900 dark:hover:to-purple-900 transition cursor-pointer"
+              >
+                <ShieldCheck className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <span>{mode === "register" ? "Sign up with Clerk" : "Continue with Clerk"}</span>
+              </button>
 
-            <div className="relative flex items-center justify-center">
-              <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
-              <span className="bg-white dark:bg-slate-900 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Or continue with email
-              </span>
+              <div className="relative flex items-center justify-center">
+                <div className="w-full border-t border-slate-200 dark:border-slate-800"></div>
+                <span className="bg-white dark:bg-slate-900 px-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Or continue with email
+                </span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Form */}
           <form onSubmit={onSubmit} className="space-y-3.5">

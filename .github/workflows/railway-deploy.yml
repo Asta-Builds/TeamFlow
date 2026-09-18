@@ -1,0 +1,98 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: railway-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  filter:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Detect Changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/railway-deploy.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/railway-deploy.yml'
+
+  deploy-backend:
+    name: Deploy Backend & Celery
+    needs: filter
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.filter.outputs.backend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Redeploy Backend from Latest Source
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "Deploying teamflow-backend from latest commit..."
+          railway redeploy --service teamflow-backend --from-source -y
+
+      - name: Redeploy Celery Worker from Latest Source
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "Deploying teamflow-celery from latest commit..."
+          railway redeploy --service teamflow-celery --from-source -y
+
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: filter
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.filter.outputs.frontend == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Redeploy Frontend from Latest Source
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "Deploying teamflow-frontend from latest commit..."
+          railway redeploy --service teamflow-frontend --from-source -y
+
+  verify:
+    name: Verify Services Status
+    needs: [deploy-backend, deploy-frontend]
+    if: always() && (needs.deploy-backend.result == 'success' || needs.deploy-frontend.result == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Check Railway Deployment Status
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "Checking live Railway status..."
+          railway status
