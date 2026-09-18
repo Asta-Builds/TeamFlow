@@ -12,33 +12,15 @@
 {% block nav-sidebar %}{% endblock %}
 
 {% block content %}
-<div class="tf-screen-layout">
+<div class="tf-screen-layout tf-dashboard-grid">
   
-  <!-- 1. Left Navigation Rail -->
+  <!-- 1. Left Navigation Rail (Hierarchically Organized) -->
   <aside class="tf-left-rail">
     <div class="tf-rail-menu">
-      <a href="{% url 'admin:agents_agentexecutiontrace_changelist' %}" class="tf-rail-link">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 8V4H8"/>
-          <rect width="16" height="12" x="4" y="8" rx="2"/>
-          <path d="M2 14h2"/>
-          <path d="M20 14h2"/>
-          <path d="M15 13v2"/>
-          <path d="M9 13v2"/>
-        </svg>
-        <span>AI Agent Fleet</span>
-      </a>
-
-      <a href="{% url 'admin:app_list' app_label='queues' %}" class="tf-rail-link">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
-          <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
-        </svg>
-        <span>RabbitMQ Queues</span>
-      </a>
-
+      
+      <div class="tf-rail-section-header">RELIABILITY & QUEUES</div>
       <a href="{% url 'admin:queues_deadlettermessage_changelist' %}" class="tf-rail-link tf-rail-link-active">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
           <line x1="12" y1="9" x2="12" y2="13"/>
           <line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -47,22 +29,100 @@
         <span class="tf-rail-badge">{{ tf_kpi.dlq_quarantined|default:3 }}</span>
       </a>
 
-      <a href="{% url 'admin:agents_codebaseembedding_changelist' %}" class="tf-rail-link">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <ellipse cx="12" cy="5" rx="9" ry="3"/>
-          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-        </svg>
-        <span>pgvector RAG Core</span>
-      </a>
-
       <a href="{% url 'admin:queues_outboxmessage_changelist' %}" class="tf-rail-link">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"/>
           <polyline points="12 6 12 12 16 14"/>
         </svg>
         <span>Event Outbox Log</span>
       </a>
+
+      <a href="{% url 'admin:app_list' app_label='queues' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+          <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+        </svg>
+        <span>Broker Queues</span>
+      </a>
+
+      <div class="tf-rail-section-header">AI AGENT SWARM</div>
+      <a href="{% url 'admin:agents_agentexecutiontrace_changelist' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 8V4H8"/>
+          <rect width="16" height="12" x="4" y="8" rx="2"/>
+          <path d="M2 14h2"/>
+          <path d="M20 14h2"/>
+          <path d="M15 13v2"/>
+          <path d="M9 13v2"/>
+        </svg>
+        <span>Execution Traces</span>
+      </a>
+
+      <a href="{% url 'admin:agents_codebaseembedding_changelist' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="5" rx="9" ry="3"/>
+          <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+          <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+        </svg>
+        <span>pgvector RAG Index</span>
+      </a>
+
+      <a href="{% url 'admin:agents_agentevent_changelist' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        <span>FSM State Events</span>
+      </a>
+
+      <div class="tf-rail-section-header">AGILE WORKSPACE</div>
+      <a href="{% url 'admin:tasks_task_changelist' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 20h9"/>
+          <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+        </svg>
+        <span>Tasks & Kanban</span>
+      </a>
+
+      <a href="{% url 'admin:projects_project_changelist' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/>
+        </svg>
+        <span>Projects & Repos</span>
+      </a>
+
+      <a href="{% url 'admin:pulse_pulsefocussession_changelist' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        <span>Pulse Standups</span>
+      </a>
+
+      <div class="tf-rail-section-header">ACCESS & ECOSYSTEM</div>
+      <a href="{% url 'admin:accounts_user_changelist' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span>Users & Roles</span>
+      </a>
+
+      <a href="{% url 'admin:organizations_organization_changelist' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
+          <path d="M9 22v-4h6v4"/>
+        </svg>
+        <span>Organizations</span>
+      </a>
+
+      <a href="{% url 'admin:integrations_githubintegration_changelist' %}" class="tf-rail-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m18 16 4-4-4-4"/>
+          <path d="m6 8-4 4 4 4"/>
+          <path d="m14.5 4-5 16"/>
+        </svg>
+        <span>Integrations</span>
+      </a>
+
     </div>
 
     <div class="tf-rail-footer">
@@ -76,10 +136,10 @@
     </div>
   </aside>
 
-  <!-- 2. Center Column: Operations Deck + KPI Cards + Data Registry -->
+  <!-- 2. Center Column: Operations Deck + KPI Cards + Organized Registry -->
   <main class="tf-center-deck">
     
-    <!-- Operations Status Banner -->
+    <!-- Top Operations Status Banner -->
     <div class="tf-ops-banner">
       <div class="tf-ops-main">
         <div class="tf-ops-header">
@@ -130,7 +190,7 @@
       </div>
     </div>
 
-    <!-- 4 High-Fidelity KPI Cards (Matching Stitch Screen) -->
+    <!-- 4 High-Fidelity KPI Cards -->
     <div class="tf-kpi-grid">
       <!-- KPI 1: Supervised Fleet -->
       <div class="tf-kpi-card tf-kpi-fleet">
@@ -211,170 +271,70 @@
       </div>
     </div>
 
-    <!-- 3. Application Schema & Data Registry (11 Core Modules) -->
-    <section class="tf-registry-section">
-      <div class="tf-registry-header">
-        <div class="tf-registry-title-wrap">
-          <div class="tf-registry-icon">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect width="18" height="18" x="3" y="3" rx="2"/>
-              <path d="M3 9h18"/>
-              <path d="M9 21V9"/>
-            </svg>
-          </div>
-          <h2 class="tf-registry-title">Application Schema & Data Registry</h2>
-          <span class="tf-registry-pill">11 Apps</span>
-        </div>
-        <div class="tf-registry-controls">
-          <button type="button" class="tf-btn-sm tf-btn-ghost-sm" onclick="expandAllModules()">Expand All</button>
-          <button type="button" class="tf-btn-sm tf-btn-ghost-sm" onclick="collapseAllModules()">Collapse</button>
-        </div>
+    <!-- 3. Domain Filter Toolbar & Instant Search -->
+    <div class="tf-toolbar-box">
+      <div class="tf-search-wrapper">
+        <svg class="tf-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input 
+          type="text" 
+          id="tf-schema-search" 
+          placeholder="Filter models, tables, or domains (e.g. users, dlq, agents)..." 
+          onkeyup="filterTables(this.value)"
+        />
+        <kbd class="tf-kbd tf-search-shortcut">ESC</kbd>
       </div>
 
-      <div class="tf-modules-container">
+      <div class="tf-domain-tabs">
+        <button type="button" class="tf-tab-btn tf-tab-active" onclick="filterDomain('all', this)">
+          <span>All Domains</span>
+          <span class="tf-tab-pill">11</span>
+        </button>
+        <button type="button" class="tf-tab-btn" onclick="filterDomain('ai', this)">
+          <span>AI Fleet</span>
+          <span class="tf-tab-pill">3</span>
+        </button>
+        <button type="button" class="tf-tab-btn" onclick="filterDomain('queues', this)">
+          <span>Queues & Infra</span>
+          <span class="tf-tab-pill">2</span>
+        </button>
+        <button type="button" class="tf-tab-btn" onclick="filterDomain('identity', this)">
+          <span>Identity & Access</span>
+          <span class="tf-tab-pill">2</span>
+        </button>
+        <button type="button" class="tf-tab-btn" onclick="filterDomain('workflow', this)">
+          <span>Workflow & Tasks</span>
+          <span class="tf-tab-pill">3</span>
+        </button>
+        <button type="button" class="tf-tab-btn" onclick="filterDomain('connectors', this)">
+          <span>Ecosystem</span>
+          <span class="tf-tab-pill">2</span>
+        </button>
+      </div>
 
-        <!-- Module 1: ACCOUNTS -->
-        <div class="tf-module-card" id="mod-accounts">
-          <div class="tf-mod-header">
-            <div class="tf-mod-title-group">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-              <span class="tf-mod-name">ACCOUNTS</span>
-              <code class="tf-mod-path">django.contrib.auth + custom</code>
-            </div>
-            <span class="tf-mod-count-pill">2 Tables</span>
+      <div class="tf-toolbar-actions">
+        <button type="button" class="tf-btn-sm tf-btn-ghost-sm" onclick="expandAllModules()">Expand All</button>
+        <button type="button" class="tf-btn-sm tf-btn-ghost-sm" onclick="collapseAllModules()">Collapse</button>
+      </div>
+    </div>
+
+    <!-- 4. Domain Pillar Sections (Organized by Architectural Boundaries) -->
+    <div class="tf-modules-container" id="tf-registry-container">
+
+      <!-- PILLAR 1: AI AUTONOMOUS FLEET & KNOWLEDGE CORE -->
+      <div class="tf-pillar-group" data-domain="ai">
+        <div class="tf-pillar-header">
+          <div class="tf-pillar-badge tf-pillar-badge-purple">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+            <span>AI SWARM FLEET & VECTOR CORE</span>
           </div>
-          <div class="tf-mod-table-list">
-            <div class="tf-table-row">
-              <div class="tf-table-info">
-                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-                <a href="{% url 'admin:accounts_user_changelist' %}" class="tf-table-link">Users</a>
-                <span class="tf-table-tag">Superuser, Staff, Devs</span>
-              </div>
-              <div class="tf-table-actions">
-                <span class="tf-row-count font-mono">{{ tf_model_counts.accounts_user|default:"1,348" }}</span>
-                <a href="{% url 'admin:accounts_user_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
-                <a href="{% url 'admin:accounts_user_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
-              </div>
-            </div>
-            <div class="tf-table-row">
-              <div class="tf-table-info">
-                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
-                <a href="{% url 'admin:auth_group_changelist' %}" class="tf-table-link">Groups & Permissions</a>
-                <span class="tf-table-tag">RBAC Roles</span>
-              </div>
-              <div class="tf-table-actions">
-                <span class="tf-row-count font-mono">{{ tf_model_counts.auth_group|default:"8" }}</span>
-                <a href="{% url 'admin:auth_group_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
-                <a href="{% url 'admin:auth_group_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
-              </div>
-            </div>
-          </div>
+          <span class="tf-pillar-subtitle">Autonomous agent traces, FSM events, and pgvector embeddings</span>
         </div>
 
-        <!-- Module 2: ORGANIZATIONS -->
-        <div class="tf-module-card" id="mod-orgs">
-          <div class="tf-mod-header">
-            <div class="tf-mod-title-group">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
-              <span class="tf-mod-name">ORGANIZATIONS</span>
-              <code class="tf-mod-path">apps.tenants</code>
-            </div>
-            <span class="tf-mod-count-pill">2 Tables</span>
-          </div>
-          <div class="tf-mod-table-list">
-            <div class="tf-table-row">
-              <div class="tf-table-info">
-                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg></span>
-                <a href="{% url 'admin:organizations_organization_changelist' %}" class="tf-table-link">Organizations</a>
-                <span class="tf-table-tag tf-tag-emerald">Growth & Enterprise tenants</span>
-              </div>
-              <div class="tf-table-actions">
-                <span class="tf-row-count font-mono">{{ tf_model_counts.organizations_organization|default:"42" }}</span>
-                <a href="{% url 'admin:organizations_organization_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
-                <a href="{% url 'admin:organizations_organization_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
-              </div>
-            </div>
-            <div class="tf-table-row">
-              <div class="tf-table-info">
-                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-                <a href="{% url 'admin:organizations_membership_changelist' %}" class="tf-table-link">Memberships</a>
-                <span class="tf-table-tag">Team mapping</span>
-              </div>
-              <div class="tf-table-actions">
-                <span class="tf-row-count font-mono">{{ tf_model_counts.organizations_membership|default:"1,240" }}</span>
-                <a href="{% url 'admin:organizations_membership_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
-                <a href="{% url 'admin:organizations_membership_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Module 3: PROJECTS -->
-        <div class="tf-module-card" id="mod-projects">
-          <div class="tf-mod-header">
-            <div class="tf-mod-title-group">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
-              <span class="tf-mod-name">PROJECTS</span>
-              <code class="tf-mod-path">apps.projects</code>
-            </div>
-            <span class="tf-mod-count-pill">1 Table</span>
-          </div>
-          <div class="tf-mod-table-list">
-            <div class="tf-table-row">
-              <div class="tf-table-info">
-                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg></span>
-                <a href="{% url 'admin:projects_project_changelist' %}" class="tf-table-link">Projects</a>
-                <span class="tf-table-tag tf-tag-purple">Planning, Active, Git Synced</span>
-              </div>
-              <div class="tf-table-actions">
-                <span class="tf-row-count font-mono">{{ tf_model_counts.projects_project|default:"94" }}</span>
-                <a href="{% url 'admin:projects_project_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
-                <a href="{% url 'admin:projects_project_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Module 4: TASKS -->
-        <div class="tf-module-card" id="mod-tasks">
-          <div class="tf-mod-header">
-            <div class="tf-mod-title-group">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-              <span class="tf-mod-name">TASKS</span>
-              <code class="tf-mod-path">apps.tickets</code>
-            </div>
-            <span class="tf-mod-count-pill">2 Tables</span>
-          </div>
-          <div class="tf-mod-table-list">
-            <div class="tf-table-row">
-              <div class="tf-table-info">
-                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
-                <a href="{% url 'admin:tasks_task_changelist' %}" class="tf-table-link">Tasks</a>
-                <span class="tf-table-tag">Kanban Backlog &rarr; Done (pts)</span>
-              </div>
-              <div class="tf-table-actions">
-                <span class="tf-row-count font-mono">{{ tf_model_counts.tasks_task|default:"892" }}</span>
-                <a href="{% url 'admin:tasks_task_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
-                <a href="{% url 'admin:tasks_task_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
-              </div>
-            </div>
-            <div class="tf-table-row">
-              <div class="tf-table-info">
-                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
-                <a href="{% url 'admin:tasks_comment_changelist' %}" class="tf-table-link">Comments</a>
-                <span class="tf-table-tag">Threaded discussions</span>
-              </div>
-              <div class="tf-table-actions">
-                <span class="tf-row-count font-mono">{{ tf_model_counts.tasks_comment|default:"3,418" }}</span>
-                <a href="{% url 'admin:tasks_comment_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
-                <a href="{% url 'admin:tasks_comment_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Module 5: AGENTS -->
-        <div class="tf-module-card" id="mod-agents">
+        <!-- Module: AGENTS -->
+        <div class="tf-module-card" id="mod-agents" data-search="agents agentexecutiontrace agentevent codebaseembedding tokens vector hnsw">
           <div class="tf-mod-header">
             <div class="tf-mod-title-group">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
@@ -384,7 +344,7 @@
             <span class="tf-mod-count-pill">3 Tables</span>
           </div>
           <div class="tf-mod-table-list">
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="agentexecutiontrace tokens latency slices traces">
               <div class="tf-table-info">
                 <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
                 <a href="{% url 'admin:agents_agentexecutiontrace_changelist' %}" class="tf-table-link">AgentExecutionTrace</a>
@@ -396,7 +356,7 @@
                 <a href="{% url 'admin:agents_agentexecutiontrace_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
               </div>
             </div>
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="agentevent fsm transitions swarm">
               <div class="tf-table-info">
                 <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
                 <a href="{% url 'admin:agents_agentevent_changelist' %}" class="tf-table-link">AgentEvent</a>
@@ -408,7 +368,7 @@
                 <a href="{% url 'admin:agents_agentevent_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
               </div>
             </div>
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="codebaseembedding hnsw vector chunks rag pgvector">
               <div class="tf-table-info">
                 <span class="tf-table-icon text-emerald"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
                 <a href="{% url 'admin:agents_codebaseembedding_changelist' %}" class="tf-table-link">CodebaseEmbedding</a>
@@ -422,9 +382,20 @@
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Module 6: QUEUES & MESSAGES -->
-        <div class="tf-module-card tf-card-highlight" id="mod-queues">
+      <!-- PILLAR 2: REAL-TIME RELIABILITY & MESSAGE BROKER -->
+      <div class="tf-pillar-group" data-domain="queues">
+        <div class="tf-pillar-header">
+          <div class="tf-pillar-badge tf-pillar-badge-red">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+            <span>RELIABILITY, QUEUES & INFRASTRUCTURE</span>
+          </div>
+          <span class="tf-pillar-subtitle">Dead Letter Queue quarantine, Transactional Outbox, and runtime builds</span>
+        </div>
+
+        <!-- Module: QUEUES & MESSAGES -->
+        <div class="tf-module-card tf-card-highlight" id="mod-queues" data-search="queues messages deadlettermessage outboxmessage amqp dlq celery">
           <div class="tf-mod-header">
             <div class="tf-mod-title-group">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M8 21H3v-5"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
@@ -434,8 +405,7 @@
             <span class="tf-mod-count-pill">2 Tables</span>
           </div>
           <div class="tf-mod-table-list">
-            <!-- DLQ Row with Critical Indicator -->
-            <div class="tf-table-row tf-row-alert">
+            <div class="tf-table-row tf-row-alert" data-search-row="deadlettermessage dlq failed quarantine replay celery">
               <div class="tf-table-info">
                 <span class="tf-table-icon text-rose"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                 <a href="{% url 'admin:queues_deadlettermessage_changelist' %}" class="tf-table-link text-rose">DeadLetterMessage</a>
@@ -447,8 +417,7 @@
                 <a href="{% url 'admin:queues_deadlettermessage_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
               </div>
             </div>
-            <!-- Outbox Row -->
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="outboxmessage transactional outbox pending published failed amqp">
               <div class="tf-table-info">
                 <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></span>
                 <a href="{% url 'admin:queues_outboxmessage_changelist' %}" class="tf-table-link">OutboxMessage</a>
@@ -463,8 +432,8 @@
           </div>
         </div>
 
-        <!-- Module 7: DEPLOYMENTS -->
-        <div class="tf-module-card" id="mod-deployments">
+        <!-- Module: DEPLOYMENTS -->
+        <div class="tf-module-card" id="mod-deployments" data-search="deployments infra staging production railway vercel ci cd">
           <div class="tf-mod-header">
             <div class="tf-mod-title-group">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
@@ -474,7 +443,7 @@
             <span class="tf-mod-count-pill">1 Table</span>
           </div>
           <div class="tf-mod-table-list">
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="deployments staging production railway release">
               <div class="tf-table-info">
                 <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg></span>
                 <a href="{% url 'admin:deployments_deployment_changelist' %}" class="tf-table-link">Deployments</a>
@@ -488,61 +457,171 @@
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Module 8: SEO & WEB VITALS -->
-        <div class="tf-module-card" id="mod-seo">
+      <!-- PILLAR 3: IDENTITY, TENANCY & PERMISSIONS -->
+      <div class="tf-pillar-group" data-domain="identity">
+        <div class="tf-pillar-header">
+          <div class="tf-pillar-badge tf-pillar-badge-blue">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>IDENTITY, TENANCY & ACCESS CONTROL</span>
+          </div>
+          <span class="tf-pillar-subtitle">Superuser, agent specialists, RBAC roles, and enterprise tenant memberships</span>
+        </div>
+
+        <!-- Module: ACCOUNTS -->
+        <div class="tf-module-card" id="mod-accounts" data-search="accounts users groups permissions auth rbac roles">
           <div class="tf-mod-header">
             <div class="tf-mod-title-group">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <span class="tf-mod-name">SEO & WEB VITALS</span>
-              <code class="tf-mod-path">apps.seo</code>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span class="tf-mod-name">ACCOUNTS</span>
+              <code class="tf-mod-path">django.contrib.auth + custom</code>
             </div>
-            <span class="tf-mod-count-pill">1 Table</span>
+            <span class="tf-mod-count-pill">2 Tables</span>
           </div>
           <div class="tf-mod-table-list">
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="users staff developers ceo agents superuser">
               <div class="tf-table-info">
-                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
-                <a href="{% url 'admin:seo_seoaudit_changelist' %}" class="tf-table-link">SEOAudit</a>
-                <span class="tf-table-tag font-mono">Lighthouse: 98 Perf • 100 A11y • 96 SEO</span>
+                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                <a href="{% url 'admin:accounts_user_changelist' %}" class="tf-table-link">Users</a>
+                <span class="tf-table-tag">Superuser, Staff, Devs</span>
               </div>
               <div class="tf-table-actions">
-                <span class="tf-status-optimal font-mono">optimal</span>
-                <a href="{% url 'admin:seo_seoaudit_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
-                <a href="{% url 'admin:seo_seoaudit_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
+                <span class="tf-row-count font-mono">{{ tf_model_counts.accounts_user|default:"1,348" }}</span>
+                <a href="{% url 'admin:accounts_user_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
+                <a href="{% url 'admin:accounts_user_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
+              </div>
+            </div>
+            <div class="tf-table-row" data-search-row="groups permissions rbac roles access control">
+              <div class="tf-table-info">
+                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>
+                <a href="{% url 'admin:auth_group_changelist' %}" class="tf-table-link">Groups & Permissions</a>
+                <span class="tf-table-tag">RBAC Roles</span>
+              </div>
+              <div class="tf-table-actions">
+                <span class="tf-row-count font-mono">{{ tf_model_counts.auth_group|default:"8" }}</span>
+                <a href="{% url 'admin:auth_group_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
+                <a href="{% url 'admin:auth_group_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Module 9: NOTIFICATIONS -->
-        <div class="tf-module-card" id="mod-notifications">
+        <!-- Module: ORGANIZATIONS -->
+        <div class="tf-module-card" id="mod-orgs" data-search="organizations memberships tenants billing growth enterprise">
           <div class="tf-mod-header">
             <div class="tf-mod-title-group">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-              <span class="tf-mod-name">NOTIFICATIONS</span>
-              <code class="tf-mod-path">apps.comms</code>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+              <span class="tf-mod-name">ORGANIZATIONS</span>
+              <code class="tf-mod-path">apps.tenants</code>
+            </div>
+            <span class="tf-mod-count-pill">2 Tables</span>
+          </div>
+          <div class="tf-mod-table-list">
+            <div class="tf-table-row" data-search-row="organizations tenants billing enterprise growth">
+              <div class="tf-table-info">
+                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/></svg></span>
+                <a href="{% url 'admin:organizations_organization_changelist' %}" class="tf-table-link">Organizations</a>
+                <span class="tf-table-tag tf-tag-emerald">Growth & Enterprise tenants</span>
+              </div>
+              <div class="tf-table-actions">
+                <span class="tf-row-count font-mono">{{ tf_model_counts.organizations_organization|default:"42" }}</span>
+                <a href="{% url 'admin:organizations_organization_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
+                <a href="{% url 'admin:organizations_organization_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
+              </div>
+            </div>
+            <div class="tf-table-row" data-search-row="memberships team mapping seats">
+              <div class="tf-table-info">
+                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                <a href="{% url 'admin:organizations_membership_changelist' %}" class="tf-table-link">Memberships</a>
+                <span class="tf-table-tag">Team mapping</span>
+              </div>
+              <div class="tf-table-actions">
+                <span class="tf-row-count font-mono">{{ tf_model_counts.organizations_membership|default:"1,240" }}</span>
+                <a href="{% url 'admin:organizations_membership_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
+                <a href="{% url 'admin:organizations_membership_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PILLAR 4: AGILE DELIVERY & WORKFLOW -->
+      <div class="tf-pillar-group" data-domain="workflow">
+        <div class="tf-pillar-header">
+          <div class="tf-pillar-badge tf-pillar-badge-emerald">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+            <span>ENGINEERING WORKFLOW & AGILE DELIVERY</span>
+          </div>
+          <span class="tf-pillar-subtitle">Kanban tickets, code repositories, comments, and Pulse standup synthesis</span>
+        </div>
+
+        <!-- Module: PROJECTS -->
+        <div class="tf-module-card" id="mod-projects" data-search="projects repositories planning active git gitlab github">
+          <div class="tf-mod-header">
+            <div class="tf-mod-title-group">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+              <span class="tf-mod-name">PROJECTS</span>
+              <code class="tf-mod-path">apps.projects</code>
             </div>
             <span class="tf-mod-count-pill">1 Table</span>
           </div>
           <div class="tf-mod-table-list">
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="projects planning active git repos">
               <div class="tf-table-info">
-                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
-                <a href="{% url 'admin:notifications_notification_changelist' %}" class="tf-table-link">Notifications</a>
-                <span class="tf-table-tag">5,120 delivered / 84% read rate</span>
+                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg></span>
+                <a href="{% url 'admin:projects_project_changelist' %}" class="tf-table-link">Projects</a>
+                <span class="tf-table-tag tf-tag-purple">Planning, Active, Git Synced</span>
               </div>
               <div class="tf-table-actions">
-                <span class="tf-row-count font-mono">{{ tf_model_counts.notifications_notification|default:"5,220" }}</span>
-                <a href="{% url 'admin:notifications_notification_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
-                <a href="{% url 'admin:notifications_notification_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
+                <span class="tf-row-count font-mono">{{ tf_model_counts.projects_project|default:"94" }}</span>
+                <a href="{% url 'admin:projects_project_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
+                <a href="{% url 'admin:projects_project_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Module 10: PULSE WORKFLOWS -->
-        <div class="tf-module-card" id="mod-pulse">
+        <!-- Module: TASKS -->
+        <div class="tf-module-card" id="mod-tasks" data-search="tasks comments kanban tickets backlog sprint story points">
+          <div class="tf-mod-header">
+            <div class="tf-mod-title-group">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+              <span class="tf-mod-name">TASKS & COMMENTS</span>
+              <code class="tf-mod-path">apps.tickets</code>
+            </div>
+            <span class="tf-mod-count-pill">2 Tables</span>
+          </div>
+          <div class="tf-mod-table-list">
+            <div class="tf-table-row" data-search-row="tasks kanban backlog in progress done sprint">
+              <div class="tf-table-info">
+                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+                <a href="{% url 'admin:tasks_task_changelist' %}" class="tf-table-link">Tasks</a>
+                <span class="tf-table-tag">Kanban Backlog &rarr; Done (pts)</span>
+              </div>
+              <div class="tf-table-actions">
+                <span class="tf-row-count font-mono">{{ tf_model_counts.tasks_task|default:"892" }}</span>
+                <a href="{% url 'admin:tasks_task_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
+                <a href="{% url 'admin:tasks_task_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
+              </div>
+            </div>
+            <div class="tf-table-row" data-search-row="comments threaded discussions notes">
+              <div class="tf-table-info">
+                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+                <a href="{% url 'admin:tasks_comment_changelist' %}" class="tf-table-link">Comments</a>
+                <span class="tf-table-tag">Threaded discussions</span>
+              </div>
+              <div class="tf-table-actions">
+                <span class="tf-row-count font-mono">{{ tf_model_counts.tasks_comment|default:"3,418" }}</span>
+                <a href="{% url 'admin:tasks_comment_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
+                <a href="{% url 'admin:tasks_comment_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Module: PULSE WORKFLOWS -->
+        <div class="tf-module-card" id="mod-pulse" data-search="pulse focus sessions notes plan items standup sprint roadmap">
           <div class="tf-mod-header">
             <div class="tf-mod-title-group">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
@@ -552,7 +631,7 @@
             <span class="tf-mod-count-pill">3 Tables</span>
           </div>
           <div class="tf-mod-table-list">
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="pulsefocussession deep work blocks focus time">
               <div class="tf-table-info">
                 <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
                 <a href="{% url 'admin:pulse_pulsefocussession_changelist' %}" class="tf-table-link">PulseFocusSession</a>
@@ -564,7 +643,7 @@
                 <a href="{% url 'admin:pulse_pulsefocussession_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
               </div>
             </div>
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="pulsenote standup synthesis daily summary">
               <div class="tf-table-info">
                 <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></span>
                 <a href="{% url 'admin:pulse_pulsenote_changelist' %}" class="tf-table-link">PulseNote</a>
@@ -576,7 +655,7 @@
                 <a href="{% url 'admin:pulse_pulsenote_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
               </div>
             </div>
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="pulseplanitem sprint roadmaps milestones">
               <div class="tf-table-info">
                 <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
                 <a href="{% url 'admin:pulse_pulseplanitem_changelist' %}" class="tf-table-link">PulsePlanItem</a>
@@ -590,9 +669,20 @@
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Module 11: INTEGRATIONS -->
-        <div class="tf-module-card" id="mod-integrations">
+      <!-- PILLAR 5: ECOSYSTEM, SEO & COMMUNICATIONS -->
+      <div class="tf-pillar-group" data-domain="connectors">
+        <div class="tf-pillar-header">
+          <div class="tf-pillar-badge tf-pillar-badge-amber">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <span>CONNECTORS, AUDITS & NOTIFICATIONS</span>
+          </div>
+          <span class="tf-pillar-subtitle">Third-party webhooks, Lighthouse audits, and dispatch queues</span>
+        </div>
+
+        <!-- Module: INTEGRATIONS -->
+        <div class="tf-module-card" id="mod-integrations" data-search="integrations github slack webhooks connectors bots">
           <div class="tf-mod-header">
             <div class="tf-mod-title-group">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
@@ -602,7 +692,7 @@
             <span class="tf-mod-count-pill">2 Tables</span>
           </div>
           <div class="tf-mod-table-list">
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="githubintegration git github repositories webhook">
               <div class="tf-table-info">
                 <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg></span>
                 <a href="{% url 'admin:integrations_githubintegration_changelist' %}" class="tf-table-link">GitHubIntegration</a>
@@ -614,7 +704,7 @@
                 <a href="{% url 'admin:integrations_githubintegration_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
               </div>
             </div>
-            <div class="tf-table-row">
+            <div class="tf-table-row" data-search-row="slackintegration slack workspace alerts webhooks">
               <div class="tf-table-info">
                 <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"/><path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/><path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z"/><path d="M3.5 14H5v1.5c0 .83-.67 1.5-1.5 1.5S2 16.33 2 15.5 2.67 14 3.5 14z"/><path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z"/><path d="M14 20.5c0-.83.67-1.5 1.5-1.5H17v1.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5z"/><path d="M10 9.5C10 10.33 9.33 11 8.5 11h-5C2.67 11 2 10.33 2 9.5S2.67 8 3.5 8h5c.83 0 1.5.67 1.5 1.5z"/><path d="M10 3.5C10 4.33 9.33 5 8.5 5H7V3.5C7 2.67 7.67 2 8.5 2s1.5.67 1.5 1.5z"/></svg></span>
                 <a href="{% url 'admin:integrations_slackintegration_changelist' %}" class="tf-table-link">SlackIntegration</a>
@@ -629,8 +719,60 @@
           </div>
         </div>
 
+        <!-- Module: SEO & WEB VITALS -->
+        <div class="tf-module-card" id="mod-seo" data-search="seo audits lighthouse web vitals performance accessibility">
+          <div class="tf-mod-header">
+            <div class="tf-mod-title-group">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span class="tf-mod-name">SEO & WEB VITALS</span>
+              <code class="tf-mod-path">apps.seo</code>
+            </div>
+            <span class="tf-mod-count-pill">1 Table</span>
+          </div>
+          <div class="tf-mod-table-list">
+            <div class="tf-table-row" data-search-row="seoaudit lighthouse performance a11y score">
+              <div class="tf-table-info">
+                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                <a href="{% url 'admin:seo_seoaudit_changelist' %}" class="tf-table-link">SEOAudit</a>
+                <span class="tf-table-tag font-mono">Lighthouse: 98 Perf • 100 A11y • 96 SEO</span>
+              </div>
+              <div class="tf-table-actions">
+                <span class="tf-status-optimal font-mono">optimal</span>
+                <a href="{% url 'admin:seo_seoaudit_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
+                <a href="{% url 'admin:seo_seoaudit_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Module: NOTIFICATIONS -->
+        <div class="tf-module-card" id="mod-notifications" data-search="notifications alerts comms messages unread">
+          <div class="tf-mod-header">
+            <div class="tf-mod-title-group">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              <span class="tf-mod-name">NOTIFICATIONS</span>
+              <code class="tf-mod-path">apps.comms</code>
+            </div>
+            <span class="tf-mod-count-pill">1 Table</span>
+          </div>
+          <div class="tf-mod-table-list">
+            <div class="tf-table-row" data-search-row="notifications alerts comms delivered read rate">
+              <div class="tf-table-info">
+                <span class="tf-table-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></span>
+                <a href="{% url 'admin:notifications_notification_changelist' %}" class="tf-table-link">Notifications</a>
+                <span class="tf-table-tag">5,120 delivered / 84% read rate</span>
+              </div>
+              <div class="tf-table-actions">
+                <span class="tf-row-count font-mono">{{ tf_model_counts.notifications_notification|default:"5,220" }}</span>
+                <a href="{% url 'admin:notifications_notification_add' %}" class="tf-act-btn tf-act-add">+ Add</a>
+                <a href="{% url 'admin:notifications_notification_changelist' %}" class="tf-act-btn tf-act-change">Change</a>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </section>
+
+    </div>
 
   </main>
 
@@ -729,11 +871,83 @@
 </div>
 
 <script>
+  function filterDomain(domain, btn) {
+    if (btn) {
+      document.querySelectorAll('.tf-tab-btn').forEach(function(b) {
+        b.classList.remove('tf-tab-active');
+      });
+      btn.classList.add('tf-tab-active');
+    }
+    const pillars = document.querySelectorAll('.tf-pillar-group');
+    pillars.forEach(function(p) {
+      if (domain === 'all' || p.getAttribute('data-domain') === domain) {
+        p.style.display = 'flex';
+      } else {
+        p.style.display = 'none';
+      }
+    });
+  }
+
+  function filterTables(query) {
+    const q = (query || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('.tf-table-row');
+    const cards = document.querySelectorAll('.tf-module-card');
+    const pillars = document.querySelectorAll('.tf-pillar-group');
+
+    if (!q) {
+      rows.forEach(function(r) { r.style.display = 'flex'; });
+      cards.forEach(function(c) { c.style.display = 'block'; });
+      const activeTab = document.querySelector('.tf-tab-btn.tf-tab-active');
+      if (activeTab) {
+        activeTab.click();
+      } else {
+        pillars.forEach(function(p) { p.style.display = 'flex'; });
+      }
+      return;
+    }
+
+    pillars.forEach(function(p) { p.style.display = 'flex'; });
+
+    cards.forEach(function(card) {
+      const cardSearch = (card.getAttribute('data-search') || '').toLowerCase();
+      const cardRows = card.querySelectorAll('.tf-table-row');
+      let hasVisibleRow = false;
+
+      cardRows.forEach(function(row) {
+        const rowSearch = (row.getAttribute('data-search-row') || row.innerText || '').toLowerCase();
+        if (rowSearch.includes(q) || cardSearch.includes(q)) {
+          row.style.display = 'flex';
+          hasVisibleRow = true;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      if (hasVisibleRow || cardSearch.includes(q)) {
+        card.style.display = 'block';
+        card.querySelector('.tf-mod-table-list').style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const searchInput = document.getElementById('tf-schema-search');
+      if (searchInput) {
+        searchInput.value = '';
+        filterTables('');
+      }
+    }
+  });
+
   function expandAllModules() {
     document.querySelectorAll('.tf-module-card').forEach(function(card) {
       card.querySelector('.tf-mod-table-list').style.display = 'flex';
     });
   }
+
   function collapseAllModules() {
     document.querySelectorAll('.tf-module-card').forEach(function(card) {
       card.querySelector('.tf-mod-table-list').style.display = 'none';
