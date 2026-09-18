@@ -23,6 +23,7 @@ import {
   LogOut,
   Building2,
   Timer,
+  Layers,
   Menu,
   X,
 } from "lucide-react";
@@ -33,6 +34,7 @@ const NAV = [
   { href: "/pulse", label: "Pulse", icon: Timer },
   { href: "/team", label: "People & AI Agents", icon: Users },
   { href: "/deployments", label: "Deployments", icon: Rocket },
+  { href: "/queues", label: "Queues & DLQ", icon: Layers },
   { href: "/compliance", label: "SEO Audits", icon: SearchCheck },
   { href: "/settings", label: "Workspace Settings", icon: Settings },
 ];

@@ -54,9 +54,15 @@ class DeadLetterListView(APIView):
                 "task_id": msg.task_id,
                 "task_name": msg.task_name,
                 "queue_name": msg.queue_name,
+                "routing_key": msg.routing_key,
+                "exchange": msg.exchange,
+                "payload": msg.payload,
+                "args": msg.args,
+                "kwargs": msg.kwargs,
                 "status": msg.status,
                 "exception_class": msg.exception_class,
                 "exception_message": msg.exception_message,
+                "traceback": msg.traceback,
                 "retry_count": msg.retry_count,
                 "created_at": msg.created_at.isoformat(),
                 "last_replayed_at": msg.last_replayed_at.isoformat() if msg.last_replayed_at else None,
@@ -64,6 +70,36 @@ class DeadLetterListView(APIView):
             for msg in messages
         ]
         return Response({"results": data, "count": queryset.count()})
+
+
+class DeadLetterDetailView(APIView):
+    """Retrieves full detail of a single dead-letter message."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            msg = DeadLetterMessage.objects.get(pk=pk)
+        except DeadLetterMessage.DoesNotExist:
+            return Response({"detail": "Dead letter message not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({
+            "id": msg.id,
+            "task_id": msg.task_id,
+            "task_name": msg.task_name,
+            "queue_name": msg.queue_name,
+            "routing_key": msg.routing_key,
+            "exchange": msg.exchange,
+            "payload": msg.payload,
+            "args": msg.args,
+            "kwargs": msg.kwargs,
+            "status": msg.status,
+            "exception_class": msg.exception_class,
+            "exception_message": msg.exception_message,
+            "traceback": msg.traceback,
+            "retry_count": msg.retry_count,
+            "created_at": msg.created_at.isoformat(),
+            "last_replayed_at": msg.last_replayed_at.isoformat() if msg.last_replayed_at else None,
+        })
 
 
 class ReplayDeadLetterView(APIView):

@@ -483,5 +483,51 @@ export function qaValidateTask(taskId: number) {
   );
 }
 
+// --- RabbitMQ & Dead Letter Queue (DLQ) Operations ---
+
+export async function getQueueMetrics() {
+  return apiFetch<import("./types").QueueMetrics>("/queues/metrics/");
+}
+
+export async function getDeadLetterMessages(params?: { status?: string; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.status && params.status !== "all") query.set("status", params.status);
+  if (params?.limit) query.set("limit", String(params.limit));
+  const queryString = query.toString();
+  return apiFetch<{ results: import("./types").DeadLetterMessage[]; count: number }>(
+    `/queues/dlq/${queryString ? `?${queryString}` : ""}`
+  );
+}
+
+export async function getDeadLetterDetail(id: number) {
+  return apiFetch<import("./types").DeadLetterMessage>(`/queues/dlq/${id}/`);
+}
+
+export async function replayDeadLetterMessage(id: number) {
+  return apiFetch<{ success: boolean; message: string }>(`/queues/dlq/${id}/replay/`, {
+    method: "POST",
+  });
+}
+
+export async function replayAllDeadLetters() {
+  return apiFetch<{ message: string; replayed_count: number }>(`/queues/dlq/replay-all/`, {
+    method: "POST",
+  });
+}
+
+export async function purgeAllDeadLetters() {
+  return apiFetch<{ message: string; purged_count: number; broker_purged: boolean }>(
+    `/queues/dlq/purge-all/`,
+    { method: "POST" }
+  );
+}
+
+export async function simulateTaskFailure(message?: string) {
+  return apiFetch<{ message: string; task_id: string }>(`/queues/simulate-failure/`, {
+    method: "POST",
+    body: { message: message || "Engine simulation failure" },
+  });
+}
+
 
 

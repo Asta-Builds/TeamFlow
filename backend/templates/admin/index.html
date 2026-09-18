@@ -12,81 +12,57 @@
 {% block nav-sidebar %}{% endblock %}
 
 {% block content %}
-<!-- Executive Operational Cards Banner -->
-<div class="tf-dashboard-deck">
-    <!-- Card 1: RabbitMQ & DLQ -->
-    <div class="tf-stat-card tf-card-rabbitmq">
-        <div class="tf-card-header">
-            <div class="tf-card-icon tf-icon-mq">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
-                    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
-                    <line x1="6" y1="6" x2="6.01" y2="6"/>
-                    <line x1="6" y1="18" x2="6.01" y2="18"/>
-                </svg>
-            </div>
-            <div class="tf-card-badge tf-badge-green">Operational</div>
-        </div>
-        <div class="tf-card-body">
-            <h3 class="tf-card-title">RabbitMQ & DLQ</h3>
-            <p class="tf-card-desc">Asynchronous AMQP messaging, Celery worker pool & Dead Letter routing (<code>teamflow.dlq</code>).</p>
-            <div class="tf-card-actions">
-                <a href="{% url 'admin:queues_deadlettermessage_changelist' %}" class="tf-btn-primary">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    Manage DLQ
-                </a>
-                <a href="{% url 'admin:queues_deadlettermessage_replay_all' %}" class="tf-btn-secondary" onclick="return confirm('Replay all pending dead letter messages?');">
-                    Replay All
-                </a>
-            </div>
-        </div>
+<!-- Top Operations Status Deck (High-Density Asymmetric Workbench) -->
+<div class="tf-ops-banner">
+  <div class="tf-ops-main">
+    <div class="tf-ops-header">
+      <div class="tf-ops-badge">
+        <span class="tf-pulse-dot"></span>
+        <span>AMQP 0-9-1 Active</span>
+      </div>
+      <span class="tf-ops-divider">/</span>
+      <span class="tf-ops-meta font-mono">Broker: RabbitMQ 3.13</span>
+      <span class="tf-ops-divider">/</span>
+      <span class="tf-ops-meta font-mono">Workers: 2 Concurrency</span>
+      <span class="tf-ops-divider">/</span>
+      <span class="tf-ops-meta font-mono">RAG: pgvector 384d</span>
     </div>
+    <h1 class="tf-ops-title">Operations & Data Architecture Console</h1>
+    <p class="tf-ops-desc">
+      Direct database orchestration, tenant data management, and dead letter queue (<code>teamflow.dlq</code>) monitoring.
+    </p>
+  </div>
 
-    <!-- Card 2: Infrastructure & Database -->
-    <div class="tf-stat-card tf-card-infra">
-        <div class="tf-card-header">
-            <div class="tf-card-icon tf-icon-db">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                </svg>
-            </div>
-            <div class="tf-card-badge tf-badge-blue">Connected</div>
-        </div>
-        <div class="tf-card-body">
-            <h3 class="tf-card-title">Storage & Cache</h3>
-            <p class="tf-card-desc">PostgreSQL 16 with <code>pgvector</code> embeddings and Redis 7 Pub/Sub event streaming.</p>
-            <div class="tf-card-actions">
-                <a href="{% url 'admin:projects_project_changelist' %}" class="tf-btn-outline">Projects</a>
-                <a href="{% url 'admin:tasks_task_changelist' %}" class="tf-btn-outline">Tasks</a>
-            </div>
-        </div>
-    </div>
-
-    <!-- Card 3: Autonomous AI Swarm -->
-    <div class="tf-stat-card tf-card-swarm">
-        <div class="tf-card-header">
-            <div class="tf-card-icon tf-icon-ai">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2a8 8 0 0 0-8 8c0 3.36 2.08 6.23 5 7.37V21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-3.63c2.92-1.14 5-4.01 5-7.37a8 8 0 0 0-8-8z"/>
-                    <line x1="9" y1="22" x2="15" y2="22"/>
-                </svg>
-            </div>
-            <div class="tf-card-badge tf-badge-purple">9 Agents</div>
-        </div>
-        <div class="tf-card-body">
-            <h3 class="tf-card-title">LangGraph AI Swarm</h3>
-            <p class="tf-card-desc">Athena, Tech Lead, Backend, Frontend, QA & DevOps operating in sandboxed workspaces.</p>
-            <div class="tf-card-actions">
-                <a href="{% url 'admin:agents_agentexecutiontrace_changelist' %}" class="tf-btn-outline">Traces</a>
-                <a href="{% url 'admin:deployments_deployment_changelist' %}" class="tf-btn-outline">Deployments</a>
-            </div>
-        </div>
-    </div>
+  <div class="tf-ops-actions">
+    <a href="{% url 'admin:queues_deadlettermessage_changelist' %}" class="tf-btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/>
+        <path d="M12 12v9"/>
+        <path d="m8 17 4 4 4-4"/>
+      </svg>
+      <span>Inspect DLQ</span>
+    </a>
+    <a href="{% url 'admin:queues_deadlettermessage_replay_all' %}" class="tf-btn-outline" onclick="return confirm('Replay all pending dead letter messages to Celery?');">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+        <path d="M21 3v5h-5"/>
+        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+        <path d="M8 16H3v5"/>
+      </svg>
+      <span>Replay All</span>
+      <kbd class="tf-kbd">R</kbd>
+    </a>
+    <a href="{{ FRONTEND_URL|default:'/' }}/queues" target="_blank" class="tf-btn-ghost">
+      <span>Live Ops Center</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="7" y1="17" x2="17" y2="7"/>
+        <polyline points="7 7 17 7 17 17"/>
+      </svg>
+    </a>
+  </div>
 </div>
 
-<!-- Dashboard Content Split (Main Models & Recent Actions) -->
+<!-- Asymmetric Split: Models Left + Recent Actions Right -->
 <div class="tf-dashboard-grid">
   <div id="content-main">
     {% include "admin/app_list.html" with app_list=app_list show_changelinks=True %}
@@ -94,27 +70,29 @@
   <div id="content-related">
     <div class="module" id="recent-actions-module">
       <h2>{% translate 'Recent actions' %}</h2>
-      <h3>{% translate 'My actions' %}</h3>
+      <h3>{% translate 'Audit Trail' %}</h3>
       {% load log %}
-      {% get_admin_log 10 as admin_log for_user user %}
+      {% get_admin_log 12 as admin_log for_user user %}
       {% if not admin_log %}
-        <p class="tf-empty-text">{% translate 'None available' %}</p>
+        <p class="tf-empty-text">{% translate 'No audit entries recorded.' %}</p>
       {% else %}
         <ul class="actionlist">
         {% for entry in admin_log %}
         <li class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
           <span class="visually-hidden">{% if entry.is_addition %}{% translate 'Added:' %}{% elif entry.is_change %}{% translate 'Changed:' %}{% elif entry.is_deletion %}{% translate 'Deleted:' %}{% endif %}</span>
           {% if entry.is_deletion or not entry.get_admin_url %}
-            {{ entry.object_repr }}
+            <span class="tf-action-name">{{ entry.object_repr }}</span>
           {% else %}
-            <a href="{{ entry.get_admin_url }}">{{ entry.object_repr }}</a>
+            <a href="{{ entry.get_admin_url }}" class="tf-action-name">{{ entry.object_repr }}</a>
           {% endif %}
-          <br>
-          {% if entry.content_type %}
-            <span class="mini quiet">{% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}</span>
-          {% else %}
-            <span class="mini quiet">{% translate 'Unknown content' %}</span>
-          {% endif %}
+          <div class="tf-action-meta">
+            {% if entry.content_type %}
+              <span class="tf-model-badge">{{ entry.content_type.name|capfirst }}</span>
+            {% else %}
+              <span class="tf-model-badge">System</span>
+            {% endif %}
+            <span class="tf-action-time">{{ entry.action_time|date:"H:i:s" }}</span>
+          </div>
         </li>
         {% endfor %}
         </ul>

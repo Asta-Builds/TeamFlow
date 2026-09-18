@@ -414,3 +414,52 @@ export interface Paginated<T> {
   previous: string | null;
   results: T[];
 }
+
+export type DLQStatus = "pending" | "replayed" | "purged" | "resolved";
+
+export interface DeadLetterMessage {
+  id: number;
+  task_id: string;
+  task_name: string;
+  queue_name: string;
+  routing_key: string;
+  exchange: string;
+  payload: Record<string, unknown> | unknown[];
+  args: unknown[];
+  kwargs: Record<string, unknown>;
+  status: DLQStatus;
+  exception_class: string;
+  exception_message: string;
+  traceback: string;
+  retry_count: number;
+  created_at: string;
+  last_replayed_at: string | null;
+}
+
+export interface BrokerStatus {
+  connected: boolean;
+  broker_type: string;
+  broker_url: string;
+  error?: string | null;
+}
+
+export interface QueueStat {
+  name: string;
+  messages: number;
+  consumers: number;
+  state: string;
+}
+
+export interface DLQSummary {
+  total: number;
+  pending: number;
+  replayed: number;
+  purged: number;
+}
+
+export interface QueueMetrics {
+  broker: BrokerStatus;
+  queues: QueueStat[];
+  dlq_summary: DLQSummary;
+  timestamp: string;
+}

@@ -26,11 +26,10 @@ class AdminFrontendTests(TestCase):
         self.client.force_login(self.admin_user)
         response = self.client.get(reverse("admin:index"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "RabbitMQ & DLQ")
-        self.assertContains(response, "LangGraph AI Swarm")
-        self.assertContains(response, "tf-dashboard-deck")
+        self.assertContains(response, "RabbitMQ 3.13")
+        self.assertContains(response, "Inspect DLQ")
+        self.assertContains(response, "tf-ops-banner")
         self.assertContains(response, "tf-dashboard-grid")
-        self.assertContains(response, "Manage DLQ")
 
     def test_admin_dlq_changelist_renders(self):
         self.client.force_login(self.admin_user)

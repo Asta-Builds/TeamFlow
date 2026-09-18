@@ -16,16 +16,17 @@
 
 {% block content %}
 <div class="tf-login-layout">
+  <!-- Topbar -->
   <div class="tf-login-topbar">
     <a href="{{ FRONTEND_URL|default:'/' }}" class="tf-back-link" title="Back to TeamFlow Web App">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="19" y1="12" x2="5" y2="12"/>
         <polyline points="12 19 5 12 12 5"/>
       </svg>
       <span>Back to Web App</span>
     </a>
     <button type="button" onclick="toggleAdminTheme()" class="tf-theme-toggle-btn" title="Toggle Dark/Light Mode">
-      <svg class="tf-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="tf-icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="5"/>
         <line x1="12" y1="1" x2="12" y2="3"/>
         <line x1="12" y1="21" x2="12" y2="23"/>
@@ -36,40 +37,46 @@
         <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
         <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
       </svg>
-      <svg class="tf-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg class="tf-icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
       </svg>
     </button>
   </div>
 
+  <!-- Left-Aligned Tactile Auth Surface -->
   <div class="tf-auth-card">
     <div class="tf-auth-header">
       <div class="tf-auth-logo">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
         </svg>
       </div>
-      <h1 class="tf-auth-title">TeamFlow Console</h1>
-      <p class="tf-auth-subtitle">Internal Administration & DLQ Management</p>
+      <div class="tf-auth-titles">
+        <div class="tf-badge-pill">Staff Credentials Required</div>
+        <h1 class="tf-auth-title">TeamFlow Console</h1>
+        <p class="tf-auth-subtitle">
+          Internal administration for Django ORM, RabbitMQ DLQ, and system models.
+        </p>
+      </div>
     </div>
 
     {% if form.errors and not form.non_field_errors %}
     <div class="tf-alert tf-alert-error">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/>
         <line x1="12" y1="8" x2="12" y2="12"/>
         <line x1="12" y1="16" x2="12.01" y2="16"/>
       </svg>
       <div class="tf-alert-content">
-        <strong>Sign in error</strong>
-        <p>Please enter a correct email address and password for a staff account.</p>
+        <strong>Invalid Credentials</strong>
+        <p>Please enter a valid email address and password for an authorized staff account.</p>
       </div>
     </div>
     {% endif %}
 
     {% if form.non_field_errors %}
     <div class="tf-alert tf-alert-error">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/>
         <line x1="12" y1="8" x2="12" y2="12"/>
         <line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -84,13 +91,13 @@
 
     {% if user.is_authenticated %}
     <div class="tf-alert tf-alert-warning">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
         <line x1="12" y1="9" x2="12" y2="13"/>
         <line x1="12" y1="17" x2="12.01" y2="17"/>
       </svg>
       <div class="tf-alert-content">
-        <p>Authenticated as <strong>{{ username }}</strong>, but not authorized to access the staff console.</p>
+        <p>Authenticated as <span class="font-mono font-semibold">{{ username }}</span>, but this account does not hold staff authorization.</p>
       </div>
     </div>
     {% endif %}
@@ -100,7 +107,7 @@
       <div class="tf-field-group">
         <label for="id_username" class="tf-field-label">Email Address</label>
         <div class="tf-input-box">
-          <svg class="tf-field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="tf-field-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect width="20" height="16" x="2" y="4" rx="2"/>
             <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
           </svg>
@@ -113,11 +120,11 @@
           <label for="id_password" class="tf-field-label">Password</label>
           {% url 'admin_password_reset' as password_reset_url %}
           {% if password_reset_url %}
-          <a href="{{ password_reset_url }}" class="tf-forgot-link">Forgot?</a>
+          <a href="{{ password_reset_url }}" class="tf-forgot-link">Forgot password?</a>
           {% endif %}
         </div>
         <div class="tf-input-box">
-          <svg class="tf-field-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg class="tf-field-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
@@ -128,22 +135,17 @@
 
       <div class="tf-submit-box">
         <button type="submit" class="tf-submit-button">
-          <span>Sign In to Console</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12"/>
-            <polyline points="12 5 19 12 12 19"/>
-          </svg>
+          <span>Authenticate Session</span>
+          <kbd class="tf-kbd-inline">↵ Enter</kbd>
         </button>
       </div>
     </form>
 
     <div class="tf-auth-footer">
-      <span class="tf-secure-badge">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
-        </svg>
-        Protected by Django + Keycloak IAM
-      </span>
+      <div class="tf-secure-row">
+        <span class="tf-secure-dot"></span>
+        <span class="tf-secure-text">Encrypted AMQP + Postgres DB Session</span>
+      </div>
     </div>
   </div>
 </div>
