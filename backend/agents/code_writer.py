@@ -9,8 +9,10 @@ import os
 import re
 import difflib
 import logging
-from typing import Dict, Any, Optional
+from dataclasses import dataclass
+from typing import Dict, Any, Optional, List
 
+from .untrusted_text import neutralize_untrusted_markdown
 from .git_service import (
     get_project_workspace,
     git_pull,
@@ -58,46 +60,51 @@ def safe_workspace_path(project_workspace: str, rel_path: str) -> Optional[str]:
     return resolved
 
 
-def parse_and_apply_code_changes(
+@dataclass
+class CodeChangeOutcome:
+    written_files: List[str]   # workspace-relative POSIX paths actually written
+    report: str                # the same prose report the comment uses today
+
+
+def apply_code_changes(
     llm_output: str,
+    workspace: str,
     task: Any = None,
     agent_info: Optional[Dict[str, Any]] = None,
-    repo_name: Optional[str] = None
-) -> str:
+    repo_name: Optional[str] = None,
+) -> CodeChangeOutcome:
     """
-    Parses LLM output for FILE: and CODE: blocks or direct markdown blocks,
-    writes them to the ISOLATED project repository, and executes full human-like Git workflow.
+    Parses LLM output for FILE: and CODE: blocks and writes valid files into workspace.
+    Returns CodeChangeOutcome with written workspace-relative POSIX paths and prose report.
+    Executes Git lifecycle and build verification in workspace.
     """
-    # 1. Resolve dedicated project workspace (NEVER modifies TeamFlow platform)
-    project_workspace = get_project_workspace(task)
-    if not os.path.exists(project_workspace):
-        os.makedirs(project_workspace, exist_ok=True)
+    if not os.path.exists(workspace):
+        os.makedirs(workspace, exist_ok=True)
 
-    # 2. Robust line-by-line parsing supporting multiple formats
     lines = llm_output.split("\n")
     file_blocks = []
-    
+
     current_file = None
     current_code = []
     in_code_block = False
-    
+
     i = 0
     while i < len(lines):
         line = lines[i]
-        
+
         # Check for FILE header (e.g. FILE: path, ### FILE: path, File: path, **FILE: path**)
         file_match = re.search(r'(?:FILE|Fichier|File):\s*`?\*?([^`\n\s#*]+)\*?`?', line, re.IGNORECASE)
         if file_match:
             if current_file and current_code:
                 file_blocks.append((current_file, "\n".join(current_code)))
-            
+
             path_val = file_match.group(1).strip().rstrip(":").rstrip("*").rstrip("`")
             current_file = path_val
             current_code = []
             in_code_block = False
             i += 1
             continue
-            
+
         if current_file:
             if not in_code_block:
                 if "CODE:" in line.upper() or line.strip().startswith("```"):
@@ -113,40 +120,36 @@ def parse_and_apply_code_changes(
                 else:
                     current_code.append(line)
         i += 1
-        
+
     if current_file and current_code:
         file_blocks.append((current_file, "\n".join(current_code)))
 
     if not file_blocks:
-        return ""
+        return CodeChangeOutcome(written_files=[], report="")
 
-    # Agent and Repo Metadata
     agent_name = agent_info.get("name", "TeamFlow Agent") if agent_info else "TeamFlow Agent"
     agent_email = (
         agent_info.get("email", "") if agent_info else ""
     ) or getattr(getattr(task, "assignee", None), "email", "")
     agent_role = agent_info.get("role", "developer") if agent_info else "developer"
-    
+
     target_repo = repo_name
     project_name = "Project Codebase"
     if task and hasattr(task, "project") and task.project:
         target_repo = getattr(task.project, "github_repo", "")
         project_name = getattr(task.project, "name", "Project Codebase")
-    
-    # 3. Autonomous Git Lifecycle: Pull latest main first
+
     task_id = getattr(task, "id", "dev") if task else "dev"
     task_title = getattr(task, "title", "code updates") if task else "code updates"
     clean_title = re.sub(r'[^a-zA-Z0-9]+', '-', task_title.lower()).strip('-')[:28]
     branch_name = f"feat/ticket-{task_id}-{clean_title}"
 
-    # Synchronize with main before feature branching
-    pull_res = git_pull("main", cwd=project_workspace)
-    git_checkout_branch(branch_name, create_if_missing=True, cwd=project_workspace)
+    pull_res = git_pull("main", cwd=workspace)
+    git_checkout_branch(branch_name, create_if_missing=True, cwd=workspace)
 
-    # Relative display path for UI
-    workspace_rel_display = os.path.relpath(project_workspace, os.environ.get("WORKSPACE_ROOT", "/workspace"))
+    workspace_rel_display = os.path.relpath(workspace, os.environ.get("WORKSPACE_ROOT", "/workspace"))
     if workspace_rel_display.startswith("."):
-        workspace_rel_display = os.path.basename(project_workspace)
+        workspace_rel_display = os.path.basename(workspace)
 
     summary_parts = []
     summary_parts.append(f"\n\n### Project Modifications: `{project_name}`")
@@ -155,11 +158,12 @@ def parse_and_apply_code_changes(
     written_files = []
 
     for rel_path, code in file_blocks:
-        abs_path = safe_workspace_path(project_workspace, rel_path)
+        abs_path = safe_workspace_path(workspace, rel_path)
         if abs_path is None:
-            summary_parts.append(f"\n- Skipped unsafe path: `{rel_path.strip()}`")
+            safe_display = neutralize_untrusted_markdown(rel_path.strip())
+            summary_parts.append(f"\n- Skipped unsafe path: `{safe_display}`")
             continue
-        rel_path = os.path.relpath(abs_path, os.path.realpath(project_workspace)).replace(os.sep, "/")
+        clean_rel = os.path.relpath(abs_path, os.path.realpath(workspace)).replace(os.sep, "/")
 
         old_lines = []
         if os.path.exists(abs_path):
@@ -176,28 +180,31 @@ def parse_and_apply_code_changes(
             with open(abs_path, 'w', encoding='utf-8') as f:
                 f.write(code_cleaned)
 
-            written_files.append(rel_path)
+            written_files.append(clean_rel)
             new_lines = [line + '\n' for line in code_cleaned.split('\n')]
-            
+
             diff = list(difflib.unified_diff(
                 old_lines, new_lines,
-                fromfile=f"a/{rel_path}", tofile=f"b/{rel_path}"
+                fromfile=f"a/{clean_rel}", tofile=f"b/{clean_rel}"
             ))
             diff_text = "".join(diff)
 
+            safe_rel = neutralize_untrusted_markdown(clean_rel)
             if diff_text:
-                summary_parts.append(f"\n- File Modified: `{rel_path}`")
-                summary_parts.append("```diff\n" + diff_text[:800] + ("\n... (diff truncated)" if len(diff_text) > 800 else "") + "\n```")
+                safe_diff = neutralize_untrusted_markdown(diff_text[:800])
+                summary_parts.append(f"\n- File Modified: `{safe_rel}`")
+                summary_parts.append("```diff\n" + safe_diff + ("\n... (diff truncated)" if len(diff_text) > 800 else "") + "\n```")
             else:
-                summary_parts.append(f"\n- File Created: `{rel_path}`")
-                summary_parts.append("```tsx\n" + code_cleaned[:300] + ("\n... (code truncated)" if len(code_cleaned) > 300 else "") + "\n```")
+                safe_snippet = neutralize_untrusted_markdown(code_cleaned[:300])
+                summary_parts.append(f"\n- File Created: `{safe_rel}`")
+                summary_parts.append("```tsx\n" + safe_snippet + ("\n... (code truncated)" if len(code_cleaned) > 300 else "") + "\n```")
 
         except Exception as e:
+            safe_rel = neutralize_untrusted_markdown(clean_rel)
             logger.error(f"Failed to write file {abs_path}: {e}")
-            summary_parts.append(f"\n- Error on `{rel_path}`: {e}")
+            summary_parts.append(f"\n- Error on `{safe_rel}`: {e}")
 
-    # 4. Autonomous Project Build & Static Analysis Verification
-    build_res = run_project_build(project_workspace)
+    build_res = run_project_build(workspace)
     build_passed = build_res.get("success", False)
 
     summary_parts.append("\n\n### Build & Static Analysis Verification")
@@ -207,7 +214,6 @@ def parse_and_apply_code_changes(
     else:
         summary_parts.append(f"- Build Warning: {build_res.get('output', 'Build error')}")
 
-    # 5. Autonomous Git Commit in the project repository
     commit_msg = f"feat({agent_role}): {task_title} [ticket #{task_id}]"
     if not build_passed:
         commit_msg = f"wip({agent_role}): {task_title} [ticket #{task_id}] (build warnings)"
@@ -217,17 +223,15 @@ def parse_and_apply_code_changes(
         author_name=agent_name,
         author_email=agent_email,
         files=written_files,
-        cwd=project_workspace
+        cwd=workspace
     )
 
-    # 6. Push only a successful commit
     committed = bool(commit_res.get("success"))
-    push_res = git_push(branch_name, cwd=project_workspace) if committed else {
+    push_res = git_push(branch_name, cwd=workspace) if committed else {
         "success": False,
         "output": "Not pushed because the commit did not succeed.",
     }
 
-    # 7. Pull Request Creation (only for a pushed branch on a linked repository)
     pr_url = ""
     if push_res.get("success") and target_repo and "/" in target_repo:
         pr_body = (
@@ -249,11 +253,10 @@ def parse_and_apply_code_changes(
             title=f"feat({agent_role}): {task_title} (#{task_id})",
             body=pr_body,
             head_branch=branch_name,
-            cwd=project_workspace,
+            cwd=workspace,
         )
         pr_url = pr_res.get("pr_url", "")
 
-    # 8. Format Git Activity Summary
     summary_parts.append("\n\n### Autonomous Git Lifecycle")
     summary_parts.append(f"- Git Pull (main): {pull_res.get('output', 'not run')}")
     summary_parts.append(f"- Branch: `{branch_name}`")
@@ -272,7 +275,31 @@ def parse_and_apply_code_changes(
     else:
         summary_parts.append("- Pull Request: none opened")
 
-    return "\n".join(summary_parts)
+    report_str = "\n".join(summary_parts)
+    return CodeChangeOutcome(written_files=written_files, report=report_str)
+
+
+def parse_and_apply_code_changes(
+    llm_output: str,
+    task: Any = None,
+    agent_info: Optional[Dict[str, Any]] = None,
+    repo_name: Optional[str] = None
+) -> str:
+    """
+    Parses LLM output for FILE: and CODE: blocks or direct markdown blocks,
+    writes them to the ISOLATED project repository, and executes full human-like Git workflow.
+    Thin wrapper delegating file writing to apply_code_changes.
+    """
+    project_workspace = get_project_workspace(task)
+    outcome = apply_code_changes(
+        llm_output=llm_output,
+        workspace=project_workspace,
+        task=task,
+        agent_info=agent_info,
+        repo_name=repo_name,
+    )
+    return outcome.report
+
 
 
 def parse_file_blocks(llm_output: str) -> list:

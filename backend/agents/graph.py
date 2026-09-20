@@ -10,7 +10,7 @@ from .state import TicketState
 from .nodes.tech_lead import tech_lead_node
 from .nodes.backend_agent import backend_agent_node
 from .nodes.frontend_agent import frontend_agent_node
-from .nodes.qa_agent import qa_agent_node
+from .nodes.qa_agent import qa_agent_node, QA_MAX_REJECTIONS
 from .nodes.devops_agent import devops_agent_node
 from .nodes.uiux_agent import uiux_agent_node
 from .nodes.seo_agent import seo_agent_node
@@ -26,10 +26,25 @@ def route_from_tech_lead(state: TicketState) -> str:
     """Routing logic from Tech Lead orchestrator node."""
     assigned = state.get("assigned_agent", "backend")
     if assigned in {"backend", "frontend", "qa", "devops", "designer", "seo"}:
+        history = state.get("history", [])
+        last_qa_idx = max((i for i, h in enumerate(history) if h.get("node") == "qa"), default=-1)
+        last_dev_idx = max((i for i, h in enumerate(history) if h.get("node") in {"backend", "frontend"}), default=-1)
+        if last_qa_idx != -1 and last_dev_idx > last_qa_idx and assigned in {"backend", "frontend"}:
+            return "qa"
         return assigned
     if assigned == "done" or state.get("status") == "done":
         return END
     return "backend"
+
+
+def route_from_developer(state: TicketState) -> str:
+    """Conditional routing from developer nodes (backend/frontend)."""
+    history = state.get("history", [])
+    latest_entry = history[-1] if history else {}
+    if latest_entry.get("action") == "implementation_blocked":
+        logger.warning("Developer produced no code (implementation_blocked). Stopping run.")
+        return END
+    return "tech_lead"
 
 
 def route_from_qa(state: TicketState) -> str:
@@ -37,13 +52,15 @@ def route_from_qa(state: TicketState) -> str:
     qa_result = state.get("qa_result")
     if qa_result == "passed":
         return "devops"
+    if qa_result == "unverified":
+        return END
 
     # Circuit breaker: check rejection cycles to avoid unbounded loops
     history = state.get("history", [])
     qa_cycles = sum(1 for h in history if h.get("node") == "qa" and h.get("action") == "qa_rejection")
-    if qa_cycles >= 3:
-        logger.warning("QA rejected %d times. Escalate to Tech Lead for architectural remediation.", qa_cycles)
-        return "tech_lead"
+    if qa_cycles >= QA_MAX_REJECTIONS:
+        logger.warning("QA rejected %d times. Stopping run after %d rejections.", qa_cycles, qa_cycles)
+        return END
 
     # Rejection cycle back to backend for fix
     return "backend"
@@ -83,9 +100,23 @@ def build_teamflow_agent_graph(checkpointer: Optional[Any] = None):
         }
     )
 
-    # Developers report back to Tech Lead for PR review
-    workflow.add_edge("backend", "tech_lead")
-    workflow.add_edge("frontend", "tech_lead")
+    # Developers report back to Tech Lead for PR review or stop if blocked
+    workflow.add_conditional_edges(
+        "backend",
+        route_from_developer,
+        {
+            "tech_lead": "tech_lead",
+            END: END,
+        }
+    )
+    workflow.add_conditional_edges(
+        "frontend",
+        route_from_developer,
+        {
+            "tech_lead": "tech_lead",
+            END: END,
+        }
+    )
     workflow.add_edge("designer", "frontend")
     workflow.add_edge("seo", "tech_lead")
 
@@ -97,6 +128,7 @@ def build_teamflow_agent_graph(checkpointer: Optional[Any] = None):
             "devops": "devops",
             "backend": "backend",
             "tech_lead": "tech_lead",
+            END: END,
         }
     )
 
@@ -207,23 +239,31 @@ def execute_ticket_swarm(
 
         # Update task status and PR in database through application service
         final_status = final_state.get("status", "done")
-        if final_state.get("pr_url"):
-            task.pr_url = final_state.get("pr_url")
+        has_approval = bool(final_state.get("approval_id"))
 
         from tasks.application.use_cases import TaskApplicationService
         from tasks.domain.exceptions import TaskDomainError
 
         app_service = TaskApplicationService()
-        try:
-            task = app_service.transition_status(task, final_status, actor=None)
+        if not has_approval:
+            try:
+                task = app_service.transition_status(task, final_status, actor=None)
+                if final_state.get("pr_url"):
+                    task.pr_url = final_state.get("pr_url")
+                    task.save(update_fields=["pr_url"])
+            except TaskDomainError:
+                task.status = final_status
+                task.save()
+        else:
             if final_state.get("pr_url"):
                 task.pr_url = final_state.get("pr_url")
                 task.save(update_fields=["pr_url"])
-        except TaskDomainError:
-            task.status = final_status
-            task.save()
 
-        trace.status = AgentExecutionTrace.Status.COMPLETED
+        if has_approval:
+            trace.status = AgentExecutionTrace.Status.AWAITING_APPROVAL
+        else:
+            trace.status = AgentExecutionTrace.Status.COMPLETED
+
         trace.graph_state = final_state
         trace.steps = final_state.get("history", [])
         trace.tokens_used = final_state.get("total_tokens", 0)
@@ -236,7 +276,7 @@ def execute_ticket_swarm(
             "duration_seconds", "langfuse_url", "finished_at",
         ])
 
-        # Stream completed swarm trace to Langfuse
+        # Stream swarm trace to Langfuse
         try:
             from .observability.langfuse_client import log_agent_execution_to_langfuse
             thoughts = [
@@ -257,21 +297,23 @@ def execute_ticket_swarm(
             )
         except Exception as lf_err:
             logger.warning(f"Failed to log swarm completion to Langfuse: {lf_err}")
-        emit_agent_event(
-            task=task,
-            trace=trace,
-            session_id=session_id,
-            event_type="completed",
-            message="The orchestration run has finished. Review the recorded artifacts and validation evidence before accepting the result.",
-            current_work="Run completed",
-            remaining_work=[],
-        )
+
+        if not has_approval:
+            emit_agent_event(
+                task=task,
+                trace=trace,
+                session_id=session_id,
+                event_type="completed",
+                message="The orchestration run has finished. Review the recorded artifacts and validation evidence before accepting the result.",
+                current_work="Run completed",
+                remaining_work=[],
+            )
 
         return {
             "ok": True,
             "trace_id": trace.id,
             "session_id": session_id,
-            "status": "completed",
+            "status": "awaiting_approval" if has_approval else "completed",
             "final_state": final_state,
             "duration_seconds": duration,
             "langfuse_url": langfuse_url,
