@@ -37,6 +37,12 @@ env = environ.Env(
     STRIPE_PRICE_ENTERPRISE=(str, ""),
     AGENT_EMAIL_DOMAIN=(str, ""),
     FRONTEND_URL=(str, ""),
+    RAILWAY_PUBLIC_DOMAIN=(str, ""),
+    RAILWAY_PRIVATE_DOMAIN=(str, ""),
+    APP_ROLE=(str, ""),
+    PYTHON_AI_SERVICE_URL=(str, ""),
+    PYTHON_AI_JWT_SECRET=(str, ""),
+    USE_X_FORWARDED_PROTO=(bool, False),
 )
 
 FRONTEND_URL = env("FRONTEND_URL")
@@ -60,12 +66,48 @@ if not SECRET_KEY:
         SECRET_KEY = secrets.token_urlsafe(64)
     else:
         raise ImproperlyConfigured("SECRET_KEY must be configured outside the test suite.")
-DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env("ALLOWED_HOSTS")
-CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
+def configure_railway_hosts(allowed_hosts, csrf_trusted_origins, public_domain="", private_domain=""):
+    """
+    Appends Railway public and private domains to ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS,
+    preserving all operator-configured hosts and origins.
+    """
+    hosts = list(allowed_hosts)
+    origins = list(csrf_trusted_origins)
 
-# Reverse proxy SSL header support
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    if public_domain:
+        clean_public = public_domain.removeprefix("https://").removeprefix("http://").rstrip("/")
+        if clean_public and clean_public not in hosts:
+            hosts.append(clean_public)
+        public_origin = f"https://{clean_public}"
+        if public_origin not in origins:
+            origins.append(public_origin)
+
+    if private_domain:
+        clean_private = private_domain.removeprefix("https://").removeprefix("http://").rstrip("/")
+        if clean_private and clean_private not in hosts:
+            hosts.append(clean_private)
+
+    return hosts, origins
+
+
+DEBUG = env("DEBUG")
+
+RAILWAY_PUBLIC_DOMAIN = env("RAILWAY_PUBLIC_DOMAIN", default="").strip()
+RAILWAY_PRIVATE_DOMAIN = env("RAILWAY_PRIVATE_DOMAIN", default="").strip()
+APP_ROLE = env("APP_ROLE", default="").strip()
+
+ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS = configure_railway_hosts(
+    env("ALLOWED_HOSTS"),
+    env("CSRF_TRUSTED_ORIGINS"),
+    RAILWAY_PUBLIC_DOMAIN,
+    RAILWAY_PRIVATE_DOMAIN,
+)
+
+# Reverse proxy SSL header support: trust X-Forwarded-Proto when running behind a proxy (production or Railway)
+if not DEBUG or RAILWAY_PUBLIC_DOMAIN or RAILWAY_PRIVATE_DOMAIN or env("USE_X_FORWARDED_PROTO"):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+else:
+    SECURE_PROXY_SSL_HEADER = None
 
 if not DEBUG:
     # TLS terminates at the public proxy; cookies and browsers must stay on HTTPS.
@@ -221,6 +263,12 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
 }
+
+# Internal service bridge (NestJS <-> Django execution service)
+PYTHON_AI_SERVICE_URL = env("PYTHON_AI_SERVICE_URL", default="").strip().rstrip("/")
+PYTHON_AI_JWT_SECRET = env("PYTHON_AI_JWT_SECRET", default="").strip()
+if PYTHON_AI_JWT_SECRET:
+    SIMPLE_JWT["SIGNING_KEY"] = PYTHON_AI_JWT_SECRET
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "TeamFlow API",

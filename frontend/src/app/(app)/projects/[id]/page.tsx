@@ -209,6 +209,8 @@ export default function ProjectBoardPage() {
     try {
       const res = await apiFetch<{
         ok: boolean;
+        status?: string;
+        message?: string;
         repo_name?: string;
         html_url?: string;
         error?: string;
@@ -235,6 +237,17 @@ export default function ProjectBoardPage() {
               {res.repo_name || res.html_url}
               <ExternalLink className="h-3 w-3 inline" />
             </a>
+          </div>
+        );
+        setShowDevopsModal(false);
+        load();
+      } else if (res.ok || res.status === "queued") {
+        toast.info(
+          <div className="flex flex-col gap-1">
+            <span className="font-bold text-white">Repository provisioning queued</span>
+            <span className="text-xs text-slate-300">
+              DevOps Agent is provisioning the GitHub repository in the background.
+            </span>
           </div>
         );
         setShowDevopsModal(false);

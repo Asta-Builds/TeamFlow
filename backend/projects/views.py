@@ -137,9 +137,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def devops_create_repo(self, request, pk=None):
         """
         DevOps Specialist Agent endpoint:
-        Autonomously provisions a remote GitHub repository for this project,
-        bootstraps the repository with README and CI/CD workflow,
-        pushes initial scaffold to main, and links project.github_repo.
+        Enqueues autonomous provisioning of a remote GitHub repository for this project,
+        bootstrapping the repository with README and CI/CD workflow,
+        pushing initial scaffold to main, and linking project.github_repo.
         """
         project = self.get_object()
         data = request.data
@@ -157,21 +157,36 @@ class ProjectViewSet(viewsets.ModelViewSet):
         org = data.get("org", "").strip() or None
         description = data.get("description", "").strip() or None
 
-        from agents.git_service import devops_create_project_repo
+        from agents.queue import is_worker_available
 
-        result = devops_create_project_repo(
-            project=project,
-            user=request.user,
+        if not is_worker_available():
+            return response.Response(
+                {
+                    "ok": False,
+                    "error": "The agent worker queue is unavailable.",
+                    "detail": "The agent worker queue is unavailable.",
+                },
+                status=503,
+            )
+
+        from .tasks import provision_project_repository
+
+        provision_project_repository.delay(
+            project.id,
+            request.user.id,
             repo_name=repo_name,
             private=private,
             org=org,
             description=description,
         )
 
-        if not result.get("ok"):
-            return response.Response(result, status=result.get("status_code", 400))
-
-        result["project_id"] = project.id
-        result["github_repo"] = project.github_repo
-        return response.Response(result, status=200)
+        return response.Response(
+            {
+                "ok": True,
+                "status": "queued",
+                "message": "Repository provisioning queued.",
+                "project_id": project.id,
+            },
+            status=202,
+        )
 

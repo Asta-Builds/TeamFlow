@@ -1,40 +1,94 @@
-# TeamFlow Windows PowerShell Production Deployment Script
-Write-Host "===============================================" -ForegroundColor Cyan
-Write-Host "       TeamFlow Production Deployment          " -ForegroundColor Cyan
-Write-Host "===============================================" -ForegroundColor Cyan
+# TeamFlow Railway deployment script.
+# Orchestrates Infrastructure-as-Code deployment via Railway CLI.
 
-if (-not (Test-Path ".env.production")) {
-    Write-Host "Missing .env.production. Copy .env.production.example, set every required value, then rerun." -ForegroundColor Red
+[CmdletBinding()]
+param(
+    [Alias("y")]
+    [switch]$Yes,
+
+    [Alias("h")]
+    [switch]$Help
+)
+
+$ErrorActionPreference = "Stop"
+
+function Show-Help {
+    Write-Host @"
+Usage: .\scripts\deploy.ps1 [OPTIONS]
+
+Deploys TeamFlow configuration to Railway using Infrastructure as Code (.railway/railway.ts).
+
+Options:
+  -Yes, -y       Skip interactive confirmation and apply changes automatically
+  -Help, -h      Show this help message and exit
+"@
+}
+
+if ($Help) {
+    Show-Help
+    exit 0
+}
+
+Write-Host "Checking prerequisites..."
+
+$railwayCmd = Get-Command railway -ErrorAction SilentlyContinue
+if (-not $railwayCmd) {
+    Write-Error "Railway CLI ('railway') is not installed or not in PATH.`nInstall it via npm ('npm install -g @railway/cli') or see https://docs.railway.com/guides/cli"
     exit 1
 }
 
-$productionEnv = Get-Content ".env.production" -Raw
-if ($productionEnv -match "generate-a-strong|choose-a-strong|yourdomain\.com") {
-    Write-Host ".env.production still contains example values. Configure production secrets and domain values before deployment." -ForegroundColor Red
+$whoamiOutput = & railway whoami 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Not authenticated with Railway.`nRun 'railway login' to authenticate before deploying."
     exit 1
 }
 
-Write-Host "1. Building and launching production containers..." -ForegroundColor Green
-docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+$statusOutput = & railway status 2>&1
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "Directory is not linked to a Railway project.`nRun 'railway link' to link this directory to the target project."
+    exit 1
+}
 
-Write-Host "2. Waiting for backend readiness..." -ForegroundColor Green
-Start-Sleep -Seconds 8
+Write-Host "Prerequisites verified. Planning Railway configuration changes..."
+Write-Host ""
 
-Write-Host "3. Verifying health check..." -ForegroundColor Green
-try {
-    $res = Invoke-RestMethod -Uri "http://localhost/api/health/" -Method Get
-    Write-Host "Health Check: OK ($($res.service) / $($res.database))" -ForegroundColor Green
-} catch {
-    try {
-        $res = Invoke-RestMethod -Uri "http://localhost:8000/api/health/" -Method Get
-        Write-Host "Health Check: OK ($($res.service) / $($res.database))" -ForegroundColor Green
-    } catch {
-        Write-Host "Containers are starting up..." -ForegroundColor Yellow
+& railway config plan
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "railway config plan failed with exit code $LASTEXITCODE."
+    exit $LASTEXITCODE
+}
+
+Write-Host ""
+if (-not $Yes) {
+    $confirmation = Read-Host "Apply this configuration to Railway? [y/N]"
+    if ($confirmation -notmatch "^[yY]([eE][sS])?$") {
+        Write-Host "Deployment aborted by user."
+        exit 1
     }
 }
 
-Write-Host "===============================================" -ForegroundColor Cyan
-Write-Host "TeamFlow production stack is running!" -ForegroundColor Cyan
-Write-Host "Frontend App: http://localhost" -ForegroundColor White
-Write-Host "API Docs:     http://localhost/api/docs/" -ForegroundColor White
-Write-Host "===============================================" -ForegroundColor Cyan
+Write-Host "Applying configuration to Railway..."
+& railway config apply --yes
+if ($LASTEXITCODE -ne 0) {
+    Write-Error "railway config apply failed with exit code $LASTEXITCODE."
+    exit $LASTEXITCODE
+}
+
+Write-Host ""
+Write-Host "Configuration successfully applied."
+Write-Host ""
+Write-Host "Next steps:"
+Write-Host "1. Railway automatically triggers deployments from GitHub 'main' for linked services:"
+Write-Host "   - teamflow-nginx (public edge ingress)"
+Write-Host "   - teamflow-frontend (Next.js web app)"
+Write-Host "   - teamflow-backend-nest (NestJS application API)"
+Write-Host "   - teamflow-backend (Django web & execution engine)"
+Write-Host "   - teamflow-celery (background worker)"
+Write-Host ""
+Write-Host "2. Monitor deployment progress and service health using:"
+Write-Host "   railway status"
+Write-Host "   railway logs --service teamflow-nginx"
+Write-Host "   railway logs --service teamflow-frontend"
+Write-Host "   railway logs --service teamflow-backend-nest"
+Write-Host "   railway logs --service teamflow-backend"
+Write-Host "   railway logs --service teamflow-celery"
