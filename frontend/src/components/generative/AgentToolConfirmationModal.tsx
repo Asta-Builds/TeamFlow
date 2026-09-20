@@ -16,11 +16,19 @@ import type { ToolConfirmationRequest } from "@/lib/useAgentStream";
 export function AgentToolConfirmationModal({
   request,
   onResolve,
+  onClose,
+  canDecide = true,
+  busy = false,
 }: {
   request: ToolConfirmationRequest;
   onResolve: (approved: boolean, feedback?: string) => void;
+  onClose: () => void;
+  /** False for people who may not decide releases; they see the request, not the buttons. */
+  canDecide?: boolean;
+  busy?: boolean;
 }) {
   const [feedback, setFeedback] = useState("");
+  const reason = feedback.trim();
 
   const isHighDanger = request.dangerLevel === "high";
 
@@ -60,7 +68,7 @@ export function AgentToolConfirmationModal({
             </div>
           </div>
           <button
-            onClick={() => onResolve(false, "User dismissed modal.")}
+            onClick={onClose}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-white transition cursor-pointer"
           >
             <X className="h-4 w-4" />
@@ -75,7 +83,7 @@ export function AgentToolConfirmationModal({
             </span>
             <div className="text-sm font-bold text-slate-900 dark:text-white mt-0.5 font-mono flex items-center gap-2">
               <Terminal className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-              <span>{request.toolName}</span>
+              <span>{request.title || request.toolName}</span>
             </div>
           </div>
 
@@ -98,7 +106,7 @@ export function AgentToolConfirmationModal({
           {/* Feedback input */}
           <div>
             <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-              Notes or Feedback for Agent (Optional):
+              Reason (required to reject):
             </label>
             <input
               type="text"
@@ -112,23 +120,34 @@ export function AgentToolConfirmationModal({
 
         {/* Action Buttons */}
         <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={() => onResolve(false, feedback || "Rejected by Human Executive.")}
-            className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition cursor-pointer flex items-center gap-1.5"
-          >
-            <XCircle className="h-4 w-4 text-rose-500 dark:text-rose-400" />
-            <span>Reject Action</span>
-          </button>
+          {canDecide ? (
+            <>
+              <button
+                type="button"
+                disabled={busy || !reason}
+                title={reason ? undefined : "Type a reason to reject"}
+                onClick={() => onResolve(false, reason)}
+                className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <XCircle className="h-4 w-4 text-rose-500 dark:text-rose-400" />
+                <span>Reject Action</span>
+              </button>
 
-          <button
-            type="button"
-            onClick={() => onResolve(true, feedback)}
-            className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-emerald-600/30"
-          >
-            <CheckCircle2 className="h-4 w-4 text-white" />
-            <span>Approve Execution</span>
-          </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onResolve(true, reason)}
+                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-md shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <CheckCircle2 className="h-4 w-4 text-white" />
+                <span>{busy ? "Sending..." : "Approve Execution"}</span>
+              </button>
+            </>
+          ) : (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Waiting for a workspace owner or admin to approve this release.
+            </p>
+          )}
         </div>
       </div>
     </div>

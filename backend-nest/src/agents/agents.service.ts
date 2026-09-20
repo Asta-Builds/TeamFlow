@@ -12,6 +12,7 @@ import {
   ForbiddenException,
   ServiceUnavailableException,
   HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -448,6 +449,107 @@ export class AgentsService {
     res.on('close', () => {
       clearInterval(timer);
     });
+  }
+
+  /**
+   * Releases are decided by a human who owns the workspace. The tech lead role is an
+   * AI seat, so unlike dispatch it may not approve. Django re-checks this.
+   */
+  private assertMayDecideReleases(user: any) {
+    if (
+      !user.isStaff &&
+      !user.isSuperuser &&
+      !['ceo', 'admin'].includes(user.role)
+    ) {
+      throw new ForbiddenException(
+        'Only a workspace owner or admin can decide releases',
+      );
+    }
+  }
+
+  private async bridgeToDjango(
+    method: 'get' | 'post',
+    path: string,
+    user: any,
+    body?: any,
+  ) {
+    try {
+      const url = `${this.requirePythonAiUrl()}${path}`;
+      const headers = this.bridgeHeaders(user);
+      const response =
+        method === 'get'
+          ? await this.httpService.axiosRef.get(url, { headers, timeout: 10000 })
+          : await this.httpService.axiosRef.post(url, body ?? {}, {
+              headers,
+              timeout: 10000,
+            });
+      return response.data;
+    } catch (error) {
+      const response = (
+        error as { response?: { status?: number; data?: any } }
+      ).response;
+      if (response?.status && response.status >= 400 && response.status < 500) {
+        throw new HttpException(
+          response.data ?? { detail: 'Request rejected' },
+          response.status,
+        );
+      }
+      // A timeout may happen after Django already recorded the decision.
+      throw new ServiceUnavailableException(
+        'The release decision could not be confirmed. Check the ticket before retrying.',
+      );
+    }
+  }
+
+  async listApprovals(user: any, taskId?: number, status?: string) {
+    this.organizationId(user);
+    const params = new URLSearchParams();
+    if (taskId) params.set('task', String(taskId));
+    if (status) params.set('status', status);
+    const query = params.toString();
+    return this.bridgeToDjango(
+      'get',
+      `/api/agents/approvals/${query ? `?${query}` : ''}`,
+      user,
+    );
+  }
+
+  async getApproval(user: any, approvalId: number) {
+    this.organizationId(user);
+    return this.bridgeToDjango(
+      'get',
+      `/api/agents/approvals/${approvalId}/`,
+      user,
+    );
+  }
+
+  async approveRelease(user: any, approvalId: number, reason: string) {
+    this.organizationId(user);
+    this.assertMayDecideReleases(user);
+    return this.bridgeToDjango(
+      'post',
+      `/api/agents/approvals/${approvalId}/approve/`,
+      user,
+      { reason: reason || '' },
+    );
+  }
+
+  async rejectRelease(user: any, approvalId: number, reason: string) {
+    this.organizationId(user);
+    this.assertMayDecideReleases(user);
+    const clean = (reason || '').trim();
+    if (!clean) {
+      throw new HttpException(
+        { detail: 'A reason is required to reject a release.' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    return this.bridgeToDjango(
+      'post',
+      `/api/agents/approvals/${approvalId}/reject/`,
+      user,
+      { reason: clean },
+    );
   }
 
   private formatLangfuseUrl(url: string, sessionId: string): string {

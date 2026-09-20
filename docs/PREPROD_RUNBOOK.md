@@ -115,6 +115,33 @@ python scripts/smoke_preprod.py --base-url http://localhost:18080
 docker compose -p teamflow-preprod -f docker-compose.prod.yml --env-file <rehearsal.env> down -v
 ```
 
+### 4.1 Agent swarm smoke test (`scripts/agent_smoke.py`)
+
+Proves one ticket through the agent swarm synchronously in an isolated throwaway
+workspace, records live model responses to disk for permanent offline replay,
+and checks git commits against every file claimed in agent comments:
+
+```bash
+python scripts/agent_smoke.py [options]
+```
+
+Options:
+- `--yes`: Run without interactive confirmation prompt against the target database.
+- `--title "<title>"`: Throwaway ticket title (default: `"Add a /health endpoint returning service status as JSON"`).
+- `--description "<desc>"`: Throwaway ticket description.
+- `--no-record`: Disable recording LLM responses to disk.
+- `--record-dir <path>`: Directory to capture live model responses for replay fixtures (default: `backend/agents/fixtures/llm/`). To run offline without contacting a provider, set the environment variable `LLM_FIXTURE_DIR=backend/agents/fixtures/llm`.
+- `--engine {chain,graph}`: Swarm execution engine: `chain` (`agents/swarm_chain.py`, matching the frontend swarm runner modal) or `graph` (`agents/graph.py`, matching the `POST /api/agents/dispatch/<id>/` API). Default: `chain`.
+- `--keep`: Retain throwaway database rows (organization, project, user, ticket) instead of deleting them on exit.
+
+Exit codes:
+- `0`: Swarm run completed successfully and all claimed files were committed to git.
+- `1`: Run failed (unconfigured provider, execution exception, or unfinished workflow).
+- `2`: Run completed, but a mismatch was found between claimed files and actual git commits.
+- `3`: Run completed and files were committed, but QA was unverified (ticket is waiting in QA for a human reviewer).
+
+On a project without a linked GitHub repository (and without Docker on the worker), the expected outcome is exit 3.
+
 ## 5. Deployment provider contract
 
 TeamFlow hands deployments to an external deploy hook and records only what the

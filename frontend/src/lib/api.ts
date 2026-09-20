@@ -349,6 +349,49 @@ function agentEventQuery({ projectId, taskId, sessionId, after }: AgentEventQuer
   return query.toString();
 }
 
+export interface ReleaseApproval {
+  id: number;
+  task: number;
+  task_title?: string;
+  kind: string;
+  status: "pending" | "approved" | "rejected" | "superseded" | "executed" | "failed";
+  title: string;
+  description: string;
+  danger_level: string;
+  branch: string;
+  head_sha: string;
+  repo: string;
+  pr_url: string;
+  engine: string;
+  requested_at: string;
+  decided_at: string | null;
+  decided_by: { id: number; name: string } | null;
+  decision_reason: string;
+  result: Record<string, unknown> | null;
+}
+
+export async function listApprovals(options: { taskId?: number; status?: string } = {}) {
+  const params = new URLSearchParams();
+  if (options.taskId) params.set("task", String(options.taskId));
+  if (options.status) params.set("status", options.status);
+  const query = params.toString();
+  return apiFetch<ReleaseApproval[]>(`/agents/approvals${query ? `?${query}` : ""}`);
+}
+
+export async function approveRelease(approvalId: number, reason = "") {
+  return apiFetch<ReleaseApproval>(`/agents/approvals/${approvalId}/approve`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
+export async function rejectRelease(approvalId: number, reason: string) {
+  return apiFetch<ReleaseApproval>(`/agents/approvals/${approvalId}/reject`, {
+    method: "POST",
+    body: { reason },
+  });
+}
+
 export async function getAgentEvents(options: AgentEventQuery = {}) {
   const query = agentEventQuery(options);
   return apiFetch<{

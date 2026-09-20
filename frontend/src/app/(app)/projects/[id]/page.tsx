@@ -16,6 +16,9 @@ import {
   startPulseFocus,
   streamAgentEvents,
   updatePulseFocus,
+  listApprovals,
+  approveRelease,
+  rejectRelease,
 } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useAgentClusterStatus } from "@/lib/queries";
@@ -103,6 +106,25 @@ interface TaskCommentResponse {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** One shape for a release approval, whether it arrived by stream or by fetch. */
+function approvalToConfirmation(approval: {
+  id: number;
+  title: string;
+  description: string;
+  danger_level: string;
+  tool_args: Record<string, unknown>;
+}): ToolConfirmationRequest {
+  return {
+    id: `approval-${approval.id}`,
+    approvalId: approval.id,
+    toolName: "release",
+    title: approval.title,
+    description: approval.description,
+    arguments: approval.tool_args,
+    dangerLevel: (approval.danger_level as "low" | "medium" | "high") || "high",
+  };
 }
 
 export default function ProjectBoardPage() {
@@ -1147,14 +1169,75 @@ function TaskDetailPanel({
   const [pendingConfirmation, setPendingConfirmation] = useState<ToolConfirmationRequest | null>(null);
   const lastEventIdRef = useRef<number>(0);
 
-  const resolveConfirmation = (approved: boolean, feedback?: string) => {
+  const [decisionBusy, setDecisionBusy] = useState(false);
+  const { user } = useAuth();
+
+  // A pending release is shown whether it arrived on the live stream or was waiting
+  // before this page was opened.
+  useEffect(() => {
+    let cancelled = false;
+    listApprovals({ taskId: task.id, status: "pending" })
+      .then((approvals) => {
+        const release = approvals.find((a) => a.kind === "release");
+        if (!cancelled && release) {
+          setPendingConfirmation(
+            approvalToConfirmation({
+              id: release.id,
+              title: release.title,
+              description: release.description,
+              danger_level: release.danger_level,
+              tool_args: {
+                branch: release.branch,
+                head_sha: release.head_sha,
+                repo: release.repo,
+                pr_url: release.pr_url,
+              },
+            })
+          );
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [task.id]);
+
+  const canDecideReleases = Boolean(
+    user && !user.is_ai_agent && (user.role === "ceo" || user.role === "admin")
+  );
+
+  /**
+   * Sends the decision to the server. Nothing is claimed here: the merge and the
+   * deployment report themselves through the agent event stream.
+   */
+  const resolveConfirmation = async (approved: boolean, feedback?: string) => {
     if (!pendingConfirmation) return;
     const req = pendingConfirmation;
-    setPendingConfirmation(null);
-    if (approved) {
-      toast.success(`Action approved: ${req.title}`);
-    } else {
-      toast.error(`Action canceled: ${req.title}`);
+    if (!req.approvalId) {
+      toast.error("This action has no approval on the server and cannot be decided here.");
+      return;
+    }
+    const reason = (feedback || "").trim();
+    if (!approved && !reason) {
+      toast.error("A reason is required to reject a release.");
+      return;
+    }
+
+    setDecisionBusy(true);
+    try {
+      if (approved) {
+        await approveRelease(req.approvalId, reason);
+        toast.success("Release approved — merging now.");
+      } else {
+        await rejectRelease(req.approvalId, reason);
+        toast.success("Release rejected.");
+      }
+      setPendingConfirmation(null);
+      refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The decision could not be recorded.");
+    } finally {
+      setDecisionBusy(false);
     }
   };
 
@@ -1217,25 +1300,21 @@ function TaskDetailPanel({
                     args: event.metadata?.tool_args,
                     status: "running",
                   });
-                  if (
-                    event.metadata?.requires_confirmation ||
-                    event.metadata?.tool_name === "request_user_confirmation" ||
-                    event.metadata?.tool_name === "git_merge_pr" ||
-                    event.metadata?.tool_name === "deploy_to_production"
-                  ) {
-                    setPendingConfirmation({
-                      id: `conf-${event.id}`,
-                      toolName: String(event.metadata?.tool_name || "Action"),
-                      title: String(event.metadata?.confirmation_title || `Confirm ${event.metadata?.tool_name}`),
-                      description: String(
-                        event.metadata?.confirmation_description || event.message || "Human approval required."
-                      ),
-                      arguments: (event.metadata?.tool_args as Record<string, unknown>) || {},
-                      dangerLevel: (event.metadata?.danger_level as "low" | "medium" | "high") || "high",
-                    });
-                  }
                 }
-              } else if (event.event_type === "completed" || event.event_type === "failed") {
+              }
+              if (event.metadata?.requires_confirmation && event.metadata?.approval_id) {
+                // The release gate emits this as a `blocked` event, not a tool call.
+                setPendingConfirmation(approvalToConfirmation({
+                  id: Number(event.metadata.approval_id),
+                  title: String(event.metadata.confirmation_title || "Approve release"),
+                  description: String(
+                    event.metadata.confirmation_description || event.message || "Human approval required."
+                  ),
+                  danger_level: String(event.metadata.danger_level || "high"),
+                  tool_args: (event.metadata.tool_args as Record<string, unknown>) || {},
+                }));
+              }
+              if (event.event_type === "completed" || event.event_type === "failed") {
                 setIsStreaming(false);
                 setStreamingStatus(null);
                 setActiveTokens("");
@@ -2190,8 +2269,11 @@ function TaskDetailPanel({
         {pendingConfirmation && (
           <AgentToolConfirmationModal
             request={pendingConfirmation}
+            canDecide={canDecideReleases}
+            busy={decisionBusy}
+            onClose={() => setPendingConfirmation(null)}
             onResolve={(approved, feedback) => {
-              resolveConfirmation(approved, feedback);
+              void resolveConfirmation(approved, feedback);
             }}
           />
         )}

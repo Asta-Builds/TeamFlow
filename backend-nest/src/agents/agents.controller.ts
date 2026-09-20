@@ -92,6 +92,63 @@ export class AgentsController {
     );
   }
 
+  @Get(['approvals', 'approvals/'])
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List release approvals for the workspace' })
+  @ApiQuery({ name: 'task', required: false })
+  @ApiQuery({ name: 'status', required: false })
+  async listApprovals(
+    @Query('task') task: string,
+    @Query('status') status: string,
+    @CurrentUser() user: any,
+  ) {
+    const taskId = task ? Number(task) : undefined;
+    return this.agentsService.listApprovals(
+      user,
+      Number.isFinite(taskId) ? taskId : undefined,
+      status,
+    );
+  }
+
+  @Get(['approvals/:approvalId', 'approvals/:approvalId/'])
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Retrieve one release approval' })
+  async getApproval(
+    @Param('approvalId', ParseIntPipe) approvalId: number,
+    @CurrentUser() user: any,
+  ) {
+    return this.agentsService.getApproval(user, approvalId);
+  }
+
+  @Post(['approvals/:approvalId/approve', 'approvals/:approvalId/approve/'])
+  @HttpCode(HttpStatus.ACCEPTED)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Approve a release: merge the approved commit and request a deployment',
+  })
+  async approveRelease(
+    @Param('approvalId', ParseIntPipe) approvalId: number,
+    @Body() body: { reason?: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.agentsService.approveRelease(user, approvalId, body?.reason || '');
+  }
+
+  @Post(['approvals/:approvalId/reject', 'approvals/:approvalId/reject/'])
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reject a release with a reason' })
+  async rejectRelease(
+    @Param('approvalId', ParseIntPipe) approvalId: number,
+    @Body() body: { reason?: string },
+    @CurrentUser() user: any,
+  ) {
+    return this.agentsService.rejectRelease(user, approvalId, body?.reason || '');
+  }
+
   @Post(['ingest-rag', 'ingest-rag/'])
   @HttpCode(HttpStatus.ACCEPTED)
   @UseGuards(JwtAuthGuard)

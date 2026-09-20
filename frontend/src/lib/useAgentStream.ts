@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { streamAgentEvents, getAgentEvents } from "@/lib/api";
+import { streamAgentEvents, getAgentEvents, approveRelease, rejectRelease } from "@/lib/api";
 import type { AgentEvent, AgentEventType } from "@/lib/types";
 import { toast } from "sonner";
 
@@ -13,6 +13,8 @@ export interface ToolConfirmationRequest {
   arguments: Record<string, unknown>;
   dangerLevel: "low" | "medium" | "high";
   requiresReason?: boolean;
+  /** The server-side approval this prompt decides. Without one there is nothing to decide. */
+  approvalId?: number;
 }
 
 export interface UseAgentStreamOptions {
@@ -67,6 +69,28 @@ export function useAgentStream({
 
       setEvents((prev) => [...prev, e]);
 
+      // A release waiting for a human. The backend emits this as a `blocked` event,
+      // so it is handled for every event type, not only tool calls.
+      if (e.metadata && e.metadata.requires_confirmation && e.metadata.approval_id) {
+        const approvalTool = String((e.metadata && e.metadata.tool_name) || "release");
+        const req: ToolConfirmationRequest = {
+          id: `approval-${e.metadata.approval_id}`,
+          approvalId: Number(e.metadata.approval_id),
+          toolName: approvalTool,
+          title: String(e.metadata.confirmation_title || "Approve release"),
+          description: String(
+            e.metadata.confirmation_description || e.message || "Human approval required."
+          ),
+          arguments: (e.metadata.tool_args as Record<string, unknown>) || {},
+          dangerLevel: (e.metadata.danger_level as "low" | "medium" | "high") || "high",
+          requiresReason: Boolean(e.metadata.requires_reason),
+        };
+        setPendingConfirmation(req);
+        if (onToolConfirmation) {
+          onToolConfirmation(req).catch(console.error);
+        }
+      }
+
       // Update active agent presence
       if (e.sender_name) {
         setActiveAgent({
@@ -94,34 +118,6 @@ export function useAgentStream({
           toast.info(String(e.metadata.toast_message || `Agent executing ${toolName}`));
         }
 
-        // Client-side tool triggering: human-in-the-loop confirmation
-        if (
-          e.metadata &&
-          (e.metadata.requires_confirmation ||
-            e.metadata.tool_name === "request_user_confirmation" ||
-            e.metadata.tool_name === "git_merge_pr" ||
-            e.metadata.tool_name === "deploy_to_production")
-        ) {
-          const req: ToolConfirmationRequest = {
-            id: `conf-${e.id || Date.now()}`,
-            toolName,
-            title: String(e.metadata.confirmation_title || `Confirm ${toolName}`),
-            description: String(
-              e.metadata.confirmation_description || e.message || "Human approval required."
-            ),
-            arguments: (e.metadata.tool_args as Record<string, unknown>) || {},
-            dangerLevel:
-              (e.metadata.danger_level as "low" | "medium" | "high") ||
-              (toolName.includes("deploy") || toolName.includes("merge")
-                ? "high"
-                : "medium"),
-            requiresReason: Boolean(e.metadata.requires_reason),
-          };
-          setPendingConfirmation(req);
-          if (onToolConfirmation) {
-            onToolConfirmation(req).catch(console.error);
-          }
-        }
       } else if (e.event_type === "completed") {
         setActiveTool((prev) => (prev ? { ...prev, status: "completed" } : null));
         setActiveTokens("");
@@ -193,50 +189,40 @@ export function useAgentStream({
     setActiveTool(null);
   }, []);
 
-  // Client-side confirmation resolver
+  /**
+   * Sends the decision to the backend and clears the prompt only when the server
+   * accepted it. Progress after that arrives through the event stream; this hook
+   * never adds an event of its own, because nothing has happened until the
+   * backend says so.
+   */
   const resolveConfirmation = useCallback(
-    (approved: boolean, feedback?: string) => {
+    async (approved: boolean, feedback?: string) => {
       if (!pendingConfirmation) return;
       const conf = pendingConfirmation;
-      setPendingConfirmation(null);
+      if (!conf.approvalId) {
+        toast.error("This action has no approval on the server and cannot be decided here.");
+        return;
+      }
+      const reason = (feedback || "").trim();
+      if (!approved && !reason) {
+        toast.error("A reason is required to reject a release.");
+        return;
+      }
 
-      // Create an optimistic confirmation event
-      const confirmationEvent: AgentEvent = {
-        id: Date.now(),
-        session_id: sessionId || `session-${Date.now()}`,
-        event_type: approved ? "progress" : "blocked",
-        sender_key: "ceo",
-        sender_name: "Human Executive (CEO)",
-        sender_role: "ceo",
-        recipient_key: activeAgent?.key || "pm",
-        message: approved
-          ? `Human approved action: "${conf.title}". Proceeding with execution.`
-          : `Human rejected action: "${conf.title}". Reason: ${feedback || "Rejected by user."}`,
-        current_work: approved ? `Executing ${conf.toolName}` : "Action canceled",
-        remaining_work: [],
-        metadata: {
-          confirmation_id: conf.id,
-          tool_name: conf.toolName,
-          approved,
-          feedback: feedback || null,
-        },
-        task: taskId || 0,
-        task_title: "",
-        project: projectId || 0,
-        project_name: "",
-        trace: null,
-        created_at: new Date().toISOString(),
-      };
-
-      setEvents((prev) => [...prev, confirmationEvent]);
-
-      if (approved) {
-        toast.success(`Action approved: ${conf.title}`);
-      } else {
-        toast.error(`Action canceled: ${conf.title}`);
+      try {
+        if (approved) {
+          await approveRelease(conf.approvalId, reason);
+          toast.success("Release approved — merging now.");
+        } else {
+          await rejectRelease(conf.approvalId, reason);
+          toast.success("Release rejected.");
+        }
+        setPendingConfirmation(null);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "The decision could not be recorded.");
       }
     },
-    [pendingConfirmation, sessionId, activeAgent, taskId, projectId]
+    [pendingConfirmation]
   );
 
   // Optimistic UI state injector
