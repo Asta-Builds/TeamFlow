@@ -62,6 +62,7 @@ class AgentExecutionTrace(models.Model):
     """
     class Status(models.TextChoices):
         RUNNING = "running", "Running"
+        AWAITING_APPROVAL = "awaiting_approval", "Awaiting Approval"
         COMPLETED = "completed", "Completed"
         FAILED = "failed", "Failed"
 
@@ -158,3 +159,85 @@ class AgentEvent(models.Model):
 
     def __str__(self):
         return f"{self.session_id}: {self.event_type} ({self.sender_key or 'system'})"
+
+
+class ApprovalRequest(models.Model):
+    """
+    Release gate approval request pinning an exact commit SHA.
+    """
+
+    class Kind(models.TextChoices):
+        RELEASE = "release", "Release"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        APPROVED = "approved", "Approved"
+        REJECTED = "rejected", "Rejected"
+        SUPERSEDED = "superseded", "Superseded"
+        EXECUTED = "executed", "Executed"
+        FAILED = "failed", "Failed"
+
+    class Engine(models.TextChoices):
+        GRAPH = "graph", "Graph"
+        CHAIN = "chain", "Chain"
+
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="approval_requests",
+    )
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="approval_requests",
+    )
+    trace = models.ForeignKey(
+        AgentExecutionTrace,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approval_requests",
+    )
+    kind = models.CharField(
+        max_length=32,
+        choices=Kind.choices,
+        default=Kind.RELEASE,
+    )
+    status = models.CharField(
+        max_length=32,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    branch = models.CharField(max_length=255)
+    head_sha = models.CharField(max_length=40)
+    repo = models.CharField(max_length=255, blank=True, default="")
+    pr_url = models.CharField(max_length=500, blank=True, default="")
+    engine = models.CharField(
+        max_length=32,
+        choices=Engine.choices,
+        default=Engine.GRAPH,
+    )
+    requested_at = models.DateTimeField(auto_now_add=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    decided_by = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="decided_approvals",
+    )
+    decision_reason = models.TextField(blank=True, default="")
+    result = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-requested_at"]
+        indexes = [
+            models.Index(
+                fields=["organization", "task", "status"],
+                name="agents_appr_org_task_stat_idx",
+            ),
+        ]
+
+    def __str__(self):
+        return f"ApprovalRequest #{self.id} — Task #{self.task_id} ({self.status})"
+

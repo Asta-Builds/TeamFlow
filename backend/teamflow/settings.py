@@ -383,3 +383,14 @@ OLLAMA_MODEL = env("OLLAMA_MODEL", default="qwen2.5-coder:7b").strip()
 GITHUB_ORG = env("GITHUB_ORG", default="").strip()
 LLM_FIXTURE_DIR = env("LLM_FIXTURE_DIR", default="").strip()
 LLM_RECORD_DIR = env("LLM_RECORD_DIR", default="").strip()
+
+# Agent QA workspace verification
+AGENT_VERIFY_EXECUTOR = env("AGENT_VERIFY_EXECUTOR", default="auto").strip()
+AGENT_REQUIRE_RELEASE_APPROVAL = env.bool("AGENT_REQUIRE_RELEASE_APPROVAL", default=True)
+AGENT_VERIFY_TIMEOUT = env.int("AGENT_VERIFY_TIMEOUT", default=420)
+AGENT_VERIFY_OUTPUT_LIMIT = env.int("AGENT_VERIFY_OUTPUT_LIMIT", default=20000)
+AGENT_VERIFY_NODE_IMAGE = env("AGENT_VERIFY_NODE_IMAGE", default="node:22-bookworm-slim").strip()
+AGENT_VERIFY_PYTHON_IMAGE = env("AGENT_VERIFY_PYTHON_IMAGE", default="python:3.12-slim").strip()
+AGENT_VERIFY_DOCKER_CPUS = str(env("AGENT_VERIFY_DOCKER_CPUS", default="2")).strip()
+AGENT_VERIFY_DOCKER_MEMORY = env("AGENT_VERIFY_DOCKER_MEMORY", default="2g").strip()
+

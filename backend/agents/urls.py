@@ -1,14 +1,18 @@
 from django.urls import path
 from .views import (
     AgentDispatchView,
-    AgentTracesView,
+    AgentEventStreamView,
+    AgentEventsView,
     AgentIngestRAGView,
     AgentStatusView,
+    AgentTracesView,
     AntigravityAgentRunView,
+    ApprovalRequestApproveView,
+    ApprovalRequestDetailView,
+    ApprovalRequestRejectView,
+    ApprovalRequestsView,
     SwarmChainExecuteView,
     SwarmLiveFeedView,
-    AgentEventsView,
-    AgentEventStreamView,
 )
 
 urlpatterns = [
@@ -22,4 +26,9 @@ urlpatterns = [
     path("swarm-feed/", SwarmLiveFeedView.as_view(), name="agent-swarm-feed"),
     path("events/", AgentEventsView.as_view(), name="agent-events"),
     path("events/stream/", AgentEventStreamView.as_view(), name="agent-events-stream"),
+    path("approvals/", ApprovalRequestsView.as_view(), name="agent-approvals-list"),
+    path("approvals/<int:approval_id>/", ApprovalRequestDetailView.as_view(), name="agent-approvals-detail"),
+    path("approvals/<int:approval_id>/approve/", ApprovalRequestApproveView.as_view(), name="agent-approvals-approve"),
+    path("approvals/<int:approval_id>/reject/", ApprovalRequestRejectView.as_view(), name="agent-approvals-reject"),
 ]
+

@@ -2,6 +2,8 @@ import os
 import shutil
 import tempfile
 
+from agents.verification import VerificationResult, StepResult
+
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
@@ -167,13 +169,56 @@ class MultiAgentTestCase(TestCase):
         self.assertTrue(results)
         self.assertNotIn("private/secret.md", {item["file_path"] for item in results})
 
+    @override_settings(AGENT_REQUIRE_RELEASE_APPROVAL=False)
+    @patch("agents.nodes.devops_agent.perform_release")
+    @patch("agents.nodes.qa_agent.verify_workspace")
     @patch("agents.nodes.frontend_agent.generate_text_detailed")
     @patch("agents.nodes.backend_agent.generate_text_detailed")
-    def test_multi_agent_swarm_execution(self, mock_backend_llm, mock_frontend_llm):
+    def test_multi_agent_swarm_execution(self, mock_backend_llm, mock_frontend_llm, mock_verify, mock_release):
         """The swarm runs a ticket to done when a model generates the code."""
         from agents.llm import LLMResult
+        mock_release.return_value = SimpleNamespace(
+            merged=True,
+            merge_mode="local",
+            merged_sha="1234567890abcdef1234567890abcdef12345678",
+            detail="Merged branch into main locally.",
+            pr_url="",
+            deployment={"ok": True},
+            deployment_status="in_progress",
+            deployment_detail="Staging deployment triggered.",
+            ticket_moved_to_done=True,
+            to_dict=lambda: {"merged": True},
+        )
         mock_backend_llm.return_value = LLMResult(text="FILE: api/views.py\nCODE:\nclass View:\n    pass\n---\n", provider="gemini", model="test", attempts=1)
+
         mock_frontend_llm.return_value = LLMResult(text="FILE: frontend/src/components/generated/widget.tsx\nCODE:\nexport default function Widget() { return null; }\n---\n", provider="gemini", model="test", attempts=1)
+        mock_verify.return_value = SimpleNamespace(
+            status="passed",
+            executor="docker",
+            reason="",
+            steps=[
+                SimpleNamespace(
+                    name="build",
+                    command="npm run build",
+                    cwd=".",
+                    exit_code=0,
+                    conclusion="success",
+                    duration_s=1.2,
+                    output_tail="Build complete",
+                )
+            ],
+            duration_s=1.2,
+            details_url="",
+            failed_steps=[],
+            to_dict=lambda: {
+                "status": "passed",
+                "executor": "docker",
+                "reason": "",
+                "steps": [],
+                "duration_s": 1.2,
+                "details_url": "",
+            },
+        )
         ingest_sample_knowledge_base(project=self.project)
         result = execute_ticket_swarm(self.task)
 
@@ -202,9 +247,77 @@ class MultiAgentTestCase(TestCase):
         ingest_sample_knowledge_base(project=self.project)
         result = execute_ticket_swarm(self.task)
 
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "completed")
+
         trace = AgentExecutionTrace.objects.get(pk=result["trace_id"])
         self.assertEqual(trace.tokens_used, 0)
         self.assertFalse(trace.graph_state.get("code_changes"))
+        self.assertNotIn("GraphRecursionError", str(trace.graph_state))
+
+        history = trace.steps or trace.graph_state.get("history", [])
+        qa_steps = [h for h in history if h.get("node") == "qa"]
+        self.assertEqual(len(qa_steps), 0)
+
+        dev_steps = [h for h in history if h.get("node") in {"backend", "frontend"}]
+        self.assertTrue(dev_steps)
+        self.assertEqual(dev_steps[-1].get("action"), "implementation_blocked")
+
+        self.task.refresh_from_db()
+        self.assertNotEqual(self.task.status, Task.Status.DONE)
+
+    @patch("agents.nodes.qa_agent.verify_workspace")
+    @patch("agents.nodes.frontend_agent.generate_text_detailed")
+    @patch("agents.nodes.backend_agent.generate_text_detailed")
+    def test_multi_agent_swarm_qa_circuit_breaker_terminates_loop(
+        self, mock_backend_llm, mock_frontend_llm, mock_verify
+    ):
+        """When QA repeatedly rejects valid code, the circuit breaker stops the run after QA_MAX_REJECTIONS."""
+        from agents.llm import LLMResult
+        from agents.nodes.qa_agent import QA_MAX_REJECTIONS
+
+        mock_backend_llm.return_value = LLMResult(
+            text="FILE: api/views.py\nCODE:\nclass View:\n    pass\n---\n",
+            provider="gemini",
+            model="test",
+            attempts=1,
+        )
+        mock_frontend_llm.return_value = LLMResult(
+            text="FILE: frontend/src/components/generated/widget.tsx\nCODE:\nexport default function Widget() { return null; }\n---\n",
+            provider="gemini",
+            model="test",
+            attempts=1,
+        )
+        mock_verify.return_value = VerificationResult(
+            status="failed",
+            executor="docker",
+            reason="Repeated test failure",
+            steps=[
+                StepResult(
+                    name="test",
+                    command="pytest",
+                    cwd=".",
+                    exit_code=1,
+                    conclusion="failure",
+                    duration_s=1.0,
+                    output_tail="FAIL",
+                )
+            ],
+            duration_s=1.0,
+            details_url="",
+        )
+        ingest_sample_knowledge_base(project=self.project)
+        result = execute_ticket_swarm(self.task)
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["status"], "completed")
+
+        trace = AgentExecutionTrace.objects.get(pk=result["trace_id"])
+        self.assertNotIn("GraphRecursionError", str(trace.graph_state))
+
+        history = trace.steps or trace.graph_state.get("history", [])
+        qa_rejections = [h for h in history if h.get("node") == "qa" and h.get("action") == "qa_rejection"]
+        self.assertEqual(len(qa_rejections), QA_MAX_REJECTIONS)
 
         self.task.refresh_from_db()
         self.assertNotEqual(self.task.status, Task.Status.DONE)

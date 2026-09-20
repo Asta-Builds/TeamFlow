@@ -137,6 +137,7 @@ def open_pull_request(
             "status": "error",
             "pr_number": 0,
             "pr_url": "",
+            "compare_url": "",
             "title": title,
             "head": head_branch,
             "base": base_branch,
@@ -148,6 +149,7 @@ def open_pull_request(
         "status": "success" if pr_data.get("is_live_pr") else "compare_link_only",
         "pr_number": pr_data.get("pr_number", 0),
         "pr_url": pr_data.get("pr_url", ""),
+        "compare_url": pr_data.get("compare_url", ""),
         "title": title,
         "head": head_branch,
         "base": base_branch,
@@ -155,11 +157,11 @@ def open_pull_request(
     }
 
 
-def post_pr_comment(pr_url: str, comment: str) -> Dict[str, Any]:
+def post_pr_comment(pr_url: str, comment: str, token: str = "") -> Dict[str, Any]:
     """GitHub Tool: Posts a review or QA report on a Pull Request. Reports ``posted: False`` when it cannot."""
     parsed = _parse_pr_url(pr_url)
-    token = _github_token()
-    if not parsed or not token:
+    effective_token = (token or _github_token()).strip()
+    if not parsed or not effective_token:
         return {
             "status": "skipped",
             "posted": False,
@@ -171,7 +173,7 @@ def post_pr_comment(pr_url: str, comment: str) -> Dict[str, Any]:
         resp = requests.post(
             f"{settings.GITHUB_API_URL}/repos/{repo}/issues/{number}/comments",
             json={"body": comment},
-            headers=_github_headers(token),
+            headers=_github_headers(effective_token),
             timeout=10,
         )
     except requests.RequestException as exc:
@@ -185,7 +187,7 @@ def post_pr_comment(pr_url: str, comment: str) -> Dict[str, Any]:
     }
 
 
-def check_ci_status(pr_url: str) -> Dict[str, Any]:
+def check_ci_status(pr_url: str, token: str = "") -> Dict[str, Any]:
     """GitHub Tool: Reads the check runs for a Pull Request's head commit from GitHub."""
     unknown = {
         "status": "unavailable",
@@ -195,11 +197,11 @@ def check_ci_status(pr_url: str) -> Dict[str, Any]:
         "failed_checks": 0,
     }
     parsed = _parse_pr_url(pr_url)
-    token = _github_token()
-    if not parsed or not token:
+    effective_token = (token or _github_token()).strip()
+    if not parsed or not effective_token:
         return {**unknown, "reason": "No GitHub pull request URL or token is available."}
     repo, number = parsed
-    headers = _github_headers(token)
+    headers = _github_headers(effective_token)
     try:
         pr = requests.get(f"{settings.GITHUB_API_URL}/repos/{repo}/pulls/{number}", headers=headers, timeout=10)
         if pr.status_code != 200:
@@ -323,16 +325,16 @@ def tool_open_pull_request(repo: str, title: str, body: str, head_branch: str, b
 
 
 @tool
-def tool_post_pr_comment(pr_url: str, comment: str) -> str:
+def tool_post_pr_comment(pr_url: str, comment: str, token: str = "") -> str:
     """Posts an automated review, test report, or comment on a GitHub Pull Request."""
-    result = post_pr_comment(pr_url=pr_url, comment=comment)
+    result = post_pr_comment(pr_url=pr_url, comment=comment, token=token)
     return str(result)
 
 
 @tool
-def tool_check_ci_status(pr_url: str) -> str:
+def tool_check_ci_status(pr_url: str, token: str = "") -> str:
     """Checks the continuous integration (CI) status for a GitHub Pull Request."""
-    result = check_ci_status(pr_url=pr_url)
+    result = check_ci_status(pr_url=pr_url, token=token)
     return str(result)
 
 

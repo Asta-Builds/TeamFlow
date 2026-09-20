@@ -9,9 +9,14 @@ import time
 import logging
 import re
 from typing import Dict, Any, List, Optional
+from django.conf import settings
 
 from tasks.models import Task, Comment, TaskActivity
 from accounts.models import User
+from .approvals import BranchResolutionError, request_release_approval
+
+from agents.release import current_branch_head, format_release_comment, perform_release
+
 from .git_service import (
     get_project_workspace,
     git_pull,
@@ -20,15 +25,19 @@ from .git_service import (
     git_commit,
     git_push,
     git_create_pull_request,
-    git_merge_pull_request,
+    _resolve_project_repo_and_token,
+    sanitize_sensitive_data,
+    _run_git_command,
 )
-from .code_writer import parse_and_apply_code_changes
+from .code_writer import apply_code_changes, parse_and_apply_code_changes, safe_workspace_path
+from .untrusted_text import neutralize_untrusted_markdown
 from .llm import generate_text
 from .rag.vector_store import query_similar_chunks
 from .registry import AGENT_SEATS, get_agent_spec
 from .users import get_or_create_agent_user
 from .events import emit_agent_event, ensure_task_organization
 from .tools.app_tool import trigger_app_deployment
+from agents.verification import verify_workspace, VerificationResult
 
 logger = logging.getLogger(__name__)
 
@@ -221,12 +230,15 @@ def execute_full_swarm_chain(
         return chain_events
 
 
-    backend_code_report = parse_and_apply_code_changes(
+    backend_outcome = apply_code_changes(
         llm_output=backend_llm_out,
+        workspace=project_workspace,
         task=task,
         agent_info=SWARM_SPECIALISTS["backend"],
-        repo_name=getattr(project, "github_repo", "")
+        repo_name=getattr(project, "github_repo", ""),
     )
+    backend_code_report = backend_outcome.report
+    backend_files = backend_outcome.written_files
 
     backend_comment_body = (
         f"**{SWARM_SPECIALISTS['backend']['name']} - {SWARM_SPECIALISTS['backend']['title']}**\n\n"
@@ -295,12 +307,15 @@ def execute_full_swarm_chain(
         return chain_events
 
 
-    frontend_code_report = parse_and_apply_code_changes(
+    frontend_outcome = apply_code_changes(
         llm_output=frontend_llm_out,
+        workspace=project_workspace,
         task=task,
         agent_info=SWARM_SPECIALISTS["frontend"],
-        repo_name=getattr(project, "github_repo", "")
+        repo_name=getattr(project, "github_repo", ""),
     )
+    frontend_code_report = frontend_outcome.report
+    frontend_files = frontend_outcome.written_files
 
     task.status = Task.Status.QA
     task.save(update_fields=["status"])
@@ -344,66 +359,70 @@ def execute_full_swarm_chain(
     # STEP 4: QA Specialist (Validation Contract Verification & Handoff to Tech Lead)
     # -------------------------------------------------------------
     qa_user = get_or_create_agent_user("qa", task.organization)
-    
-    # Holistic Verification against Upfront Validation Contract
-    import ast
+
+    # Files actually written by backend and frontend in this run
+    files_modified: List[str] = list(dict.fromkeys(backend_files + frontend_files))
+
+    resolved_repo, resolved_token, _ = _resolve_project_repo_and_token(project_workspace, task)
+    repo = getattr(project, "github_repo", "") or resolved_repo or ""
+    token = resolved_token or ""
+
+    verify_result = verify_workspace(
+        project_workspace,
+        files_modified,
+        ref=branch_name or "HEAD",
+        repo=repo,
+        token=token,
+    )
+
+    clean_details_url = sanitize_sensitive_data(neutralize_untrusted_markdown(getattr(verify_result, "details_url", "") or ""))
+    details_line = f"\n- **Details:** {clean_details_url}" if clean_details_url else ""
+    clean_reason = sanitize_sensitive_data(neutralize_untrusted_markdown(getattr(verify_result, "reason", "") or ""))
+
     validated_contract = []
     current_contract = task.validation_contract or generate_validation_contract(task)
-    all_clauses_passed = True
-    failure_reasons = []
 
-    # 1. Verify workspace artifacts
-    workspace_files = []
-    if project_workspace and os.path.exists(project_workspace):
-        for root, dirs, files in os.walk(project_workspace):
-            dirs[:] = [d for d in dirs if not d.startswith(".") and d not in {"node_modules", "__pycache__"}]
-            for file in files:
-                if not file.startswith(".") and not file.endswith((".pyc", ".log")):
-                    workspace_files.append(os.path.join(root, file))
+    # VC-4 check factually via git status --porcelain and current branch
+    status_res = _run_git_command(["status", "--porcelain"], cwd=project_workspace)
+    branch_res = _run_git_command(["branch", "--show-current"], cwd=project_workspace)
+    current_branch = branch_res.get("stdout", "").strip() if branch_res.get("success") else ""
+    if not current_branch:
+        rev_res = _run_git_command(["rev-parse", "--abbrev-ref", "HEAD"], cwd=project_workspace)
+        current_branch = rev_res.get("stdout", "").strip() if rev_res.get("success") else ""
 
-    syntax_errors = []
-    for wf in workspace_files:
-        if wf.endswith(".py"):
-            try:
-                with open(wf, "r", encoding="utf-8", errors="replace") as fh:
-                    ast.parse(fh.read(), filename=wf)
-            except SyntaxError as syn_err:
-                syntax_errors.append(f"{os.path.basename(wf)}: line {syn_err.lineno} - {syn_err.msg}")
+    porcelain_out = status_res.get("stdout", "").strip() if status_res.get("success") else "git status failed"
+    is_clean = status_res.get("success", False) and not porcelain_out
+    is_correct_branch = (current_branch == branch_name)
+
+    if verify_result.steps:
+        step_summaries = []
+        for s in verify_result.steps:
+            st = f"exit {s.exit_code}" if s.exit_code is not None else s.conclusion
+            clean_cmd = sanitize_sensitive_data(neutralize_untrusted_markdown(s.command or getattr(s, "name", "")))
+            clean_cwd = sanitize_sensitive_data(neutralize_untrusted_markdown(s.cwd or ""))
+            step_summaries.append(f"`{clean_cmd}` ({st}) in `{clean_cwd}`")
+        steps_evidence = "; ".join(step_summaries)
+    else:
+        steps_evidence = clean_reason or f"executor: {verify_result.executor}"
 
     for clause in current_contract:
         c = dict(clause)
         cid = c.get("id", "")
-        if cid == "VC-1":
-            if any(f.endswith(".py") for f in workspace_files) and not syntax_errors:
+        if cid == "VC-4":
+            if is_clean and is_correct_branch:
                 c["status"] = "PASSED"
-                c["evidence"] = f"Verified {len([f for f in workspace_files if f.endswith('.py')])} Python module(s) via AST static analyzer."
+                c["evidence"] = f"Git workspace clean on branch `{branch_name}`."
             else:
                 c["status"] = "FAILED"
-                c["evidence"] = f"Syntax or missing backend modules: {syntax_errors or 'no .py files generated'}"
-                all_clauses_passed = False
-                failure_reasons.append(c["evidence"])
-        elif cid == "VC-3":
-            if any(f.endswith((".tsx", ".jsx", ".ts", ".js")) for f in workspace_files):
-                c["status"] = "PASSED"
-                c["evidence"] = f"Verified {len([f for f in workspace_files if f.endswith(('.tsx', '.jsx', '.ts', '.js'))])} UI component artifact(s)."
-            else:
-                c["status"] = "FAILED"
-                c["evidence"] = "No frontend component artifacts found in workspace."
-                all_clauses_passed = False
-                failure_reasons.append(c["evidence"])
-        elif cid == "VC-5":
-            if not syntax_errors:
-                c["status"] = "PASSED"
-                c["evidence"] = "Zero AST syntax errors detected across repository."
-            else:
-                c["status"] = "FAILED"
-                c["evidence"] = "; ".join(syntax_errors)
-                all_clauses_passed = False
-                failure_reasons.append(c["evidence"])
+                failures = []
+                if not is_correct_branch:
+                    failures.append(f"branch is '{current_branch}', expected '{branch_name}'")
+                if not is_clean:
+                    failures.append(f"uncommitted changes: {porcelain_out}")
+                c["evidence"] = "; ".join(failures)
         else:
-            # No automated check exists for this clause; it needs a human reviewer.
             c["status"] = "MANUAL_REVIEW"
-            c["evidence"] = "No automated check covers this clause. A human reviewer must confirm it."
+            c["evidence"] = f"{steps_evidence}; whether this establishes the assertion needs a human."
 
         c["verified_at"] = time.strftime("%Y-%m-%d %H:%M:%SZ")
         validated_contract.append(c)
@@ -414,104 +433,51 @@ def execute_full_swarm_chain(
 
     task.validation_contract = validated_contract
     task.contract_compliance_score = compliance_score
-    if not all_clauses_passed:
+
+    if verify_result.status == "failed":
         task.qa_rejected = True
-        task.qa_rejection_reason = "; ".join(failure_reasons)
+        task.qa_rejection_reason = clean_reason
         task.status = Task.Status.IN_PROGRESS
         task.save(update_fields=["validation_contract", "contract_compliance_score", "qa_rejected", "qa_rejection_reason", "status"])
+
+        failed_blocks = []
+        for s in verify_result.failed_steps:
+            st = f"exit {s.exit_code}" if s.exit_code is not None else s.conclusion
+            clean_cmd = sanitize_sensitive_data(neutralize_untrusted_markdown(s.command or getattr(s, "name", "")))
+            clean_cwd = sanitize_sensitive_data(neutralize_untrusted_markdown(s.cwd or ""))
+            tail_lines = (s.output_tail or "").splitlines()[-40:]
+            tail_text = "\n".join(tail_lines)
+            clean_tail = sanitize_sensitive_data(neutralize_untrusted_markdown(tail_text))
+            failed_blocks.append(
+                f"- **Failed Step:** `{clean_cmd}` (cwd: `{clean_cwd}`, {st})\n\n```\n{clean_tail}\n```"
+            )
+        failed_section = "\n".join(failed_blocks) if failed_blocks else f"- {clean_reason}"
 
         qa_fail_comment = (
             f"**{SWARM_SPECIALISTS['qa']['name']} - {SWARM_SPECIALISTS['qa']['title']}**\n\n"
             f"**Sprint Quality Gate REJECTION for @backend_core & @tech_lead:**\n\n"
-            f"Validation Contract Verification: **FAILED ({compliance_score}%)** on branch `{branch_name}`.\n\n"
-            f"**Failure Details:**\n" + "\n".join([f"- [DEFECT] {r}" for r in failure_reasons])
+            f"- **Validation Gate:** FAILED\n"
+            f"- **Executor:** {verify_result.executor}\n"
+            f"- **Reason:** {clean_reason}\n"
+            f"- **Failures:**\n{failed_section}"
+            f"{details_line}\n"
+            f"- **Validation Contract:** {passed_count}/{len(automated)} automated assertions passed; {len(validated_contract) - len(automated)} need manual review\n"
+            f"- **Action Required:** @backend_core please inspect the failed step output above, fix the issues in branch `{branch_name}`, and re-commit for validation."
         )
-        Comment.objects.create(task=task, author=qa_user, body=qa_fail_comment)
-        emit_agent_event(
+        Comment.objects.create(task=task, author=qa_user, body=sanitize_sensitive_data(qa_fail_comment))
+        TaskActivity.objects.create(
             task=task,
-            trace=trace,
-            session_id=session_id,
-            event_type="blocked",
-            sender_key="qa",
-            recipient_key="backend_core",
-            message=f"QA Gate Rejected: {'; '.join(failure_reasons)}",
-            current_work="Verification failed",
-            remaining_work=["fix code errors", "repeat QA validation"],
+            actor=qa_user,
+            action="qa_rejected",
+            details={"executor": verify_result.executor, "reason": clean_reason, "decision": "failed", "metrics": verify_result.to_dict()},
         )
-        return chain_events
-
-    task.qa_rejected = False
-    task.qa_rejection_reason = ""
-    task.save(update_fields=["validation_contract", "contract_compliance_score", "qa_rejected", "qa_rejection_reason"])
-
-    contract_eval_bullets = "\n".join([f"  - **[{c['id']}]** {c['assertion']} *(Status: {c['status']})*" for c in validated_contract])
-    qa_comment_body = (
-        f"**{SWARM_SPECIALISTS['qa']['name']} - {SWARM_SPECIALISTS['qa']['title']}**\n\n"
-        f"**Sprint Quality Gate Sign-Off for @tech_lead & @devops:**\n\n"
-        f"Hey {SWARM_SPECIALISTS['tech_lead']['name']}! I ran the automated Validation Contract checks on branch `{branch_name}`:\n\n"
-        f"**Validation Contract (Definition of Done):**\n"
-        f"{contract_eval_bullets}\n\n"
-        f"**Quality Report:**\n"
-        f"- **Automated Compliance Score:** `{compliance_score}%` ({passed_count}/{len(automated)} automated assertions passed; "
-        f"{len(validated_contract) - len(automated)} need manual review)\n"
-        f"- **Files Audited:** {len(workspace_files)} file(s)\n"
-        f"- **Python syntax check:** no syntax errors found\n\n"
-        f"Automated checks passed. Handing off to @tech_lead for the merge."
-    )
-    qa_comment = Comment.objects.create(task=task, author=qa_user, body=qa_comment_body)
-    TaskActivity.objects.create(
-        task=task,
-        actor=qa_user,
-        action="qa_validated",
-        details={"files_analyzed": len(workspace_files), "compliance_score": compliance_score, "decision": "approved"}
-    )
-    chain_events.append({
-        "step": 4,
-        "agent": SWARM_SPECIALISTS["qa"],
-        "target_agent": SWARM_SPECIALISTS["tech_lead"],
-        "action": "Contract Validation Signoff",
-        "comment_id": qa_comment.id,
-        "content": qa_comment_body,
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-    })
-    emit_agent_event(
-        task=task,
-        trace=trace,
-        session_id=session_id,
-        event_type="handoff",
-        sender_key="qa",
-        recipient_key="tech_lead",
-        message="I recorded the current validation-contract decision and handed the result to the Tech Lead.",
-        current_work="Waiting for merge review",
-        remaining_work=["merge review", "release step"],
-    )
-
-    # -------------------------------------------------------------
-    # STEP 5: Tech Lead (merge the pull request and hand off to DevOps)
-    # -------------------------------------------------------------
-    merge_res = git_merge_pull_request(
-        repo=getattr(project, "github_repo", ""),
-        source_branch=branch_name,
-        target_branch="main",
-        cwd=project_workspace
-    )
-
-    if not merge_res.get("success"):
-        merge_fail_body = (
-            f"**{SWARM_SPECIALISTS['tech_lead']['name']} - {SWARM_SPECIALISTS['tech_lead']['title']}**\n\n"
-            f"**Merge blocked for `{branch_name}`:**\n\n"
-            f"QA passed, but merging into `main` did not succeed.\n\n"
-            f"- Reason: {merge_res.get('output', 'unknown error')}\n"
-            f"- Ticket stays in **{task.get_status_display()}** until the merge is resolved."
-        )
-        merge_fail_comment = Comment.objects.create(task=task, author=lead_user, body=merge_fail_body)
         chain_events.append({
-            "step": 5,
-            "agent": SWARM_SPECIALISTS["tech_lead"],
-            "target_agent": {"name": "CEO", "role": "ceo"},
-            "action": "Tech Lead Merge Blocked",
-            "comment_id": merge_fail_comment.id,
-            "content": merge_fail_body,
+            "step": 4,
+            "agent": SWARM_SPECIALISTS["qa"],
+            "target_agent": SWARM_SPECIALISTS["backend"],
+            "action": "Contract Validation Rejection",
+            "comment_id": task.comments.last().id if task.comments.exists() else None,
+            "content": qa_fail_comment,
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
         })
         emit_agent_event(
@@ -519,117 +485,230 @@ def execute_full_swarm_chain(
             trace=trace,
             session_id=session_id,
             event_type="blocked",
-            sender_key="tech_lead",
-            message="The merge into main did not succeed. The run stopped before release.",
-            current_work="Merge blocked",
-            remaining_work=["resolve merge", "release step"],
-            metadata={"merge_output": merge_res.get("output", "")},
+            sender_key="qa",
+            recipient_key="backend_core",
+            message=f"QA Gate Rejected: {clean_reason}",
+            current_work="Verification failed",
+            remaining_work=["fix code errors", "repeat QA validation"],
+            metadata={"qa_result": "failed", "reason": clean_reason, "metrics": verify_result.to_dict()},
         )
         return chain_events
 
-    task.status = Task.Status.DONE
-    task.save(update_fields=["status"])
+    elif verify_result.status == "unverified":
+        task.qa_rejected = False
+        task.qa_rejection_reason = ""
+        task.status = Task.Status.QA
+        task.save(update_fields=["validation_contract", "contract_compliance_score", "qa_rejected", "qa_rejection_reason", "status"])
 
-    merge_sha = merge_res.get("merged_sha", "")
-    pushed_note = (
-        "`main` was pushed to the linked remote."
-        if merge_res.get("push_success")
-        else "`main` was updated locally; it was not pushed to a remote."
-    )
-    lead_merge_comment_body = (
-        f"**{SWARM_SPECIALISTS['tech_lead']['name']} - {SWARM_SPECIALISTS['tech_lead']['title']}**\n\n"
-        f"**Sprint PR Merge Sign-Off for @devops:**\n\n"
-        f"Hey {SWARM_SPECIALISTS['devops']['name']}! Code review is completed and Alan's QA validation confirmed.\n\n"
-        f"**Merge Report:**\n"
-        f"- Merged branch: `{branch_name}` -> `main`\n"
-        f"- Merge Commit SHA: `{merge_sha}`\n"
-        f"- Ticket Status: **DONE**\n\n"
-        f"{pushed_note} Handing off to DevOps for the release step."
-    )
-    lead_merge_comment = Comment.objects.create(task=task, author=lead_user, body=lead_merge_comment_body)
-    TaskActivity.objects.create(
-        task=task,
-        actor=lead_user,
-        action="merged_to_main",
-        details={"branch": branch_name, "sha": merge_sha}
-    )
-    chain_events.append({
-        "step": 5,
-        "agent": SWARM_SPECIALISTS["tech_lead"],
-        "target_agent": SWARM_SPECIALISTS["devops"],
-        "action": "Tech Lead Merge Gate",
-        "comment_id": lead_merge_comment.id,
-        "content": lead_merge_comment_body,
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
-    })
-    emit_agent_event(
-        task=task,
-        trace=trace,
-        session_id=session_id,
-        event_type="handoff",
-        sender_key="tech_lead",
-        recipient_key="devops",
-        message="I completed the merge-review step and handed the recorded result to DevOps.",
-        current_work="Waiting for release step",
-        remaining_work=["release step"],
-        metadata={"merge_success": bool(merge_res.get("success")), "merge_sha": merge_sha},
-    )
+        qa_unverified_comment = (
+            f"**{SWARM_SPECIALISTS['qa']['name']} - {SWARM_SPECIALISTS['qa']['title']}**\n\n"
+            f"**Sprint Quality Gate UNVERIFIED for @tech_lead:**\n\n"
+            f"- **Validation Gate:** UNVERIFIED\n"
+            f"- **Executor:** {verify_result.executor}\n"
+            f"- **Reason:** {clean_reason}\n"
+            f"- **Status:** No automated verification was performed. The ticket is waiting for a human reviewer in QA."
+            f"{details_line}\n"
+            f"- **Validation Contract:** {passed_count}/{len(automated)} automated assertions passed; {len(validated_contract) - len(automated)} need manual review\n"
+            f"- **Enabling Verification:** Automated verification requires either a GitHub repository linked to the project (to run checks via GitHub Actions) or running the worker where a Docker daemon is available."
+        )
+        Comment.objects.create(task=task, author=qa_user, body=sanitize_sensitive_data(qa_unverified_comment))
+        TaskActivity.objects.create(
+            task=task,
+            actor=qa_user,
+            action="qa_unverified",
+            details={"executor": verify_result.executor, "reason": clean_reason, "decision": "unverified", "metrics": verify_result.to_dict()},
+        )
+        chain_events.append({
+            "step": 4,
+            "agent": SWARM_SPECIALISTS["qa"],
+            "target_agent": SWARM_SPECIALISTS["tech_lead"],
+            "action": "Contract Validation Unverified",
+            "comment_id": task.comments.last().id if task.comments.exists() else None,
+            "content": qa_unverified_comment,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+        })
+        emit_agent_event(
+            task=task,
+            trace=trace,
+            session_id=session_id,
+            event_type="blocked",
+            sender_key="qa",
+            recipient_key="tech_lead",
+            message=f"QA Gate Unverified: {clean_reason}. Waiting for human QA validation.",
+            current_work="Waiting for human QA validation",
+            remaining_work=["human QA review", "merge review", "release step"],
+            metadata={"qa_result": "unverified", "reason": clean_reason, "metrics": verify_result.to_dict()},
+        )
+        return chain_events
+
+    else:
+        task.qa_rejected = False
+        task.qa_rejection_reason = ""
+        task.save(update_fields=["validation_contract", "contract_compliance_score", "qa_rejected", "qa_rejection_reason"])
+
+        step_lines = []
+        for s in verify_result.steps:
+            st = f"exit {s.exit_code}" if s.exit_code is not None else s.conclusion
+            clean_cmd = sanitize_sensitive_data(neutralize_untrusted_markdown(s.command or getattr(s, "name", "")))
+            clean_cwd = sanitize_sensitive_data(neutralize_untrusted_markdown(s.cwd or ""))
+            step_lines.append(f"- `{clean_cmd}` (cwd: `{clean_cwd}`, {st})")
+        steps_block = "\n".join(step_lines) if step_lines else "- No steps executed."
+        contract_eval_bullets = "\n".join([f"  - **[{c['id']}]** {c['assertion']} *(Status: {c['status']})*" for c in validated_contract])
+
+        qa_comment_body = (
+            f"**{SWARM_SPECIALISTS['qa']['name']} - {SWARM_SPECIALISTS['qa']['title']}**\n\n"
+            f"**Sprint Quality Gate Sign-Off for @tech_lead & @devops:**\n\n"
+            f"Hey {SWARM_SPECIALISTS['tech_lead']['name']}! I ran automated verification on branch `{branch_name}`:\n\n"
+            f"- **Validation Gate:** PASSED\n"
+            f"- **Executor:** {verify_result.executor}\n"
+            f"- **Total Duration:** {verify_result.duration_s:.1f}s\n"
+            f"- **Verification Steps:**\n{steps_block}"
+            f"{details_line}\n\n"
+            f"**Validation Contract (Definition of Done):**\n"
+            f"{contract_eval_bullets}\n\n"
+            f"**Quality Report:**\n"
+            f"- **Automated Compliance Score:** `{compliance_score}%` ({passed_count}/{len(automated)} automated assertions passed; "
+            f"{len(validated_contract) - len(automated)} need manual review)\n\n"
+            f"Automated verification passed. Handing off to @tech_lead for the merge."
+        )
+        qa_comment = Comment.objects.create(task=task, author=qa_user, body=sanitize_sensitive_data(qa_comment_body))
+        TaskActivity.objects.create(
+            task=task,
+            actor=qa_user,
+            action="qa_validated",
+            details={"executor": verify_result.executor, "duration_s": verify_result.duration_s, "compliance_score": compliance_score, "decision": "approved", "metrics": verify_result.to_dict()}
+        )
+        chain_events.append({
+            "step": 4,
+            "agent": SWARM_SPECIALISTS["qa"],
+            "target_agent": SWARM_SPECIALISTS["tech_lead"],
+            "action": "Contract Validation Signoff",
+            "comment_id": qa_comment.id,
+            "content": qa_comment_body,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+        })
+        emit_agent_event(
+            task=task,
+            trace=trace,
+            session_id=session_id,
+            event_type="handoff",
+            sender_key="qa",
+            recipient_key="tech_lead",
+            message="I recorded a passing QA decision and handed the result to the Tech Lead.",
+            current_work="Waiting for merge review",
+            remaining_work=["merge review", "release step"],
+            metadata={"qa_result": "passed", "reason": "", "metrics": verify_result.to_dict()},
+        )
 
     # -------------------------------------------------------------
-    # STEP 6: DevOps (staging rollout and completion)
+    # STEP 5: Release Gate & DevOps Release
     # -------------------------------------------------------------
     devops_user = get_or_create_agent_user("devops", task.organization)
-    deploy_res = trigger_app_deployment(
-        project.id if project else task.project_id,
-        environment="staging",
-        branch="main",
-        commit_sha=merge_sha,
-    )
-    if deploy_res.get("ok"):
-        release_line = (
-            f"- Deployment #{deploy_res.get('deployment_id')} was accepted by the deployment provider "
-            f"(status: `{deploy_res.get('status')}`). The provider reports the final outcome."
-        )
-        release_details = {"environment": "staging", "deployment_id": deploy_res.get("deployment_id"), "status": deploy_res.get("status")}
-    elif deploy_res.get("configured") is False:
-        release_line = "- No deployment provider is configured, so no staging deployment was started."
-        release_details = {"environment": "staging", "status": "not_configured"}
-    else:
-        release_line = f"- The deployment request failed: {deploy_res.get('error') or deploy_res.get('status')}."
-        release_details = {"environment": "staging", "status": "failed", "deployment_id": deploy_res.get("deployment_id")}
+    devops_spec = SWARM_SPECIALISTS["devops"]
+    author_name = devops_spec["name"]
+    agent_role = devops_spec["role"]
+    repo = getattr(project, "github_repo", "") or ""
+    pr_url = getattr(task, "pr_url", "") or ""
 
-    devops_comment_body = (
-        f"**{SWARM_SPECIALISTS['devops']['name']} - {SWARM_SPECIALISTS['devops']['title']}**\n\n"
-        f"**Release step for ticket #{task.id}:**\n\n"
-        f"- `main` is at `{merge_sha or 'unknown'}`.\n"
-        f"{release_line}"
+    require_approval = getattr(settings, "AGENT_REQUIRE_RELEASE_APPROVAL", True)
+
+    if require_approval:
+        try:
+            approval = request_release_approval(
+                task,
+                trace=trace,
+                engine="chain",
+                branch=branch_name,
+                repo=repo,
+                pr_url=pr_url,
+            )
+        except BranchResolutionError as exc:
+            fail_body = (
+                f"**{author_name} - {agent_role}**\n\n"
+                f"The release could not be prepared: {exc}"
+            )
+            Comment.objects.create(task=task, author=devops_user, body=fail_body)
+            chain_events.append({
+                "step": 5,
+                "agent": devops_spec,
+                "target_agent": {"name": "CEO", "role": "ceo"},
+                "action": "Release Preparation Failed",
+                "content": fail_body,
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+            })
+            return chain_events
+
+        short_sha = approval.head_sha[:7] if approval.head_sha else ""
+        waiting_comment_body = (
+            f"**{author_name} - {agent_role}**\n\n"
+            f"QA passed. The release is waiting for approval by a workspace owner or admin: "
+            f"merge `{branch_name}` at `{short_sha}` into `main`, then request a staging deployment."
+        )
+        waiting_comment = Comment.objects.create(task=task, author=devops_user, body=waiting_comment_body)
+        TaskActivity.objects.create(
+            task=task,
+            actor=devops_user,
+            action="release_gate_awaiting_approval",
+            details={"branch": branch_name, "sha": approval.head_sha, "approval_id": approval.id},
+        )
+        chain_events.append({
+            "step": 5,
+            "agent": devops_spec,
+            "target_agent": {"name": "Workspace Admin", "role": "admin"},
+            "action": "DevOps Release Gate",
+            "comment_id": waiting_comment.id,
+            "content": waiting_comment_body,
+            "approval_id": approval.id,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+        })
+        return chain_events
+
+    # Gate is off: release immediately
+    head_sha = current_branch_head(task, branch_name)
+    actor_email = devops_user.email if devops_user else getattr(settings, "GIT_AUTHOR_EMAIL", "")
+    release_result = perform_release(
+        task,
+        branch=branch_name,
+        expected_head_sha=head_sha,
+        repo=repo,
+        pr_url=pr_url,
+        actor_email=actor_email,
     )
-    devops_comment = Comment.objects.create(task=task, author=devops_user, body=devops_comment_body)
+    if format_release_comment:
+        comment_body = format_release_comment(author_name, agent_role, release_result)
+    else:
+        comment_body = (
+            f"**{author_name} - {agent_role}**\n\n"
+            f"{getattr(release_result, 'detail', '')}\n"
+            f"{getattr(release_result, 'deployment_detail', '')}"
+        )
+
+    release_comment = Comment.objects.create(task=task, author=devops_user, body=comment_body)
     TaskActivity.objects.create(
         task=task,
         actor=devops_user,
-        action="release_requested",
-        details=release_details,
+        action="release_completed" if getattr(release_result, "merged", False) else "release_failed",
+        details=release_result.to_dict() if hasattr(release_result, "to_dict") else {},
     )
     chain_events.append({
-        "step": 6,
-        "agent": SWARM_SPECIALISTS["devops"],
+        "step": 5,
+        "agent": devops_spec,
         "target_agent": {"name": "TeamFlow Swarm", "role": "team"},
         "action": "DevOps Release Step",
-        "comment_id": devops_comment.id,
-        "content": devops_comment_body,
+        "comment_id": release_comment.id,
+        "content": comment_body,
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
     })
     emit_agent_event(
         task=task,
         trace=trace,
         session_id=session_id,
-        event_type="completed",
+        event_type="completed" if getattr(release_result, "merged", False) else "blocked",
         sender_key="devops",
-        message="I recorded the release step. The run is ready for human review.",
-        metadata={"deployment": deploy_res},
-        current_work="Run completed",
-        remaining_work=[],
+        message=f"Release recorded. {getattr(release_result, 'detail', '')}",
+        metadata={"release": release_result.to_dict() if hasattr(release_result, "to_dict") else {}},
+        current_work="Run completed" if getattr(release_result, "merged", False) else "Release blocked",
+        remaining_work=[] if getattr(release_result, "merged", False) else ["resolve release blocker"],
     )
-
     return chain_events
+

@@ -1,22 +1,23 @@
 import time
+from typing import Any, Dict
 from django.conf import settings
-from typing import Dict, Any
-from agents.state import TicketState
-from agents.tools.github_tool import merge_pull_request
-from agents.tools.app_tool import trigger_app_deployment, update_ticket_status, add_ticket_comment, log_task_activity
-from agents.events import emit_state_event
 
+from agents.approvals import BranchResolutionError, request_release_approval
+from agents.events import emit_state_event
+from agents.models import AgentExecutionTrace
 from agents.registry import get_agent_spec
+from agents.state import TicketState
 from agents.users import get_agent_user_for_task
-from tasks.models import Task
+from tasks.models import Comment, Task, TaskActivity
+
+from agents.release import current_branch_head, format_release_comment, perform_release
 
 
 def devops_agent_node(state: TicketState) -> Dict[str, Any]:
     """
     DevOps Specialist Agent:
-    - Merges verified PR into main
-    - Triggers CI/CD deployment pipeline to staging/prod
-    - Closes ticket upon deployment verification
+    - Release gate: creates approval request pinning commit SHA when approval required.
+    - When approval is disabled: performs release immediately via perform_release.
     """
     ticket_id = state.get("ticket_id")
     project_id = state.get("project_id")
@@ -30,98 +31,153 @@ def devops_agent_node(state: TicketState) -> Dict[str, Any]:
     author_name = agent_spec["name"]
     agent_role = agent_spec["role"]
 
-    task_obj = Task.objects.get(id=ticket_id) if ticket_id else None
+    task_obj = Task.objects.select_related("project", "organization").get(id=ticket_id) if ticket_id else None
     agent_user = get_agent_user_for_task(task_obj, agent_key) if task_obj else None
 
     emit_state_event(
         state,
         event_type="progress",
         sender_key="devops",
-        message="I received the release handoff and am recording the merge and deployment workflow result.",
-        current_work="Processing release handoff",
-        remaining_work=["record deployment result", "close orchestration run"],
+        message="I received the release handoff and am evaluating the release gate.",
+        current_work="Evaluating release gate",
+        remaining_work=["release verification"],
     )
 
-    # 1. Merge the reviewed branch into main inside the project workspace
-    project_workspace = state.get("workspace_path", "")
     branch_name = state.get("branch_name", "")
-    merge_info = merge_pull_request(
-        state.get("github_repo", "") or "",
-        source_branch=branch_name,
-        target_branch="main",
-        cwd=project_workspace,
-    ) if branch_name and project_workspace else {"status": "skipped", "output": "No branch was recorded for this run."}
-    merged = merge_info.get("status") == "merged"
+    repo = state.get("github_repo", "") or ""
+    pr_url = state.get("pr_url", "") or ""
 
-    # 2. Request a staging deployment from the configured provider
-    if merged:
-        deploy_info = trigger_app_deployment(
-            project_id=project_id,
-            environment="staging",
-            branch="main",
-            commit_sha=merge_info.get("merged_sha", ""),
+    require_approval = getattr(settings, "AGENT_REQUIRE_RELEASE_APPROVAL", True)
+
+    if require_approval:
+        session_id = state.get("langfuse_session_id")
+        trace = (
+            AgentExecutionTrace.objects.filter(session_id=session_id, task=task_obj).first()
+            if task_obj and session_id
+            else None
         )
-    else:
-        deploy_info = {"ok": False, "error": "Skipped because the merge did not succeed."}
 
-    if deploy_info.get("ok"):
-        deployment_status = "in_progress"
-        release_line = f"Deployment #{deploy_info.get('deployment_id')} was accepted by the provider; it reports the final outcome."
-    elif deploy_info.get("configured") is False:
-        deployment_status = "not_configured"
-        release_line = "No deployment provider is configured, so no deployment was started."
-    else:
-        deployment_status = "failed"
-        release_line = f"No deployment is running: {deploy_info.get('error') or deploy_info.get('status')}."
+        try:
+            approval = request_release_approval(
+                task_obj,
+                trace=trace,
+                engine="graph",
+                branch=branch_name,
+                repo=repo,
+                pr_url=pr_url,
+            )
+        except BranchResolutionError as exc:
+            comment_body = (
+                f"**{author_name} - {agent_role}**\n\n"
+                f"The release could not be prepared: {exc}"
+            )
+            if task_obj:
+                Comment.objects.create(task=task_obj, author=agent_user, body=comment_body)
+            step_log = {
+                "node": "devops",
+                "agent_role": agent_role,
+                "action": "release_gate_failed",
+                "message": f"The release could not be prepared: {exc}",
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+            }
+            history.append(step_log)
+            return {
+                "status": "qa",
+                "assigned_agent": "done",
+                "history": history,
+                "total_tokens": total_tokens,
+                "total_cost_usd": total_cost,
+            }
 
-    merge_line = (
-        f"Merged `{branch_name}` into `main` at `{merge_info.get('merged_sha', '')}`."
-        if merged
-        else f"The merge did not happen: {merge_info.get('output', 'unknown reason')}"
+        short_sha = approval.head_sha[:7] if approval.head_sha else ""
+        comment_body = (
+            f"**{author_name} - {agent_role}**\n\n"
+            f"QA passed. The release is waiting for approval by a workspace owner or admin: "
+            f"merge `{branch_name}` at `{short_sha}` into `main`, then request a staging deployment."
+        )
+        if task_obj:
+            Comment.objects.create(task=task_obj, author=agent_user, body=comment_body)
+            TaskActivity.objects.create(
+                task=task_obj,
+                actor=agent_user,
+                action="release_gate_awaiting_approval",
+                details={"branch": branch_name, "sha": approval.head_sha, "approval_id": approval.id},
+            )
+
+        step_log = {
+            "node": "devops",
+            "agent_role": agent_role,
+            "action": "release_gate",
+            "message": f"QA passed. The release is waiting for approval for {branch_name} at {short_sha}.",
+            "approval_id": approval.id,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
+        }
+        history.append(step_log)
+
+        return {
+            "status": "qa",
+            "approval_id": approval.id,
+            "assigned_agent": "done",
+            "history": history,
+            "total_tokens": total_tokens,
+            "total_cost_usd": total_cost,
+        }
+
+    # Approval not required: release immediately
+    expected_sha = current_branch_head(task_obj, branch_name)
+    actor_email = agent_user.email if agent_user else getattr(settings, "GIT_AUTHOR_EMAIL", "")
+
+    result = perform_release(
+        task_obj,
+        branch=branch_name,
+        expected_head_sha=expected_sha,
+        repo=repo,
+        pr_url=pr_url,
+        actor_email=actor_email,
     )
 
-    # 3. Only a merged ticket is marked done; the release outcome is reported as-is.
-    if ticket_id:
-        if merged:
-            update_ticket_status(ticket_id, "done", actor_email=agent_user.email if agent_user else getattr(settings, "GIT_AUTHOR_EMAIL", ""))
-        devops_comment = (
+    if format_release_comment:
+        comment_body = format_release_comment(author_name, agent_role, result)
+    else:
+        comment_body = (
             f"**{author_name} - {agent_role}**\n\n"
-            f"**Release step:**\n\n"
-            f"- **Merge:** {merge_line}\n"
-            f"- **Deployment:** {release_line}\n"
-            f"- **Ticket:** {'moved to Done' if merged else 'left open for follow-up'}."
-        )
-        add_ticket_comment(ticket_id, "devops", devops_comment)
-        log_task_activity(
-            ticket_id,
-            author_name,
-            "release_requested",
-            {"environment": "staging", "merged": merged, "deployment_status": deployment_status},
+            f"{getattr(result, 'detail', '')}\n"
+            f"{getattr(result, 'deployment_detail', '')}"
         )
 
+    if task_obj:
+        Comment.objects.create(task=task_obj, author=agent_user, body=comment_body)
+        TaskActivity.objects.create(
+            task=task_obj,
+            actor=agent_user,
+            action="release_completed" if getattr(result, "merged", False) else "release_failed",
+            details=result.to_dict() if hasattr(result, "to_dict") else {},
+        )
+
+    merged = getattr(result, "merged", False)
     step_log = {
         "node": "devops",
         "agent_role": agent_role,
         "action": "release_step",
-        "message": f"{merge_line} {release_line}",
-        "deployment_status": deployment_status,
+        "message": getattr(result, "detail", ""),
+        "deployment_status": getattr(result, "deployment_status", ""),
         "timestamp": time.strftime("%Y-%m-%d %H:%M:%SZ"),
     }
     history.append(step_log)
     emit_state_event(
         state,
-        event_type="completed",
+        event_type="completed" if merged else "blocked",
         sender_key="devops",
-        message=f"Release step recorded. {merge_line} {release_line}",
-        current_work="Release workflow step completed",
-        remaining_work=[],
-        metadata={"deployment": deploy_info, "merge": merge_info},
+        message=f"Release step recorded. {getattr(result, 'detail', '')} {getattr(result, 'deployment_detail', '')}".strip(),
+        current_work="Release workflow step completed" if merged else "Release blocked",
+        remaining_work=[] if merged else ["resolve release blocker"],
+        metadata={"release": result.to_dict() if hasattr(result, "to_dict") else {}},
     )
 
     return {
-        "status": "done" if merged else "in_review",
-        "deployment_status": deployment_status,
-        "deployment_logs": release_line,
+        "status": "done" if merged else "qa",
+        "deployment_status": getattr(result, "deployment_status", ""),
+        "deployment_logs": getattr(result, "deployment_detail", ""),
         "assigned_agent": "done",
         "history": history,
         "total_tokens": total_tokens,

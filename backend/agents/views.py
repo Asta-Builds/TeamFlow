@@ -7,7 +7,7 @@ import time
 from django.conf import settings
 from django.db import close_old_connections
 from django.db.models import Q
-from django.http import StreamingHttpResponse
+from django.http import Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, views
 from rest_framework.exceptions import PermissionDenied
@@ -17,7 +17,9 @@ from projects.models import Project
 from tasks.models import Comment, Task
 from teamflow.permissions import visible_projects_for, visible_tasks_for
 
-from .models import AgentEvent, AgentExecutionTrace, CodebaseEmbedding
+from .approvals import ApprovalConflictError, approve, can_decide, reject
+from .models import AgentEvent, AgentExecutionTrace, ApprovalRequest, CodebaseEmbedding
+
 from .ollama_service import is_ollama_available
 from .queue import (
     AgentQueueError,
@@ -28,7 +30,12 @@ from .queue import (
 )
 from .rag.ingest import ingest_sample_knowledge_base
 from .registry import active_agent_status
-from .serializers import AgentEventSerializer, AgentExecutionTraceSerializer, CodebaseEmbeddingSerializer
+from .serializers import (
+    AgentEventSerializer,
+    AgentExecutionTraceSerializer,
+    ApprovalRequestSerializer,
+    CodebaseEmbeddingSerializer,
+)
 from .tools.redis_tool import is_event_bus_available
 
 
@@ -335,3 +342,127 @@ class SwarmLiveFeedView(views.APIView):
                 }
             )
         return Response({"feed": feed_items, "total_events": len(feed_items)})
+
+
+class ApprovalRequestsView(views.APIView):
+    """List approval requests scoped to the authenticated user's organization."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if request.user.organization_id is None:
+            return Response([])
+
+        queryset = ApprovalRequest.objects.filter(
+            organization_id=request.user.organization_id,
+        ).select_related("task", "decided_by").order_by("-requested_at")
+
+        task_id = request.query_params.get("task")
+        if task_id:
+            queryset = queryset.filter(task_id=task_id)
+
+        status_param = request.query_params.get("status")
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+
+        serializer = ApprovalRequestSerializer(queryset, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ApprovalRequestDetailView(views.APIView):
+    """Retrieve an approval request. Another organization's approval is a 404."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, approval_id):
+        if request.user.organization_id is None:
+            raise Http404("Approval request not found.")
+
+        approval = get_object_or_404(
+            ApprovalRequest.objects.select_related("task", "decided_by"),
+            pk=approval_id,
+            organization_id=request.user.organization_id,
+        )
+        serializer = ApprovalRequestSerializer(approval)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ApprovalRequestApproveView(views.APIView):
+    """Approve a release approval request."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, approval_id):
+        if request.user.organization_id is None:
+            raise Http404("Approval request not found.")
+
+        approval = get_object_or_404(
+            ApprovalRequest.objects.select_related("task", "organization", "trace", "decided_by"),
+            pk=approval_id,
+            organization_id=request.user.organization_id,
+        )
+
+        if not can_decide(request.user, approval.organization):
+            return Response(
+                {"detail": "Only a workspace owner or admin can approve releases."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if approval.status != ApprovalRequest.Status.PENDING:
+            return Response(
+                {"detail": f"Approval #{approval.id} is {approval.status}, not pending."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        reason = request.data.get("reason", "")
+        try:
+            decided = approve(approval, request.user, reason=reason)
+        except ApprovalConflictError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+        serializer = ApprovalRequestSerializer(decided)
+        return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+
+
+class ApprovalRequestRejectView(views.APIView):
+    """Reject a release approval request."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, approval_id):
+        if request.user.organization_id is None:
+            raise Http404("Approval request not found.")
+
+        approval = get_object_or_404(
+            ApprovalRequest.objects.select_related("task", "organization", "trace", "decided_by"),
+            pk=approval_id,
+            organization_id=request.user.organization_id,
+        )
+
+        if not can_decide(request.user, approval.organization):
+            return Response(
+                {"detail": "Only a workspace owner or admin can reject releases."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if approval.status != ApprovalRequest.Status.PENDING:
+            return Response(
+                {"detail": f"Approval #{approval.id} is {approval.status}, not pending."},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        reason = (request.data.get("reason") or "").strip()
+        if not reason:
+            return Response(
+                {"detail": "A non-empty rejection reason is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            decided = reject(approval, request.user, reason=reason)
+        except ApprovalConflictError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+
+        serializer = ApprovalRequestSerializer(decided)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+

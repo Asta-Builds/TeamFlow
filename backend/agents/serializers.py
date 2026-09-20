@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import AgentEvent, AgentExecutionTrace, CodebaseEmbedding
+from .models import AgentEvent, AgentExecutionTrace, ApprovalRequest, CodebaseEmbedding
 
 
 class AgentEventSerializer(serializers.ModelSerializer):
@@ -78,3 +78,52 @@ class AgentDispatchSerializer(serializers.Serializer):
     task_id = serializers.IntegerField(required=True)
     auto_apply = serializers.BooleanField(default=True)
     model_override = serializers.CharField(required=False, allow_blank=True)
+
+
+class ApprovalRequestSerializer(serializers.ModelSerializer):
+    task = serializers.IntegerField(source="task_id", read_only=True)
+    task_title = serializers.CharField(source="task.title", read_only=True)
+    title = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    danger_level = serializers.CharField(default="high", read_only=True)
+    decided_by = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ApprovalRequest
+        fields = [
+            "id",
+            "task",
+            "task_title",
+            "kind",
+            "status",
+            "title",
+            "description",
+            "danger_level",
+            "branch",
+            "head_sha",
+            "repo",
+            "pr_url",
+            "engine",
+            "requested_at",
+            "decided_at",
+            "decided_by",
+            "decision_reason",
+            "result",
+        ]
+        read_only_fields = fields
+
+    def get_title(self, obj) -> str:
+        return f"Release #{obj.task_id} to main"
+
+    def get_description(self, obj) -> str:
+        short_sha = obj.head_sha[:7] if obj.head_sha else ""
+        return f"Merge {obj.branch} at {short_sha} into main, then request a staging deployment."
+
+    def get_decided_by(self, obj) -> dict | None:
+        if not obj.decided_by:
+            return None
+        return {
+            "id": obj.decided_by.id,
+            "name": obj.decided_by.name or obj.decided_by.email,
+        }
+
