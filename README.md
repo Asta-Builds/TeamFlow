@@ -13,7 +13,7 @@
 
 **An autonomous AI software company platform where specialized agents plan, code, review, test, and deploy full-stack applications in isolated repositories.**
 
-[🏛️ Architecture Design](./ARCHITECTURE_DESIGN.md) • [📋 Spécification Fonctionnelle](./docs/SPECIFICATION_FONCTIONNELLE.md) • [⚡ NestJS Migration](./docs/NESTJS_MIGRATION.md) • [🔌 MCP Server](./docs/MCP.md) • [🚀 Self-Hosting & Deployment](./docs/HOSTING_AND_DEPLOYMENT.md) • [📡 API & Agent Workflow](./docs/API_AND_AGENT_WORKFLOW.md) • [🧭 Blueprint Implementation](./docs/BLUEPRINT_IMPLEMENTATION.md) • [🔄 Session Resume](./docs/SESSION_RESUME.md)
+[🏛️ Architecture Design](./ARCHITECTURE_DESIGN.md) • [📋 Spécification Fonctionnelle](./docs/SPECIFICATION_FONCTIONNELLE.md) • [⚡ NestJS Migration](./docs/NESTJS_MIGRATION.md) • [🔌 MCP Server](./docs/MCP.md) • [🚀 Self-Hosting & Deployment](./docs/HOSTING_AND_DEPLOYMENT.md) • [📡 API & Agent Workflow](./docs/API_AND_AGENT_WORKFLOW.md) • [🧭 Blueprint Implementation](./docs/BLUEPRINT_IMPLEMENTATION.md) • [🔄 Session Resume](./docs/SESSION_RESUME.md) • [⌨️ CLI](./cli/README.md)
 
 </div>
 
@@ -193,6 +193,7 @@ TeamFlow/
 ├── frontend/                 # Next.js 16 App Router (TypeScript + Tailwind CSS v4 + HeroUI)
 │   ├── src/app/(app)/        # Dashboard, Kanban, Pulse, Team, Deployments, Settings
 │   └── src/lib/              # API client, Keycloak auth, types, and UI components
+├── cli/                      # `teamflow` terminal client for the same API (Python, Typer + Rich)
 ├── docs/                     # Detailed architecture, hosting & API guides
 │   ├── ARCHITECTURE.md       # Multi-agent state machine and RAG design
 │   ├── NESTJS_MIGRATION.md   # Strangler Fig pattern & NestJS endpoint specifications
@@ -228,6 +229,16 @@ docker compose up --build -d
 | **Langfuse Observability** | [http://localhost:3001](http://localhost:3001) | Agent execution traces & LLM observability |
 | **PostgreSQL (pgvector)** | `localhost:5532` | Shared relational database with vector embeddings (host port mapped from internal `:5432`, configurable via `POSTGRES_PORT`) |
 | **Redis Cache** | `localhost:6379` | Cache, message queue, and Celery broker |
+
+### From the Terminal
+
+The `teamflow` CLI drives the same API as the web app: tickets, agent runs streamed live, release approvals and deployments. Run it on its own for an interactive prompt: type `/` for the commands, pick a ticket, and @mention an agent to put the swarm to work. See [cli/README.md](./cli/README.md).
+
+```bash
+uv tool install ./cli                  # or: pipx install ./cli
+teamflow login http://localhost:8001   # the NestJS API of the local stack
+teamflow                               # the interactive prompt: /task 57, then /run
+```
 
 ---
 
