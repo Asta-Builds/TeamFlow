@@ -225,6 +225,12 @@ class ProjectAndTaskCommandTests(CommandTestCase):
         for text in ("#57 Fix [bold]login[/bold]", "VC-1", "PASSED", "80% compliant", "Alan Turing (AI): Looks good :smile:"):
             self.assertIn(text, output)
 
+    def test_tasks_show_has_no_compliance_score_without_a_contract(self):
+        self.api.on("GET", "/tasks/57", (200, {"id": 57, "title": "New", "status": "todo", "contract_compliance_score": 0, "validation_contract": []}))
+        code, output = self.run_cli("tasks", "show", "57")
+        self.assertEqual(code, 0, output)
+        self.assertNotIn("compliant", output)
+
     def test_server_errors_are_reported_without_a_traceback(self):
         self.api.on("GET", "/projects", (503, {"message": "Service Unavailable"}))
         code, output = self.run_cli("projects", "list")
@@ -256,6 +262,18 @@ class AgentCommandTests(AgentTestCase):
         self.assertIn("Marcus Aurelius (AI) -> qa: Committed 3 files", output)
         self.assertIn("Run finished (2m 55s, 48,211 tokens).", output)
         self.assertIn("https://github.com/acme/shop/pull/42", output)
+
+    def test_a_blocked_agent_is_called_out_even_when_the_run_completes(self):
+        # Without a model the server records the run as completed although no code was written.
+        url = "http://localhost:3001/project/cmtuisfno0006oihvk2oqcrrv/sessions/graph-task-7-3f9c2a1b7e"
+        self.api.events = [event(1, "No code was generated.", kind="blocked", sender="backend_core", name="Marcus Aurelius (AI)")]
+        self.api.on("GET", "/agents/traces/7", (200, [trace("completed", langfuse_url=url)]))
+
+        code, output = self.run_cli("agents", "run", "7")
+
+        self.assertEqual(code, 0, output)
+        self.assertIn("Run finished, but an agent was blocked: No code was generated.", output)
+        self.assertIn(f"Trace         {url}\n", output)
 
     def test_a_failed_run_exits_with_1(self):
         self.api.events = [event(1, "The orchestration run stopped because: model offline", kind="failed", sender="", name="")]

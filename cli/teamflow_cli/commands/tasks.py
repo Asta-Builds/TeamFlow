@@ -148,6 +148,7 @@ def _show(ticket: dict[str, Any], comments: int) -> None:
     qa = None
     if ticket.get("qa_rejected"):
         qa = Text(f"rejected: {ticket.get('qa_rejection_reason') or 'see the comments'}", style="red")
+    contract = ticket.get("validation_contract") or []
     console.print(
         details(
             [
@@ -158,12 +159,12 @@ def _show(ticket: dict[str, Any], comments: int) -> None:
                 ("Due", ticket.get("due_date")),
                 ("Pull request", ticket.get("pr_url")),
                 ("QA", qa),
-                ("Contract", _percent(ticket.get("contract_compliance_score"))),
+                # Without a contract the server still reports a score of 0.
+                ("Contract", _percent(ticket.get("contract_compliance_score")) if contract else None),
             ]
         )
     )
 
-    contract = ticket.get("validation_contract") or []
     if contract:
         console.print(Text("\nValidation contract", style="bold"))
         grid = table("ID", "Status", "Assertion")

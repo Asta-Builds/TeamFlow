@@ -138,6 +138,15 @@ def table(*columns: str) -> Table:
     return grid
 
 
+def field(name: str, value: Any) -> None:
+    """One label/value line, never wrapped, so values such as URLs can be copied whole."""
+    if value in (None, "", []):
+        return
+    line = Text(f"{name:<14}", style="bold")
+    line.append_text(value if isinstance(value, Text) else Text(str(value)))
+    console.print(line, soft_wrap=True)
+
+
 def details(rows: Iterable[tuple[str, Any]]) -> Table:
     """Label/value rows, skipping empty values."""
     grid = Table.grid(padding=(0, 2))

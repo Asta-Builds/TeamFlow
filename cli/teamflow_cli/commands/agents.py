@@ -10,7 +10,7 @@ from rich.text import Text
 
 from ..client import TeamflowClient
 from ..errors import CliError, UsageError
-from ..events import EventFeed, RunOutcome, latest_event_id, watch_run
+from ..events import EventFeed, RunOutcome, approval_request, latest_event_id, watch_run
 from ..hints import suggest
 from ..output import (
     EventPrinter,
@@ -18,6 +18,7 @@ from ..output import (
     console,
     details,
     duration,
+    field,
     label,
     print_json,
     say,
@@ -166,13 +167,20 @@ def list_traces(
 
 def _watch_session(client: TeamflowClient, session_id: str, *, task_id: Optional[int] = None) -> None:
     printer = EventPrinter()
+    blocks: list[str] = []  # What agents reported as blocking them, apart from the release gate.
+
+    def show(event: dict[str, Any]) -> None:
+        printer(event)
+        if event.get("event_type") == "blocked" and approval_request(event) is None:
+            blocks.append((event.get("message") or event.get("current_work") or "").strip())
+
     say("Following the run. Ctrl+C stops watching, not the run.", "dim")
     try:
-        outcome = watch_run(client, session_id, show=printer, task_id=task_id, on_retry=printer.retrying)
+        outcome = watch_run(client, session_id, show=show, task_id=task_id, on_retry=printer.retrying)
     except KeyboardInterrupt:
         say(f"Stopped watching. The run goes on; resume with: {_watch_hint(session_id)}", "yellow")
         raise typer.Exit(130) from None
-    _report(client, outcome)
+    _report(client, outcome, blocks)
     if not outcome.ok:
         raise typer.Exit(1)
 
@@ -181,7 +189,7 @@ def _watch_hint(session_id: str) -> str:
     return suggest(f"agents watch --session {session_id}", f"/watch {session_id}")
 
 
-def _report(client: TeamflowClient, outcome: RunOutcome) -> None:
+def _report(client: TeamflowClient, outcome: RunOutcome, blocks: list[str]) -> None:
     trace = outcome.trace
     approval = outcome.approval or {}
     facts = [
@@ -192,7 +200,11 @@ def _report(client: TeamflowClient, outcome: RunOutcome) -> None:
     summary = ", ".join(fact for fact in facts if fact)
     suffix = f" ({summary})" if summary else ""
 
-    if outcome.state == "completed":
+    if outcome.state == "completed" and blocks:
+        # The server records such runs as completed, so say plainly that work was held up.
+        more = f" (and {len(blocks) - 1} more)" if len(blocks) > 1 else ""
+        say(f"Run finished{suffix}, but an agent was blocked: {blocks[-1]}{more}", "yellow")
+    elif outcome.state == "completed":
         say(f"Run finished{suffix}.", "green")
     elif outcome.state == "release_failed":
         say(f"Run finished{suffix}, but the release was not merged. See the events above.", "red")
@@ -212,14 +224,12 @@ def _report(client: TeamflowClient, outcome: RunOutcome) -> None:
         say(f"Release #{approval.get('id')} was superseded by a newer run.", "yellow")
 
     ticket = _ticket(client, trace.get("task"))
-    pr_url = (ticket or {}).get("pr_url") or (trace.get("graph_state") or {}).get("pr_url")
-    rows: list[tuple[str, Any]] = []
     if ticket:
         line = Text(f"#{ticket['id']} {ticket.get('title') or ''}  ")
         line.append_text(status(ticket.get("status")))
-        rows.append(("Ticket", line))
-    rows += [("Pull request", pr_url), ("Trace", trace.get("langfuse_url"))]
-    console.print(details(rows))
+        field("Ticket", line)
+    field("Pull request", (ticket or {}).get("pr_url") or (trace.get("graph_state") or {}).get("pr_url"))
+    field("Trace", trace.get("langfuse_url"))
 
 
 def _ticket(client: TeamflowClient, task_id: Any) -> Optional[dict[str, Any]]:
