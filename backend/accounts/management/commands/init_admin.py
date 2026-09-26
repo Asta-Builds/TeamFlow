@@ -8,17 +8,27 @@ User = get_user_model()
 
 
 class Command(BaseCommand):
-    help = "Creates or updates the primary platform superuser/admin accounts and ensures workspace access."
+    help = (
+        "Creates or updates the primary platform superuser/admin accounts and ensures workspace access. "
+        "Does nothing unless DJANGO_SUPERUSER_EMAIL and DJANGO_SUPERUSER_PASSWORD are set."
+    )
 
     def add_arguments(self, parser):
-        parser.add_argument("--email", default=os.getenv("DJANGO_SUPERUSER_EMAIL", "abdelilahdahou10@gmail.com"))
-        parser.add_argument("--password", default=os.getenv("DJANGO_SUPERUSER_PASSWORD", "abdelilah131261@"))
+        # No fallback credentials: a default in the code would be a password anyone can read.
+        parser.add_argument("--email", default=os.getenv("DJANGO_SUPERUSER_EMAIL", ""))
+        parser.add_argument("--password", default=os.getenv("DJANGO_SUPERUSER_PASSWORD", ""))
         parser.add_argument("--name", default="Abdelilah Dahou")
 
     def handle(self, *args, **options):
-        primary_email = options["email"]
+        primary_email = options["email"].strip()
         primary_password = options["password"]
         primary_name = options["name"]
+
+        if not primary_email or not primary_password:
+            self.stdout.write(
+                "Skipping admin accounts: set DJANGO_SUPERUSER_EMAIL and DJANGO_SUPERUSER_PASSWORD to manage them."
+            )
+            return
 
         # Ensure default active organization exists
         org, _ = Organization.objects.get_or_create(

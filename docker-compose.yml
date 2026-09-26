@@ -60,6 +60,9 @@ services:
       DEBUG: ${DEBUG:?Set DEBUG in .env}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
       SECRET_KEY: "${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY to a random secret}"
+      # init_admin manages the admin accounts at startup only when both are set.
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-}
+      DJANGO_SUPERUSER_PASSWORD: "${DJANGO_SUPERUSER_PASSWORD:-}"
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:?Set ALLOWED_HOSTS in .env}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Set CORS_ALLOWED_ORIGINS in .env}
       CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?Set CSRF_TRUSTED_ORIGINS in .env}

@@ -57,7 +57,7 @@ Configure the following variables (by name only):
    - `DEPLOY_HOOK_SECRET`: HMAC-SHA256 signature secret for external deployment provider callbacks (`X-TeamFlow-Signature`).
    - `DJANGO_SECRET_KEY`: Django secret key used for session signing and cryptographic tokens.
    - `JWT_SECRET` and `JWT_REFRESH_SECRET`: NestJS JWT access and refresh token signing keys.
-   - `DJANGO_SUPERUSER_PASSWORD` and `DJANGO_SUPERUSER_EMAIL`: Superuser credentials for Django admin. Note that `init_admin` runs on startup of `teamflow-backend` (`APP_ROLE=web`); if `DJANGO_SUPERUSER_PASSWORD` is unset, it defaults to a known insecure default.
+   - `DJANGO_SUPERUSER_PASSWORD` and `DJANGO_SUPERUSER_EMAIL`: Superuser credentials for Django admin. Note that `init_admin` runs on startup of `teamflow-backend` (`APP_ROLE=web`) and sets this password on both admin accounts at every start; if either variable is unset, it creates or changes no account.
    - `ADMIN_ALLOWED_IPS`: Comma-separated list of IPv4/IPv6 addresses allowed to access `/admin/`.
 2. **Network and origin configuration.**
    - `FRONTEND_URL`: Public HTTPS origin (e.g. `https://${{teamflow-nginx.RAILWAY_PUBLIC_DOMAIN}}`).
@@ -301,7 +301,7 @@ details what breaks when each secret rotates and the necessary precautions:
 | `JWT_SECRET` | `teamflow-backend-nest` | Invalidates all outstanding NestJS access tokens immediately. Clients with valid refresh tokens will exchange them for new access tokens. |
 | `JWT_REFRESH_SECRET` | `teamflow-backend-nest` | Invalidates all refresh tokens across all users. Every user must perform a fresh login. |
 | `DEPLOY_HOOK_SECRET` | `teamflow-backend`, external deploy provider | Mismatch causes external deploy provider callbacks to fail with 401 Unauthorized. Update both Railway and the external deployment hook receiver together. |
-| `DJANGO_SUPERUSER_PASSWORD` | `teamflow-backend` | Updates the superuser password on the next container start via `init_admin`. Unset password defaults to a known insecure default. |
+| `DJANGO_SUPERUSER_PASSWORD` | `teamflow-backend` | Updates the superuser password on the next container start via `init_admin`. While it is unset, `init_admin` leaves the accounts alone. |
 | `DATABASE_URL` | `teamflow-backend`, `teamflow-celery`, `teamflow-db` | Managed by Railway. Changing the Postgres password requires updating dependent services (Railway variable references `${{teamflow-db.DATABASE_URL}}` propagate automatically on redeploy). |
 | `REDIS_URL` | `teamflow-backend`, `teamflow-celery`, `teamflow-redis` | Managed by Railway. Variable references `${{teamflow-redis.REDIS_URL}}` propagate automatically on redeploy. |
 | `STRIPE_WEBHOOK_SECRET` | `teamflow-backend` | Webhook verification fails for Stripe events until updated in sync with Stripe dashboard. |

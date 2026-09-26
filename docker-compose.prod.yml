@@ -133,6 +133,9 @@ services:
     environment:
       <<: *django-env
       APP_ROLE: web
+      # init_admin manages the admin accounts at startup only when both are set.
+      DJANGO_SUPERUSER_EMAIL: ${DJANGO_SUPERUSER_EMAIL:-}
+      DJANGO_SUPERUSER_PASSWORD: "${DJANGO_SUPERUSER_PASSWORD:-}"
     depends_on:
       db:
         condition: service_healthy
