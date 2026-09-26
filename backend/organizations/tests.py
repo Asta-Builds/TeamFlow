@@ -90,6 +90,7 @@ class WorkspaceMembershipTests(APITestCase):
         seat = Membership.objects.get(user=user)
         self.assertEqual((seat.organization_id, seat.role), (user.organization_id, "ceo"))
 
+    @override_settings(AGENT_EMAIL_DOMAIN="agents.invalid")  # CI sets its own agent domain.
     def test_registration_rejects_agent_addresses(self):
         response = self.client.post(
             "/api/auth/register/",

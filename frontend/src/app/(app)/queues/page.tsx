@@ -164,24 +164,8 @@ export default function QueuesPage() {
     fetchData();
   }, [fetchData]);
 
-  // Keyboard shortcut listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setSelectedMessage(null);
-      } else if (e.key === "r" && (e.metaKey || e.ctrlKey) === false && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)) {
-        if (selectedMessage && selectedMessage.status === "pending") {
-          e.preventDefault();
-          handleReplaySingle(selectedMessage.id);
-        }
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedMessage]);
-
   // Actions
-  const handleReplaySingle = async (id: number) => {
+  const handleReplaySingle = useCallback(async (id: number) => {
     setReplayingIds((prev) => new Set(prev).add(id));
     try {
       const res = await replayDeadLetterMessage(id);
@@ -204,7 +188,23 @@ export default function QueuesPage() {
         return next;
       });
     }
-  };
+  }, [selectedMessage]);
+
+  // Keyboard shortcut listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedMessage(null);
+      } else if (e.key === "r" && (e.metaKey || e.ctrlKey) === false && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)) {
+        if (selectedMessage && selectedMessage.status === "pending") {
+          e.preventDefault();
+          handleReplaySingle(selectedMessage.id);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedMessage, handleReplaySingle]);
 
   const handleReplayAll = async () => {
     const pendingCount = messages.filter((m) => m.status === "pending").length;

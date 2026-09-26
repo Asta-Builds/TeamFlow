@@ -26,8 +26,15 @@ describe('HTTP authentication and tenant boundaries', () => {
   beforeAll(async () => {
     vi.stubEnv('JWT_SECRET', 'http-test-access-secret-'.repeat(3));
     vi.stubEnv('JWT_REFRESH_SECRET', 'http-test-refresh-secret-'.repeat(3));
-    const { AppModule } = await import('../dist/app.module.js');
-    const { PrismaService } = await import('../dist/prisma/prisma.service.js');
+    // The build output does not exist when the sources are type-checked, so the
+    // specifiers are not literals and the types come from the sources instead.
+    const compiled = '../dist';
+    const { AppModule } = (await import(
+      `${compiled}/app.module.js`
+    )) as typeof import('../src/app.module.js');
+    const { PrismaService } = (await import(
+      `${compiled}/prisma/prisma.service.js`
+    )) as typeof import('../src/prisma/prisma.service.js');
     const module = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(PrismaService)
       .useValue(prisma)

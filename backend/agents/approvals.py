@@ -141,7 +141,8 @@ def approve(approval: ApprovalRequest, user, reason: str = "") -> ApprovalReques
     Enqueues execute_release_approval on transaction commit.
     """
     with transaction.atomic():
-        locked = ApprovalRequest.objects.select_for_update().select_related(
+        # Lock only the approval row: PostgreSQL cannot lock the nullable side of the trace join.
+        locked = ApprovalRequest.objects.select_for_update(of=("self",)).select_related(
             "task",
             "task__project",
             "task__organization",
@@ -188,7 +189,8 @@ def reject(approval: ApprovalRequest, user, reason: str) -> ApprovalRequest:
         raise ValueError("A non-empty rejection reason is required.")
 
     with transaction.atomic():
-        locked = ApprovalRequest.objects.select_for_update().select_related(
+        # Lock only the approval row: PostgreSQL cannot lock the nullable side of the trace join.
+        locked = ApprovalRequest.objects.select_for_update(of=("self",)).select_related(
             "task",
             "task__project",
             "task__organization",
