@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
 
 /**
  * Debounce any fast-changing value (e.g. search input).
@@ -27,14 +27,23 @@ export function useDebounce<T>(value: T, delay: number): T {
  * Returns true if the client-side component has mounted.
  * Useful to prevent hydration mismatches for browser-only APIs.
  */
+const subscribeNever = () => () => {};
+
 export function useMounted(): boolean {
-  const [mounted, setMounted] = useState(false);
+  // True in the browser, false while rendering on the server.
+  return useSyncExternalStore(subscribeNever, () => true, () => false);
+}
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  return mounted;
+/**
+ * Reads one query-string parameter of the current URL.
+ * It is null while rendering on the server and the real value in the browser.
+ */
+export function useQueryParam(name: string): string | null {
+  return useSyncExternalStore(
+    subscribeNever,
+    () => new URLSearchParams(window.location.search).get(name),
+    () => null
+  );
 }
 
 /**
@@ -42,43 +51,28 @@ export function useMounted(): boolean {
  * @param query CSS media query string (e.g. "(min-width: 768px)").
  */
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState<boolean>(() => {
-    if (typeof window === "undefined" || !window.matchMedia) {
-      return false;
-    }
-    return window.matchMedia(query).matches;
-  });
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) {
-      return;
-    }
-
-    const mediaQueryList = window.matchMedia(query);
-    const listener = (event: MediaQueryListEvent) => {
-      setMatches(event.matches);
-    };
-
-    // Modern API
-    if (mediaQueryList.addEventListener) {
-      mediaQueryList.addEventListener("change", listener);
-    } else {
-      // Fallback for older browsers
-      (mediaQueryList as any).addListener(listener);
-    }
-
-    setMatches(mediaQueryList.matches);
-
-    return () => {
-      if (mediaQueryList.removeEventListener) {
-        mediaQueryList.removeEventListener("change", listener);
-      } else {
-        (mediaQueryList as any).removeListener(listener);
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      if (typeof window === "undefined" || !window.matchMedia) {
+        return () => {};
       }
-    };
-  }, [query]);
+      const mediaQueryList = window.matchMedia(query);
+      // Modern API, with a fallback for older browsers
+      if (mediaQueryList.addEventListener) {
+        mediaQueryList.addEventListener("change", onChange);
+        return () => mediaQueryList.removeEventListener("change", onChange);
+      }
+      mediaQueryList.addListener(onChange);
+      return () => mediaQueryList.removeListener(onChange);
+    },
+    [query]
+  );
 
-  return matches;
+  return useSyncExternalStore(
+    subscribe,
+    () => typeof window !== "undefined" && !!window.matchMedia && window.matchMedia(query).matches,
+    () => false
+  );
 }
 
 /**

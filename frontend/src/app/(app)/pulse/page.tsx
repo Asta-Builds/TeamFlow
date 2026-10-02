@@ -19,8 +19,6 @@ import {
   Trash2,
   Kanban,
   ArrowUpRight,
-  FolderKanban,
-  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -34,6 +32,7 @@ import {
   updatePulseFocus,
 } from "@/lib/api";
 import { TASK_STATUS_LABELS } from "@/lib/ui";
+import { useQueryParam } from "@/lib/hooks";
 import type {
   Priority,
   PulseDashboard,
@@ -120,7 +119,15 @@ function apiMessage(error: unknown, fallback: string) {
 
 export default function PulsePage() {
   const [selectedDate, setSelectedDate] = useState(() => localDate());
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const linkedProject = useQueryParam("project");
+  const [chosenProjectId, setSelectedProjectId] = useState<number | null | undefined>(undefined);
+  // The ?project=<id> link is the starting value until a project is picked here.
+  const selectedProjectId =
+    chosenProjectId !== undefined
+      ? chosenProjectId
+      : linkedProject && !isNaN(Number(linkedProject))
+        ? Number(linkedProject)
+        : null;
   const [dashboard, setDashboard] = useState<PulseDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingNote, setSavingNote] = useState(false);
@@ -130,16 +137,6 @@ export default function PulsePage() {
   const [savingPlan, setSavingPlan] = useState(false);
   const [working, setWorking] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-
-  // Initialize selectedProjectId from URL query parameter ?project=<id>
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const urlParams = new URLSearchParams(window.location.search);
-    const p = urlParams.get("project");
-    if (p && !isNaN(Number(p))) {
-      setSelectedProjectId(Number(p));
-    }
-  }, []);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);

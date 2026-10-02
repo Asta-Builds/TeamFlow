@@ -9,7 +9,6 @@ import {
   PRIORITY_STYLES,
 } from "@/lib/ui";
 import { buttonVariants } from "./ui/button";
-import { badgeVariants } from "./ui/badge";
 import { selectVariants } from "./ui/select";
 import { tabsTriggerVariants } from "./ui/tabs";
 
@@ -61,7 +60,7 @@ describe("Theme System & Light Mode (Mode Clair) Tokens", () => {
     });
 
     it("provides accessible light and dark contrast classes for all roles", () => {
-      Object.entries(ROLE_COLORS).forEach(([role, classes]) => {
+      Object.values(ROLE_COLORS).forEach((classes) => {
         expect(classes).toContain("dark:");
         expect(classes).toContain("border-");
         expect(classes).toContain("text-");

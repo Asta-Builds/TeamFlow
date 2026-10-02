@@ -265,6 +265,7 @@ export interface AgentExecutionTrace {
     subtasks?: Array<{ role: string; task: string }>;
     code_changes?: Record<string, string>;
     pr_url?: string;
+    branch?: string;
     qa_result?: string;
     total_tokens?: number;
     total_cost_usd?: number;

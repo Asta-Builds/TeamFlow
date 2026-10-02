@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import ProjectsLoading from "./loading";
-import type { Project, ProjectStatus } from "@/lib/types";
+import type { ProjectStatus } from "@/lib/types";
 import { Avatar, Badge } from "@/lib/ui";
 import {
   LayoutGrid,

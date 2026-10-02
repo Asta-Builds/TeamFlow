@@ -59,7 +59,6 @@ export function DeploymentStatusCard({
 
   const isSuccess = data.status === "deployed";
   const isDeploying = data.status === "deploying";
-  const isFailed = data.status === "failed";
 
   const hasStages = stages && stages.length > 0;
 

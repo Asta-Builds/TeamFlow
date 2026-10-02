@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
+import { useMounted } from "@/lib/hooks";
 import { Sun, Moon, Laptop } from "lucide-react";
 import { toast } from "sonner";
 
@@ -14,11 +14,7 @@ interface ThemeToggleProps {
 
 export function ThemeToggle({ showLabel = false, className = "", variant = "icon" }: ThemeToggleProps) {
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   if (!mounted) {
     return (

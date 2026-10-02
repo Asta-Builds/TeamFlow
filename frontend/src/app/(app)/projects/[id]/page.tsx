@@ -31,6 +31,7 @@ import type {
   PulseFocusSession,
   PulsePlanItem,
   PulseTimeBlock,
+  Role,
   Task,
   TaskStatus,
   TaskType,
@@ -68,16 +69,11 @@ import {
   Zap,
   RefreshCw,
   ShieldCheck,
-  Clock,
   Timer,
   Play,
   Pause,
   SquareCheckBig,
-  Terminal,
-  Layers,
   Loader2,
-  ChevronDown,
-  ChevronUp,
   FolderGit2,
   Rocket,
   Lock,
@@ -88,10 +84,10 @@ import {
   ValidationContractCard,
   PullRequestCard,
   LangfuseSessionCard,
-  DeploymentStatusCard,
   AgentToolConfirmationModal,
   GenerativeMessageRenderer,
 } from "@/components/generative";
+import type { ValidationItem } from "@/components/generative/ValidationContractCard";
 import { type ToolConfirmationRequest } from "@/lib/useAgentStream";
 
 interface PmGenerateTasksResponse {
@@ -262,6 +258,8 @@ export default function ProjectBoardPage() {
     }
   }
 
+  const deepLinkHandledRef = useRef(false);
+
   const load = useCallback(() => {
     Promise.all([
       apiFetch<Project>(`/projects/${projectId}/`),
@@ -270,8 +268,16 @@ export default function ProjectBoardPage() {
     ])
       .then(([p, t, u]) => {
         setProject(p);
-        setTasks(normalizeList<Task>(t));
+        const loaded = normalizeList<Task>(t);
+        setTasks(loaded);
         setTeamMembers(normalizeList<User>(u));
+        // Open the ticket named by ?task=<id> (from Pulse or a notification) on the first load only.
+        if (!deepLinkHandledRef.current) {
+          deepLinkHandledRef.current = true;
+          const linked = new URLSearchParams(window.location.search).get("task");
+          const match = linked ? loaded.find((item) => item.id === Number(linked)) : undefined;
+          if (match) setSelected(match);
+        }
       })
       .catch((err) => console.error("Error loading project board:", err))
       .finally(() => setLoading(false));
@@ -281,18 +287,6 @@ export default function ProjectBoardPage() {
     load();
   }, [load]);
 
-  // Handle ?task=<id> deep linking from Pulse or notifications
-  useEffect(() => {
-    if (typeof window === "undefined" || !tasks.length) return;
-    const urlParams = new URLSearchParams(window.location.search);
-    const taskId = urlParams.get("task");
-    if (taskId) {
-      const match = tasks.find((t) => t.id === Number(taskId));
-      if (match) {
-        setSelected(match);
-      }
-    }
-  }, [tasks]);
 
   async function moveTask(task: Task, toStatus: TaskStatus) {
     if (task.status === toStatus) return;
@@ -1095,11 +1089,14 @@ function TaskDetailPanel({
   const [planningBlock, setPlanningBlock] = useState<PulseTimeBlock | null>(null);
   const [pulseElapsed, setPulseElapsed] = useState(0);
 
-  const loadPulseStatus = useCallback(async () => {
-    try {
-      const today = new Date().toISOString().slice(0, 10);
-      const dash = await getPulseDashboard(today, task.project);
-      const planned = dash.plan_items.find((item) => item.task === task.id) || null;
+  const fetchPulseStatus = useCallback(async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const dash = await getPulseDashboard(today, task.project);
+    return { dash, planned: dash.plan_items.find((item) => item.task === task.id) || null };
+  }, [task.id, task.project]);
+
+  const applyPulseStatus = useCallback(
+    ({ dash, planned }: Awaited<ReturnType<typeof fetchPulseStatus>>) => {
       setPulsePlanItem(planned);
       if (dash.current_session && (dash.current_session.task_id === task.id || dash.current_session.plan_item === planned?.id)) {
         setPulseSession(dash.current_session);
@@ -1107,14 +1104,31 @@ function TaskDetailPanel({
       } else {
         setPulseSession(null);
       }
+    },
+    [task.id]
+  );
+
+  const loadPulseStatus = useCallback(async () => {
+    try {
+      applyPulseStatus(await fetchPulseStatus());
     } catch {
       // Ignore if pulse is unreachable
     }
-  }, [task.id, task.project]);
+  }, [fetchPulseStatus, applyPulseStatus]);
 
   useEffect(() => {
-    loadPulseStatus();
-  }, [loadPulseStatus]);
+    let cancelled = false;
+    fetchPulseStatus()
+      .then((status) => {
+        if (!cancelled) applyPulseStatus(status);
+      })
+      .catch(() => {
+        // Ignore if pulse is unreachable
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchPulseStatus, applyPulseStatus]);
 
   useEffect(() => {
     if (pulseSession?.status !== "active") return;
@@ -1783,7 +1797,7 @@ function TaskDetailPanel({
                       ? detail.validation_contract.map((clause, idx) => ({
                           id: clause.id || `clause-${idx}`,
                           label: clause.assertion || `Requirement #${idx + 1}`,
-                          category: (clause.category?.toLowerCase() as any) || "functionality",
+                          category: (clause.category?.toLowerCase() as ValidationItem["category"]) || "functionality",
                           passed: clause.status === "PASSED",
                           blocker: clause.status === "FAILED" || clause.category === "Security",
                           notes: clause.evidence,
@@ -1826,7 +1840,7 @@ function TaskDetailPanel({
                       pr_url: detail.pr_url || latestTrace?.graph_state?.pr_url,
                       title: detail.title,
                       status: detail.status === "done" ? "merged" : "open",
-                      ...((latestTrace?.graph_state as any)?.branch ? { branch: (latestTrace?.graph_state as any).branch } : {})
+                      ...(latestTrace?.graph_state?.branch ? { branch: latestTrace.graph_state.branch } : {})
                     }} />
                 )}
 
@@ -2415,12 +2429,12 @@ function SwarmLiveFeedModal({
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 mr-1">Filtrer :</span>
             {[
               { id: "all", label: "Tous les Agents" },
-              ...(clusterStatus?.active_agents?.length ? clusterStatus.active_agents.map((a: any) => ({ id: a.role === "tech_lead" ? "lead" : a.role, label: a.name || roleLabel(a.role as any, true) })) : [
-                { id: "lead", label: roleLabel("tech_lead" as any, true) },
-                { id: "backend", label: roleLabel("backend" as any, true) },
-                { id: "frontend", label: roleLabel("frontend" as any, true) },
-                { id: "qa", label: roleLabel("qa" as any, true) },
-                { id: "devops", label: roleLabel("devops" as any, true) }
+              ...(clusterStatus?.active_agents?.length ? clusterStatus.active_agents.map((a) => ({ id: a.role === "tech_lead" ? "lead" : a.role, label: a.name || roleLabel(a.role as Role, true) })) : [
+                { id: "lead", label: roleLabel("tech_lead", true) },
+                { id: "backend", label: roleLabel("backend", true) },
+                { id: "frontend", label: roleLabel("frontend", true) },
+                { id: "qa", label: roleLabel("qa", true) },
+                { id: "devops", label: roleLabel("devops", true) }
               ])
             ].map((f) => (
               <button

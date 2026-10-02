@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
@@ -12,10 +13,8 @@ import {
   Kanban,
   Activity,
   Rocket,
-  SearchCheck,
   Crown,
   Code2,
-  GitPullRequest,
   CheckCircle2,
   ExternalLink,
   ArrowRight,
@@ -32,7 +31,6 @@ import {
   Sliders,
   Play,
   FileCode,
-  Users,
   Eye,
 } from "lucide-react";
 
@@ -169,6 +167,7 @@ const ROLE_PREVIEWS = {
 
 export default function LandingPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [activeRole, setActiveRole] = useState<keyof typeof ROLE_PREVIEWS>("designer");
   const [activeDevice, setActiveDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [canvasTheme, setCanvasTheme] = useState<"dark" | "light">("dark");
@@ -176,7 +175,7 @@ export default function LandingPage() {
   const [studioTab, setStudioTab] = useState<"canvas" | "code" | "audit">("canvas");
 
   function loginWithClerk() {
-    window.location.href = "/sign-in";
+    router.push("/sign-in");
   }
 
   function handleCopyCode() {

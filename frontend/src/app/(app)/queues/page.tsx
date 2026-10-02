@@ -3,28 +3,21 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import {
-  Layers,
-  Radio,
   RefreshCw,
   RotateCcw,
   Trash2,
   AlertTriangle,
   CheckCircle2,
-  Clock,
   Search,
-  Filter,
   ArrowRight,
-  ExternalLink,
   Copy,
   Check,
   X,
   Terminal,
   Activity,
   Cpu,
-  Database,
   ShieldAlert,
   Server,
-  Code2,
 } from "lucide-react";
 import {
   getQueueMetrics,
@@ -136,33 +129,55 @@ export default function QueuesPage() {
   const [replayingIds, setReplayingIds] = useState<Set<number>>(new Set());
 
   // Load metrics & DLQ from API
-  const fetchData = useCallback(async (isSilent = false) => {
-    if (!isSilent) setRefreshing(true);
-    try {
-      const [metricsData, listData] = await Promise.all([
+  const loadQueueData = useCallback(
+    () =>
+      Promise.all([
         getQueueMetrics().catch(() => null),
         getDeadLetterMessages({ status: activeFilter !== "all" ? activeFilter : undefined }).catch(() => null),
-      ]);
+      ]),
+    [activeFilter]
+  );
 
+  const applyQueueData = useCallback(
+    ([metricsData, listData]: Awaited<ReturnType<typeof loadQueueData>>) => {
       if (metricsData) {
         setMetrics(metricsData);
       }
-      if (listData && Array.isArray(listData.results) && listData.results.length > 0) {
+      if (listData && Array.isArray(listData.results)) {
         setMessages(listData.results);
-      } else if (listData && Array.isArray(listData.results) && listData.results.length === 0) {
-        setMessages([]);
       }
+    },
+    []
+  );
+
+  const fetchData = useCallback(async (isSilent = false) => {
+    if (!isSilent) setRefreshing(true);
+    try {
+      applyQueueData(await loadQueueData());
     } catch {
       // Keep resilient fallback
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeFilter]);
+  }, [loadQueueData, applyQueueData]);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    let cancelled = false;
+    loadQueueData()
+      .then((data) => {
+        if (!cancelled) applyQueueData(data);
+      })
+      .catch(() => {
+        // Keep resilient fallback
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadQueueData, applyQueueData]);
 
   // Actions
   const handleReplaySingle = useCallback(async (id: number) => {

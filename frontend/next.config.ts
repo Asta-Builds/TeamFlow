@@ -29,6 +29,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  images: {
+    // GitHub account avatars on the settings page.
+    remotePatterns: [{ protocol: "https", hostname: "avatars.githubusercontent.com" }],
+  },
   skipTrailingSlashRedirect: true,
   async headers() {
     return [

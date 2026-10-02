@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { apiFetch, setTokens } from "@/lib/api";
@@ -23,17 +24,12 @@ import {
   FolderGit2,
   CheckSquare,
   Rocket,
-  SearchCheck,
   Sparkles,
   UserPlus,
   CreditCard,
   Layers,
-  ChevronRight,
   Loader2,
-  GitBranch,
   ExternalLink,
-  Globe,
-  Lock,
   Sun,
   Moon,
   Laptop,
@@ -136,7 +132,6 @@ export default function SettingsPage() {
   const [githubAccount, setGithubAccount] = useState<GitHubTestResponse["account"] | null>(null);
   const [savingGithub, setSavingGithub] = useState(false);
   const [testingGithub, setTestingGithub] = useState(false);
-  const [githubIsEnvConfigured, setGithubIsEnvConfigured] = useState(false);
 
   // Active tab
   const [activeTab, setActiveTab] = useState<"profile" | "security" | "workspace" | "integrations" | "export">("profile");
@@ -153,7 +148,7 @@ export default function SettingsPage() {
   const leaveOrgMutation = useLeaveOrganizationMutation();
   const inviteMemberMutation = useInviteMemberMutation();
 
-  const [workspaceName, setWorkspaceName] = useState("");
+  const [workspaceNameDraft, setWorkspaceName] = useState<string | null>(null);
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
 
@@ -162,13 +157,8 @@ export default function SettingsPage() {
   const [inviteName, setInviteName] = useState("");
   const [inviteRole, setInviteRole] = useState<HumanRole>("member");
 
-  useEffect(() => {
-    if (currentOrg?.name) {
-      setWorkspaceName(currentOrg.name);
-    } else if (user?.organization_name) {
-      setWorkspaceName(user.organization_name);
-    }
-  }, [currentOrg?.name, user?.organization_name]);
+  // The saved name shows until the user starts editing it.
+  const workspaceName = workspaceNameDraft ?? currentOrg?.name ?? user?.organization_name ?? "";
 
   const handleUpdateWorkspaceName = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,7 +236,6 @@ export default function SettingsPage() {
           if (res.default_visibility) setGithubVisibility(res.default_visibility);
           if (res.auto_init !== undefined) setGithubAutoInit(res.auto_init);
           if (res.include_ci_workflow !== undefined) setGithubIncludeCi(res.include_ci_workflow);
-          if (res.is_env_configured) setGithubIsEnvConfigured(true);
           if (res.account_login) {
             setGithubAccount({
               login: res.account_login,
@@ -348,7 +337,7 @@ export default function SettingsPage() {
     e.preventDefault();
     setSavingGithub(true);
     try {
-      const payload: any = {
+      const payload: Record<string, string | boolean> = {
         github_org: githubOrg.trim(),
         default_visibility: githubVisibility,
         auto_init: githubAutoInit,
@@ -376,8 +365,8 @@ export default function SettingsPage() {
       }
       setGithubToken("");
       toast.success("GitHub workspace integration saved successfully!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save GitHub settings.");
+    } catch (err) {
+      toast.error((err instanceof Error && err.message) || "Failed to save GitHub settings.");
     } finally {
       setSavingGithub(false);
     }
@@ -386,7 +375,7 @@ export default function SettingsPage() {
   const handleTestGithub = async () => {
     setTestingGithub(true);
     try {
-      const payload: any = {};
+      const payload: Record<string, string> = {};
       if (githubToken.trim()) payload.github_token = githubToken.trim();
       const res = await apiFetch<GitHubTestResponse>("/integrations/github/test/", {
         method: "POST",
@@ -399,8 +388,8 @@ export default function SettingsPage() {
       } else {
         toast.error("GitHub test failed: " + (res.detail || "Unable to connect"));
       }
-    } catch (err: any) {
-      toast.error("GitHub test error: " + (err.message || String(err)));
+    } catch (err) {
+      toast.error("GitHub test error: " + ((err instanceof Error && err.message) || String(err)));
     } finally {
       setTestingGithub(false);
     }
@@ -1139,7 +1128,7 @@ export default function SettingsPage() {
               {githubAccount ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300 text-xs font-bold shrink-0">
                   {githubAccount.avatar_url && (
-                    <img src={githubAccount.avatar_url} alt={githubAccount.login} className="h-5 w-5 rounded-full" />
+                    <Image src={githubAccount.avatar_url} alt={githubAccount.login} width={20} height={20} className="h-5 w-5 rounded-full" />
                   )}
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                   <span>@{githubAccount.login}</span>
@@ -1161,7 +1150,7 @@ export default function SettingsPage() {
               <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div className="flex items-center gap-3">
                   {githubAccount.avatar_url && (
-                    <img src={githubAccount.avatar_url} alt="" className="h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-700" />
+                    <Image src={githubAccount.avatar_url} alt="" width={40} height={40} className="h-10 w-10 rounded-xl border border-slate-200 dark:border-slate-700" />
                   )}
                   <div>
                     <div className="flex items-center gap-2">

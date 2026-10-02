@@ -5,7 +5,6 @@ import { ValidationContractCard, type ValidationContractData } from "./Validatio
 import { PullRequestCard, type PullRequestData } from "./PullRequestCard";
 import { LangfuseSessionCard, type LangfuseSessionData } from "./LangfuseSessionCard";
 import { DeploymentStatusCard, type DeploymentCardData } from "./DeploymentStatusCard";
-import { Bot, Sparkles, Terminal, ShieldCheck, GitPullRequest, Rocket } from "lucide-react";
 
 export interface GenerativeMessageRendererProps {
   content: string;
@@ -17,8 +16,6 @@ export interface GenerativeMessageRendererProps {
 
 export function GenerativeMessageRenderer({
   content,
-  senderName,
-  senderRole,
   metadata,
   interactive = true,
 }: GenerativeMessageRendererProps) {

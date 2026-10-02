@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { streamAgentEvents, getAgentEvents, approveRelease, rejectRelease } from "@/lib/api";
-import type { AgentEvent, AgentEventType } from "@/lib/types";
+import type { AgentEvent } from "@/lib/types";
 import { toast } from "sonner";
 
 export interface ToolConfirmationRequest {
@@ -139,8 +139,6 @@ export function useAgentStream({
     abortControllerRef.current?.abort();
     const ac = new AbortController();
     abortControllerRef.current = ac;
-    setIsStreaming(true);
-    setError(null);
 
     // Initial historical events catch-up
     getAgentEvents({ taskId, projectId, sessionId })
@@ -160,7 +158,12 @@ export function useAgentStream({
     streamAgentEvents(
       { taskId, projectId, sessionId },
       handleIncomingEvent,
-      ac.signal
+      ac.signal,
+      true,
+      () => {
+        setIsStreaming(true);
+        setError(null);
+      }
     )
       .then(() => {
         setIsStreaming(false);

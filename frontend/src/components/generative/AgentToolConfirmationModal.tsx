@@ -7,9 +7,7 @@ import {
   XCircle,
   X,
   ShieldAlert,
-  Bot,
   Terminal,
-  Code,
 } from "lucide-react";
 import type { ToolConfirmationRequest } from "@/lib/useAgentStream";
 

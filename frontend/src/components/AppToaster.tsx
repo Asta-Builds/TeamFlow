@@ -2,16 +2,12 @@
 
 import * as React from "react";
 import { useTheme } from "next-themes";
+import { useMounted } from "@/lib/hooks";
 import { Toaster as SonnerToaster } from "sonner";
-import { useEffect, useState } from "react";
 
 export function AppToaster() {
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useMounted();
 
   const activeTheme = (mounted ? resolvedTheme : "dark") as "light" | "dark";
 

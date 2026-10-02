@@ -405,6 +405,7 @@ export async function streamAgentEvents(
   onEvent: (event: import("./types").AgentEvent) => void,
   signal: AbortSignal,
   retry = true,
+  onOpen?: () => void,
 ) {
   const query = agentEventQuery(options);
   const token = getToken();
@@ -415,11 +416,12 @@ export async function streamAgentEvents(
 
   if (response.status === 401 && retry) {
     const refreshed = await refreshAccess();
-    if (refreshed) return streamAgentEvents(options, onEvent, signal, false);
+    if (refreshed) return streamAgentEvents(options, onEvent, signal, false, onOpen);
   }
   if (!response.ok || !response.body) {
     throw new ApiError(response.status, { detail: "Agent event stream unavailable." });
   }
+  onOpen?.();
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();

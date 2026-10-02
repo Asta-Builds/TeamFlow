@@ -6,10 +6,8 @@ import {
   XCircle,
   Clock,
   ShieldCheck,
-  AlertTriangle,
   ChevronDown,
   ChevronUp,
-  FileCheck2,
   ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";

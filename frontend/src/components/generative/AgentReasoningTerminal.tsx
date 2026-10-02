@@ -16,8 +16,6 @@ import {
   Maximize2,
   Minimize2,
   Trash2,
-  Cpu,
-  Filter,
 } from "lucide-react";
 import type { AgentEvent } from "@/lib/types";
 import { toast } from "sonner";
@@ -39,7 +37,6 @@ export function AgentReasoningTerminal({
   isStreaming = false,
   activeTokens = "",
   activeAgent,
-  activeTool,
   onClear,
   title = "Live agent activity",
   maxHeight = "max-h-80",
