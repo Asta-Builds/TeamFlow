@@ -125,6 +125,7 @@ def frontend_agent_node(state: TicketState) -> Dict[str, Any]:
         )
         return {
             "status": "in_review",
+            "blocked_reason": "No language model is configured, so no code was generated.",
             "pr_url": "",
             "assigned_agent": "tech_lead",
             "code_changes": code_changes,

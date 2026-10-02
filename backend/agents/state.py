@@ -24,6 +24,8 @@ class TicketState(TypedDict, total=False):
     code_changes: Dict[str, str]
     files_modified: List[str]
     errors: List[str]
+    # Set when an agent could not do its part; the run then ends as failed.
+    blocked_reason: Optional[str]
     deployment_status: Optional[str]
     deployment_logs: Optional[str]
     github_repo: Optional[str]

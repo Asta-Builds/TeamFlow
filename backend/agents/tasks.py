@@ -54,10 +54,10 @@ def execute_graph_run(trace_id: int):
 
 @shared_task(name="agents.execute_chain_run")
 def execute_chain_run(trace_id: int, instruction: str = ""):
+    from .swarm_chain import SwarmBlocked, execute_full_swarm_chain
+
     trace = _load_trace(trace_id)
     try:
-        from .swarm_chain import execute_full_swarm_chain
-
         events = execute_full_swarm_chain(
             task=trace.task,
             instruction=instruction,
@@ -99,6 +99,10 @@ def execute_chain_run(trace_id: int, instruction: str = ""):
 
         trace.save(update_fields=["status", "graph_state", "steps", "langfuse_url", "finished_at"])
         return {"ok": True, "trace_id": trace.id, "events_count": len(events)}
+    except SwarmBlocked as exc:
+        # An expected stop, such as no language model: record it without a task failure.
+        _fail_trace(trace, exc)
+        return {"ok": False, "trace_id": trace.id, "error": str(exc)}
     except Exception as exc:
         _fail_trace(trace, exc)
         raise

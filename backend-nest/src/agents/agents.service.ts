@@ -326,6 +326,7 @@ export class AgentsService {
     const events = await this.prisma.agentEvent.findMany({
       where: {
         organizationId,
+        ...(!isPrivileged(user) && { project: visibleProjects(user) }),
         ...(query.projectId ? { projectId: query.projectId } : {}),
         ...(query.taskId ? { taskId: query.taskId } : {}),
         ...(query.sessionId ? { sessionId: query.sessionId } : {}),
@@ -397,6 +398,7 @@ export class AgentsService {
         const events = await this.prisma.agentEvent.findMany({
           where: {
             organizationId,
+            ...(!isPrivileged(user) && { project: visibleProjects(user) }),
             id: { gt: currentAfter },
             ...(query.projectId ? { projectId: query.projectId } : {}),
             ...(query.taskId ? { taskId: query.taskId } : {}),

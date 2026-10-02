@@ -167,3 +167,17 @@ class ProviderHonestyTests(TestCase):
         
         self.trace.refresh_from_db()
         self.assertEqual(self.trace.status, AgentExecutionTrace.Status.COMPLETED)
+
+    @patch("agents.swarm_chain.execute_full_swarm_chain")
+    def test_execute_chain_run_records_a_blocked_chain_as_failed(self, mock_exec):
+        """A chain that could not write code ends as failed, without a task failure."""
+        from agents.swarm_chain import SwarmBlocked
+
+        mock_exec.side_effect = SwarmBlocked("No language model is configured, so no code was generated.")
+
+        res = execute_chain_run(self.trace.id, "do things")
+
+        self.assertFalse(res["ok"])
+        self.trace.refresh_from_db()
+        self.assertEqual(self.trace.status, AgentExecutionTrace.Status.FAILED)
+        self.assertIn("No language model", self.trace.graph_state["error"])

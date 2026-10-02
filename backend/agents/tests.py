@@ -247,10 +247,14 @@ class MultiAgentTestCase(TestCase):
         ingest_sample_knowledge_base(project=self.project)
         result = execute_ticket_swarm(self.task)
 
-        self.assertTrue(result["ok"])
-        self.assertEqual(result["status"], "completed")
+        # Nothing was built, so the run fails and says why instead of passing as completed.
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("No language model is configured", result["error"])
 
         trace = AgentExecutionTrace.objects.get(pk=result["trace_id"])
+        self.assertEqual(trace.status, AgentExecutionTrace.Status.FAILED)
+        self.assertTrue(AgentEvent.objects.filter(trace=trace, event_type="failed").exists())
         self.assertEqual(trace.tokens_used, 0)
         self.assertFalse(trace.graph_state.get("code_changes"))
         self.assertNotIn("GraphRecursionError", str(trace.graph_state))
@@ -264,7 +268,7 @@ class MultiAgentTestCase(TestCase):
         self.assertEqual(dev_steps[-1].get("action"), "implementation_blocked")
 
         self.task.refresh_from_db()
-        self.assertNotEqual(self.task.status, Task.Status.DONE)
+        self.assertEqual(self.task.status, Task.Status.TODO)
 
     @patch("agents.nodes.qa_agent.verify_workspace")
     @patch("agents.nodes.frontend_agent.generate_text_detailed")
@@ -415,6 +419,34 @@ class MultiAgentTestCase(TestCase):
         response = self.client.get("/api/agents/events/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual([event["message"] for event in response.data["events"]], ["Own update"])
+
+    def test_members_see_only_the_events_of_their_projects(self):
+        trace = AgentExecutionTrace.objects.create(task=self.task, session_id="private")
+        event = emit_agent_event(
+            task=self.task,
+            trace=trace,
+            session_id="private",
+            event_type="progress",
+            message="Private project update",
+        )
+        outsider = User.objects.create_user(
+            email="member@teamflow.dev",
+            name="Member",
+            role="member",
+            organization=self.org,
+            password="testpassword123",
+        )
+        client = APIClient()
+        client.force_authenticate(user=outsider)
+
+        response = client.get("/api/agents/events/")
+        self.assertEqual(response.data["events"], [])
+        stream = client.get(f"/api/agents/events/stream/?after={event.id - 1}")
+        self.assertNotIn("Private project update", next(iter(stream.streaming_content)).decode("utf-8"))
+
+        self.project.members.add(outsider)
+        response = client.get("/api/agents/events/")
+        self.assertEqual([e["message"] for e in response.data["events"]], ["Private project update"])
 
     def test_authenticated_event_stream_emits_persisted_update(self):
         trace = AgentExecutionTrace.objects.create(task=self.task, session_id="stream")

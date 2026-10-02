@@ -52,8 +52,10 @@ def _organization_task(request, task_id):
 def _event_queryset(request):
     if request.user.organization_id is None:
         raise PermissionDenied("An organization is required for agent operations.")
+    # Members see only the events of projects they belong to, like the projects themselves.
     queryset = AgentEvent.objects.filter(
         organization=request.user.organization,
+        project__in=visible_projects_for(request.user),
     ).select_related("sender", "task", "project", "trace")
     project_id = request.query_params.get("project")
     task_id = request.query_params.get("task")
@@ -261,6 +263,7 @@ class AgentEventStreamView(views.APIView):
             return Response({"detail": "after must be an integer."}, status=400)
 
         organization_id = request.user.organization_id
+        visible_project_ids = list(visible_projects_for(request.user).values_list("id", flat=True))
         project_id = request.query_params.get("project")
         task_id = request.query_params.get("task")
         session_id = request.query_params.get("session")
@@ -274,6 +277,7 @@ class AgentEventStreamView(views.APIView):
                     close_old_connections()
                 queryset = AgentEvent.objects.filter(
                     organization_id=organization_id,
+                    project_id__in=visible_project_ids,
                     id__gt=last_id,
                 ).select_related("sender", "task", "project", "trace").order_by("id")
                 if project_id:

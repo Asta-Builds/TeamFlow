@@ -176,3 +176,17 @@ it('triggers RAG ingestion or falls back gracefully', async () => {
   expect(res.chunks_ingested).toBe(10);
 });
 
+it('limits members to the agent events of projects they belong to', async () => {
+  const { service, prisma } = setup();
+  const member = { id: 8, organizationId: 3, role: 'member' };
+
+  await service.getEvents(member, {});
+  await service.getEvents(user, {});
+
+  const [memberQuery, leadQuery] = prisma.agentEvent.findMany.mock.calls.map((call: any[]) => call[0].where);
+  expect(memberQuery.project).toEqual({
+    organizationId: 3,
+    OR: [{ ownerId: 8 }, { members: { some: { userId: 8 } } }],
+  });
+  expect(leadQuery.project).toBeUndefined();
+});

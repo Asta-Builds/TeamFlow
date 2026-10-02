@@ -42,6 +42,10 @@ from agents.verification import verify_workspace, VerificationResult
 logger = logging.getLogger(__name__)
 
 
+class SwarmBlocked(RuntimeError):
+    """An agent could not do its part, so the run ends as failed instead of completed."""
+
+
 SWARM_SPECIALISTS = {}
 for _key, _spec_key in [("tech_lead", "tech_lead"), ("backend", "backend"), ("frontend", "frontend"), ("qa", "qa"), ("devops", "devops")]:
     _spec = get_agent_spec(_spec_key)
@@ -227,7 +231,7 @@ def execute_full_swarm_chain(
 
         Comment.objects.create(task=task, author=backend_user, body=fail_body)
         emit_agent_event(task=task, trace=trace, session_id=session_id, event_type="blocked", sender_key="backend_core", message="No code was generated.", current_work="Failed to generate code", remaining_work=["configure language model"])
-        return chain_events
+        raise SwarmBlocked("No language model is configured, so no code was generated.")
 
 
     backend_outcome = apply_code_changes(
@@ -304,7 +308,7 @@ def execute_full_swarm_chain(
 
         Comment.objects.create(task=task, author=frontend_user, body=fail_body)
         emit_agent_event(task=task, trace=trace, session_id=session_id, event_type="blocked", sender_key="frontend_app", message="No code was generated.", current_work="Failed to generate code", remaining_work=["configure language model"])
-        return chain_events
+        raise SwarmBlocked("No language model is configured, so no code was generated.")
 
 
     frontend_outcome = apply_code_changes(

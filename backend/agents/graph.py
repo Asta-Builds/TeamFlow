@@ -237,6 +237,40 @@ def execute_ticket_swarm(
         final_state = agent_app.invoke(initial_state, config=config)
         duration = round(time.time() - start_time, 2)
 
+        blocked_reason = final_state.get("blocked_reason")
+        if blocked_reason and not final_state.get("approval_id"):
+            # Nothing was built, so the ticket keeps its status and the run reports why it stopped.
+            trace.status = AgentExecutionTrace.Status.FAILED
+            trace.graph_state = {**final_state, "error": blocked_reason}
+            trace.steps = final_state.get("history", [])
+            trace.tokens_used = final_state.get("total_tokens", 0)
+            trace.cost_usd = final_state.get("total_cost_usd", 0.0)
+            trace.duration_seconds = duration
+            trace.langfuse_url = langfuse_url
+            trace.finished_at = timezone.now()
+            trace.save(update_fields=[
+                "status", "graph_state", "steps", "tokens_used", "cost_usd",
+                "duration_seconds", "langfuse_url", "finished_at",
+            ])
+            emit_agent_event(
+                task=task,
+                trace=trace,
+                session_id=session_id,
+                event_type="failed",
+                message=f"The orchestration run stopped because: {blocked_reason}",
+                current_work="Run failed",
+                remaining_work=["resolve the reported blocker", "retry the run"],
+            )
+            return {
+                "ok": False,
+                "trace_id": trace.id,
+                "session_id": session_id,
+                "status": "failed",
+                "error": blocked_reason,
+                "duration_seconds": duration,
+                "langfuse_url": langfuse_url,
+            }
+
         # Update task status and PR in database through application service
         final_status = final_state.get("status", "done")
         has_approval = bool(final_state.get("approval_id"))
