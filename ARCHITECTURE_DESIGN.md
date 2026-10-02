@@ -3,7 +3,7 @@
 > **Document Version:** 2.0.0  
 > **Status:** Approved / Production-Ready  
 > **Target Audience:** System Architects, Core Engineers, AI Researchers, Security Auditors  
-> **Core Repositories:** [Frontend](file:///F:/TeamFlow/frontend) · [NestJS Gateway](file:///F:/TeamFlow/backend-nest) · [Django AI Swarm](file:///F:/TeamFlow/backend) · [CI/CD](file:///F:/TeamFlow/.github/workflows/railway-deploy.yml)
+> **Core Repositories:** [Frontend](file:///F:/TeamFlow/frontend) · [NestJS Gateway](file:///F:/TeamFlow/backend-nest) · [Django AI Swarm](file:///F:/TeamFlow/backend) · [CI/CD](file:///F:/TeamFlow/.github/workflows/ci.yml)
 
 ---
 
@@ -495,16 +495,16 @@ The production application is deployed on [Railway](https://railway.com) across 
 Because Railway container hosts expose up to 48 vCPUs to virtualized guests, unconstrained Celery workers spawn 48 prefork child processes consuming ~7.2 GB RAM and triggering Linux Out-Of-Memory (`SIGKILL 137`).  
 **Resolution:** Strictly configured with `--concurrency=2`, stabilizing RAM usage at <250 MB under heavy agent workloads.
 
-### Continuous Deployment Pipeline (`.github/workflows/railway-deploy.yml`)
-Deployments are fully automated on push to `main` with selective monorepo filtering:
+### Continuous Deployment Pipeline (Railway GitHub integration)
+Railway deploys every push to `main` itself, through its GitHub integration: `teamflow-backend`, `teamflow-celery` and `teamflow-frontend` each rebuild from the pushed commit. GitHub Actions only tests (`ci.yml`) and, once CI passes, publishes images to GitHub Container Registry (`deploy.yml`).
 
 ```mermaid
 flowchart LR
-    Push["git push origin main"] --> Filter["Path Filter (dorny/paths-filter@v3)"]
-    Filter -->|backend/** changed| DeployBE["railway redeploy --service teamflow-backend --from-source"]
-    Filter -->|backend/** changed| DeployCelery["railway redeploy --service teamflow-celery --from-source"]
-    Filter -->|frontend/** changed| DeployFE["railway redeploy --service teamflow-frontend --from-source"]
-    DeployBE & DeployCelery & DeployFE --> Verify["railway status (Health Verification)"]
+    Push["git push origin main"] --> Railway["Railway GitHub integration"]
+    Railway --> BE["teamflow-backend"]
+    Railway --> Celery["teamflow-celery"]
+    Railway --> FE["teamflow-frontend"]
+    Push --> CI["CI Pipeline (ci.yml)"] -->|green| Images["Publish images to ghcr.io (deploy.yml)"]
 ```
 
 ---
