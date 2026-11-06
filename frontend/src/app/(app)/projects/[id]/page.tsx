@@ -1544,7 +1544,7 @@ function TaskDetailPanel({
                   title="Exécute la chaîne séquentielle complète : Tech Lead ➔ Backend ➔ Frontend ➔ QA ➔ Merge ➔ DevOps"
                 >
                   <Zap className="h-3.5 w-3.5 text-emerald-200" />
-                  <span>{runningChain ? "Flux en cours…" : "⚡ Flux Autonome"}</span>
+                  <span>{runningChain ? "Flux en cours…" : "Flux Autonome"}</span>
                 </button>
 
                 <button

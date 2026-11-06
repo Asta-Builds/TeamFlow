@@ -1,0 +1,247 @@
+name: Automated Implementer Agent
+
+"on":
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  id-token: write
+
+concurrency:
+  group: implementer-issue-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  implement:
+    name: Implement & Verify Issue #${{ github.event.issue.number }}
+    if: github.event.label.name == 'agent' || github.event.label.name == 'agent:implement'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: test_teamflow
+          POSTGRES_USER: teamflow
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://teamflow:test_password@localhost:5432/test_teamflow
+      SECRET_KEY: "ci-secret-key-minimum-32-characters-length-security"
+      DEBUG: "True"
+      CI: "true"
+      GIT_AUTHOR_NAME: "TeamFlow Implementer Agent"
+      GIT_AUTHOR_EMAIL: "agent@teamflow.invalid"
+      GIT_COMMITTER_NAME: "TeamFlow Implementer Agent"
+      GIT_COMMITTER_EMAIL: "agent@teamflow.invalid"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Create or checkout issue branch
+        run: |
+          BRANCH_NAME="feature/issue-${{ github.event.issue.number }}"
+          echo "Target branch: $BRANCH_NAME"
+          git config user.name "TeamFlow Implementer Agent"
+          git config user.email "agent@teamflow.invalid"
+          if git ls-remote --exit-code --heads origin "$BRANCH_NAME"; then
+            git fetch origin "$BRANCH_NAME"
+            git checkout "$BRANCH_NAME"
+          else
+            git checkout -b "$BRANCH_NAME"
+          fi
+
+      # Dependencies are installed BEFORE the agent runs so it can execute the
+      # gates (tsc, eslint, knip, jscpd, django checks, tests) inside its loop.
+      - name: Install Node.js Dependencies (Monorepo)
+        run: |
+          echo "Installing frontend dependencies..."
+          cd frontend && npm ci --legacy-peer-deps && cd ..
+          echo "Installing backend-nest dependencies..."
+          cd backend-nest && npm ci --legacy-peer-deps && npx prisma generate && cd ..
+
+      - name: Install Python Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Run Claude Code Implementer Loop
+        id: implementer
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: "--max-turns 100"
+          prompt: |
+            You are the TeamFlow Automated Implementer Agent.
+            Follow all repository engineering rules and conventions in CLAUDE.md.
+
+            Issue #${{ github.event.issue.number }}: ${{ github.event.issue.title }}
+
+            Issue Description:
+            ${{ github.event.issue.body }}
+
+            Mandatory Engineering & Verification Rules:
+            1. Zero-Emoji Policy: NEVER use raw unicode emojis in UI code. Always use Lucide vector icons (lucide-react).
+            2. Architecture Boundaries: Never query PostgreSQL directly from frontend; use NestJS API Gateway routes or Django AI worker endpoints.
+            3. TypeScript Gate: Ensure `tsc --noEmit` passes with 0 errors across frontend and backend-nest.
+            4. Linter Gate: Ensure ESLint passes with 0 errors and 0 warnings (`--max-warnings 0`) across frontend and backend-nest.
+            5. Prisma Schema: Run and pass `npx prisma validate` in backend-nest with valid relations.
+            6. Dead Code & Duplication: Ensure Knip (0 unused exports/deps) and JSCPD (0 duplicate blocks) pass cleanly.
+            7. Django Gate: Ensure `python manage.py check` and `python manage.py makemigrations --check --dry-run` pass with 0 errors.
+            8. Testing: Run and verify all unit tests in affected modules pass before completing.
+
+      # Final deterministic re-check after the agent finishes. No AI decides pass/fail here.
+      - name: "Gate: Prisma Schema Validation & Client Generation"
+        working-directory: backend-nest
+        run: |
+          echo "==> Running Prisma schema validation..."
+          npx prisma validate
+          echo "==> Generating Prisma client..."
+          npx prisma generate
+
+      - name: "Gate: TypeScript Static Checks (tsc)"
+        run: |
+          echo "==> Checking TypeScript types in frontend..."
+          cd frontend && npx tsc --noEmit && cd ..
+          echo "==> Checking TypeScript types in backend-nest..."
+          cd backend-nest && npx tsc --noEmit -p tsconfig.json && cd ..
+
+      - name: "Gate: Linters & Zero-Warning Tolerance (ESLint)"
+        run: |
+          echo "==> Linting frontend (zero-warning tolerance)..."
+          cd frontend && npm run lint && cd ..
+          echo "==> Linting backend-nest (zero-warning tolerance)..."
+          cd backend-nest && npm run lint && cd ..
+
+      - name: "Gate: Dead Code & Dependency Analysis (Knip)"
+        run: |
+          echo "==> Running Knip in frontend..."
+          cd frontend && npx knip && cd ..
+          echo "==> Running Knip in backend-nest..."
+          cd backend-nest && npx knip && cd ..
+
+      - name: "Gate: Code Duplication Detection (jscpd)"
+        run: |
+          echo "==> Running JSCPD duplication check across monorepo..."
+          npx jscpd
+
+      - name: "Gate: Django System & Migration Checks"
+        working-directory: backend
+        run: |
+          echo "==> Running Django system check..."
+          python manage.py check
+          echo "==> Checking for unapplied model migration drift..."
+          python manage.py makemigrations --check --dry-run
+
+      - name: Create Pull Request
+        id: cpr
+        if: success()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: "feature/issue-${{ github.event.issue.number }}"
+          base: ${{ github.event.repository.default_branch || 'main' }}
+          title: "fix(agent): resolve issue #${{ github.event.issue.number }} - ${{ github.event.issue.title }}"
+          body: |
+            Autonomous Implementer Agent PR for #${{ github.event.issue.number }}.
+
+            ### Automated Quality Gates Passed
+            - [x] TypeScript validation (`tsc --noEmit`) across frontend and backend-nest
+            - [x] Linter checks (`eslint`) with zero-warning tolerance
+            - [x] Prisma schema validation (`prisma validate`)
+            - [x] Dead code & dependency checks (`knip`)
+            - [x] Monorepo code duplication detection (`jscpd`)
+            - [x] Django system check (`python manage.py check`)
+            - [x] Django zero-drift migration check (`python manage.py makemigrations --check --dry-run`)
+
+            Closes #${{ github.event.issue.number }}
+          labels: |
+            agent-implemented
+            automated-pr
+          commit-message: "fix(agent): resolve issue #${{ github.event.issue.number }}"
+          committer: "TeamFlow Implementer Agent <agent@teamflow.invalid>"
+          author: "TeamFlow Implementer Agent <agent@teamflow.invalid>"
+          delete-branch: false
+
+      - name: Comment on Issue with PR Link
+        if: success() && steps.cpr.outputs.pull-request-number != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = context.payload.issue ? context.payload.issue.number : context.issue.number;
+            const prNumber = '${{ steps.cpr.outputs.pull-request-number }}';
+            const prUrl = '${{ steps.cpr.outputs.pull-request-url }}';
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `🎉 **Implementer Agent Completed**: All deterministic verification gates passed.\n\nAutonomous Pull Request created: [#${prNumber}](${prUrl})`
+            });
+
+      - name: Handle Stuck Agent Failure
+        if: failure() || cancelled()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = context.payload.issue ? context.payload.issue.number : context.issue.number;
+            const isCancelled = '${{ job.status }}' === 'cancelled';
+            const reason = isCancelled
+              ? 'exceeded the 25-minute hard timeout ceiling or was cancelled'
+              : 'failed one or more deterministic verification gates (tsc, lint, prisma validate, knip, jscpd, django checks)';
+
+            console.log(`Applying 'factory-stuck' label to issue #${issueNumber}...`);
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: ['factory-stuck']
+            });
+
+            console.log(`Posting diagnostic comment to issue #${issueNumber}...`);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const commentBody = [
+              `### ⚠️ Implementer Agent Stuck`,
+              ``,
+              `The automated implementer agent ${reason} for issue #${issueNumber}.`,
+              ``,
+              `**Execution Summary**:`,
+              `- **Run URL**: [GitHub Actions Run #${context.runNumber}](${runUrl})`,
+              `- **Status**: \`${{ job.status }}\``,
+              `- **Action Taken**: Applied \`factory-stuck\` label`,
+              `- **Triggering Label**: \`${context.payload.label ? context.payload.label.name : 'agent'}\``,
+              ``,
+              `> **Factory Rule**: Never fix the agent code by hand. Fix the factory rules (update \`CLAUDE.md\`, adjust gate rules, or clarify issue context) and re-label with \`agent\` to retry.`
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: commentBody
+            });
