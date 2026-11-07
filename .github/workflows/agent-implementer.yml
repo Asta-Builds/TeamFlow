@@ -9,9 +9,8 @@ permissions:
   pull-requests: write
   issues: write
   id-token: write
-  # Lets the stuck handler name the step that actually failed. Only the start-checks
-  # job, where the agent does not run, gets `actions: write`.
-  actions: read
+  # No `actions` access here: only the start-checks job, where the agent does not run,
+  # gets `actions: write`.
 
 concurrency:
   group: implementer-issue-${{ github.event.issue.number }}
@@ -132,6 +131,7 @@ jobs:
 
       # Final deterministic re-check after the agent finishes. No AI decides pass/fail here.
       - name: "Gate: Prisma Schema Validation & Client Generation"
+        id: gate-prisma
         working-directory: backend-nest
         run: |
           echo "==> Running Prisma schema validation..."
@@ -140,6 +140,7 @@ jobs:
           npx prisma generate
 
       - name: "Gate: TypeScript Static Checks (tsc)"
+        id: gate-tsc
         run: |
           echo "==> Checking TypeScript types in frontend..."
           cd frontend && npx tsc --noEmit && cd ..
@@ -147,6 +148,7 @@ jobs:
           cd backend-nest && npx tsc --noEmit -p tsconfig.json && cd ..
 
       - name: "Gate: Linters & Zero-Warning Tolerance (ESLint)"
+        id: gate-eslint
         run: |
           echo "==> Linting frontend (zero-warning tolerance)..."
           cd frontend && npm run lint && cd ..
@@ -154,6 +156,7 @@ jobs:
           cd backend-nest && npm run lint && cd ..
 
       - name: "Gate: Dead Code & Dependency Analysis (Knip)"
+        id: gate-knip
         run: |
           echo "==> Running Knip in frontend..."
           cd frontend && npx knip && cd ..
@@ -161,11 +164,13 @@ jobs:
           cd backend-nest && npx knip && cd ..
 
       - name: "Gate: Code Duplication Detection (jscpd)"
+        id: gate-jscpd
         run: |
           echo "==> Running JSCPD duplication check across monorepo..."
           npx jscpd
 
       - name: "Gate: Django System & Migration Checks"
+        id: gate-django
         working-directory: backend
         run: |
           echo "==> Running Django system check..."
@@ -174,6 +179,7 @@ jobs:
           python manage.py makemigrations --check --dry-run
 
       - name: "Gate: Python Lint (ruff)"
+        id: gate-ruff
         run: |
           # ruff.toml arrives with the Phase 0-1 gates PR; until then there is nothing to enforce.
           if [ ! -f ruff.toml ]; then echo "No ruff.toml yet; skipping."; exit 0; fi
@@ -181,6 +187,7 @@ jobs:
           ruff check backend cli
 
       - name: "Gate: Secret & Credential Leak Scan (Gitleaks)"
+        id: gate-gitleaks
         env:
           GITLEAKS_VERSION: "8.24.0"
         run: |
@@ -248,33 +255,42 @@ jobs:
       - name: Handle Stuck Agent Failure
         if: failure() || cancelled()
         uses: actions/github-script@v7
+        env:
+          # Outcomes of the steps that have an id, in run order. Read from the run itself:
+          # the jobs API does not report a step's failure until the whole job has ended.
+          STEPS_JSON: ${{ toJSON(steps) }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const issueNumber = context.payload.issue ? context.payload.issue.number : context.issue.number;
             const isCancelled = '${{ job.status }}' === 'cancelled';
             // Name the step that actually failed: a gate, the agent itself, or the plumbing around it.
-            let failedStep = null;
+            const gates = {
+              'gate-prisma': 'Prisma schema',
+              'gate-tsc': 'TypeScript (tsc)',
+              'gate-eslint': 'ESLint',
+              'gate-knip': 'dead code (Knip)',
+              'gate-jscpd': 'duplication (jscpd)',
+              'gate-django': 'Django checks',
+              'gate-ruff': 'Python lint (ruff)',
+              'gate-gitleaks': 'secret scan (Gitleaks)',
+            };
+            let failedId = null;
             try {
-              const { data } = await github.rest.actions.listJobsForWorkflowRun({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                run_id: context.runId,
-              });
-              const job = data.jobs.find((candidate) => candidate.status === 'in_progress') ?? data.jobs[0];
-              failedStep = job?.steps?.find((step) => step.conclusion === 'failure')?.name ?? null;
+              const steps = JSON.parse(process.env.STEPS_JSON || '{}');
+              failedId = Object.keys(steps).find((id) => steps[id].outcome === 'failure') ?? null;
             } catch (error) {
-              core.warning(`Could not read the job's steps: ${error.message}`);
+              core.warning(`Could not read the step outcomes: ${error.message}`);
             }
             const reason = isCancelled
               ? 'exceeded the 25-minute hard timeout ceiling or was cancelled'
-              : failedStep?.startsWith('Gate:')
-                ? `failed the "${failedStep.replace(/^Gate:\s*/, '')}" gate`
-                : failedStep === 'Run Claude Code Implementer Loop'
+              : gates[failedId]
+                ? `failed the ${gates[failedId]} gate`
+                : failedId === 'implementer'
                   ? 'did not finish: it hit the turn cap or stopped with an error'
-                  : failedStep
-                    ? `stopped at the "${failedStep}" step, which is workflow plumbing rather than the agent's code (see the run)`
-                    : 'failed (see the run log)';
+                  : failedId === 'cpr'
+                    ? "could not open its pull request. That step is workflow plumbing, not the agent's code (see the run)"
+                    : "stopped at a setup step, which is workflow plumbing rather than the agent's code (see the run)";
 
             console.log(`Applying 'factory-stuck' label to issue #${issueNumber}...`);
             await github.rest.issues.addLabels({
