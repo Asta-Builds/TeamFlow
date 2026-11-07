@@ -256,8 +256,8 @@ jobs:
         if: failure() || cancelled()
         uses: actions/github-script@v7
         env:
-          # Outcomes of the steps that have an id, in run order. Read from the run itself:
-          # the jobs API does not report a step's failure until the whole job has ended.
+          # Outcomes of the steps that have an id; at most one fails, since later steps are skipped.
+          # Read from the run itself: the jobs API reports a step's failure only once the job ends.
           STEPS_JSON: ${{ toJSON(steps) }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
