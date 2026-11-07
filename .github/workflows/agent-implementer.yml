@@ -9,6 +9,8 @@ permissions:
   pull-requests: write
   issues: write
   id-token: write
+  # Lets the stuck handler name the step that actually failed.
+  actions: read
 
 concurrency:
   group: implementer-issue-${{ github.event.issue.number }}
@@ -62,18 +64,13 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Create or checkout issue branch
+      # The agent always starts from the default branch, so a re-run starts over from the
+      # current rules. "Create Pull Request" creates or force-updates feature/issue-N itself;
+      # switching to a local-only branch here would break its reset to origin/<branch>.
+      - name: Configure git for the agent
         run: |
-          BRANCH_NAME="feature/issue-${{ github.event.issue.number }}"
-          echo "Target branch: $BRANCH_NAME"
           git config user.name "TeamFlow Implementer Agent"
           git config user.email "agent@teamflow.invalid"
-          if git ls-remote --exit-code --heads origin "$BRANCH_NAME"; then
-            git fetch origin "$BRANCH_NAME"
-            git checkout "$BRANCH_NAME"
-          else
-            git checkout -b "$BRANCH_NAME"
-          fi
 
       # Dependencies are installed BEFORE the agent runs so it can execute the
       # gates (tsc, eslint, knip, jscpd, django checks, tests) inside its loop.
@@ -195,7 +192,8 @@ jobs:
       - name: Create Pull Request
         id: cpr
         if: success()
-        uses: peter-evans/create-pull-request@v6
+        # v7.0.9+ is required with actions/checkout@v6+ (v6 sent a duplicate Authorization header).
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: "feature/issue-${{ github.event.issue.number }}"
@@ -246,9 +244,28 @@ jobs:
           script: |
             const issueNumber = context.payload.issue ? context.payload.issue.number : context.issue.number;
             const isCancelled = '${{ job.status }}' === 'cancelled';
+            // Name the step that actually failed: a gate, the agent itself, or the plumbing around it.
+            let failedStep = null;
+            try {
+              const { data } = await github.rest.actions.listJobsForWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: context.runId,
+              });
+              const job = data.jobs.find((candidate) => candidate.status === 'in_progress') ?? data.jobs[0];
+              failedStep = job?.steps?.find((step) => step.conclusion === 'failure')?.name ?? null;
+            } catch (error) {
+              core.warning(`Could not read the job's steps: ${error.message}`);
+            }
             const reason = isCancelled
               ? 'exceeded the 25-minute hard timeout ceiling or was cancelled'
-              : 'failed one or more deterministic verification gates (tsc, lint, prisma validate, knip, jscpd, django checks)';
+              : failedStep?.startsWith('Gate:')
+                ? `failed the "${failedStep.replace(/^Gate:\s*/, '')}" gate`
+                : failedStep === 'Run Claude Code Implementer Loop'
+                  ? 'did not finish: it hit the turn cap or stopped with an error'
+                  : failedStep
+                    ? `stopped at the "${failedStep}" step, which is workflow plumbing rather than the agent's code (see the run)`
+                    : 'failed (see the run log)';
 
             console.log(`Applying 'factory-stuck' label to issue #${issueNumber}...`);
             await github.rest.issues.addLabels({
