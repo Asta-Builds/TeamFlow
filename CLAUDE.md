@@ -30,8 +30,23 @@ TeamFlow is an autonomous AI software company platform where specialized agents 
 - **NestJS Gateway**: Uses Prisma Client with mapped tables (`@@map`) matching the PostgreSQL 16 schema.
 - **Django Engine**: Uses Django ORM for migrations and agent worker states, plus `pgvector` for embeddings.
 - **Never bypass the Gateway** from the frontend client.
+- These boundaries are enforced, not just written down: ESLint `no-restricted-imports` blocks database
+  drivers and other packages' code in `frontend/`, and other packages' code in `backend-nest/`; ruff
+  `TID251` (`cli/ruff.toml`) blocks Django, DRF and Celery imports in `cli/`.
 
-### 2.3 Verification Commands (Run Before Submitting)
+### 2.3 Size and complexity limits
+- Functions stay at cyclomatic complexity 15 or less, and files at 300 lines or less (blank lines and
+  comments excluded; tests are exempt from the line limit). ESLint fails the build otherwise.
+- Files that were already over the limits are listed in `frontend/eslint.legacy.mjs` and
+  `backend-nest/eslint.legacy.mjs`, and older Python findings in the `per-file-ignores` of `ruff.toml`.
+  These lists only shrink: when you split or clean one of those files, delete its entry. Never add one;
+  split the file instead.
+
+### 2.4 Verification Commands (Run Before Submitting)
+- **Everything at once**: `scripts/lint.sh` (or `scripts/lint.ps1`) runs all nine gates: ESLint x2,
+  jscpd, knip x2, `prisma validate`, Django `check`, `makemigrations --check`, and ruff.
+- **Pre-commit hook**: `scripts/setup.sh` sets `core.hooksPath` to `.githooks`, which lints the staged
+  TypeScript and Python files before each commit. CI runs every gate regardless.
 - **Frontend**:
   ```bash
   cd frontend
@@ -55,6 +70,18 @@ TeamFlow is an autonomous AI software company platform where specialized agents 
   python manage.py makemigrations --check --dry-run
   python manage.py test --noinput
   ```
+- **Python lint** (repo root): `ruff check backend cli` (CI uses ruff 0.17.4).
+
+### 2.5 MCP servers (`.mcp.json`)
+Claude Code asks you to approve these the first time. Secrets come from your environment, never the file.
+
+| Server | What it gives an agent | Set up |
+|---|---|---|
+| `github` | Read-only GitHub: issues, PRs, CI runs (`/mcp/readonly`) | Export `GITHUB_MCP_PAT`, a fine-grained token with read access to this repo |
+| `postgres` | Read-only SQL on your local dev database (`--access-mode=restricted`) | Install `uv`; export `TEAMFLOW_DATABASE_URI=postgresql://USER:PASSWORD@localhost:5532/DB` with the values from `.env` |
+| `sentry` | Errors, traces and releases from Sentry | Nothing; the first use opens a Sentry login in the browser |
+
+Never point the `postgres` server at production, and never switch it to `unrestricted`.
 
 ---
 
@@ -67,6 +94,9 @@ TeamFlow is an autonomous AI software company platform where specialized agents 
 5. **NEVER hardcode test logic or mock invariants** to artificially pass a failing test.
 6. **NEVER store structured objects via `JSON.stringify`** into untyped text columns when a typed relational schema exists.
 7. **NEVER bypass JWT authentication** or Keycloak token validation.
+8. **NEVER loosen a quality gate to get green**: no raising limits, no new entries in the legacy lists
+   (`eslint.legacy.mjs`, `per-file-ignores` in `ruff.toml`), no `--no-verify`, no `eslint-disable` for
+   `complexity`, `max-lines` or `no-restricted-imports`. Split the code instead.
 
 ---
 
@@ -74,5 +104,5 @@ TeamFlow is an autonomous AI software company platform where specialized agents 
 
 - **Green Zone (Fast Path)**: Changes strictly inside `frontend/src/app/**` (page layouts, presentation cards).
 - **Yellow Zone (Skim Review)**: `frontend/src/components/ui/**`, `backend-nest/src/modules/**`, CLI scripts.
-- **Red Zone (Deep Review Mandatory)**: `backend/core/**`, `backend-nest/prisma/schema.prisma`, `backend/*/migrations/**`, `.github/workflows/**`, `docker-compose*.yml`.
+- **Red Zone (Deep Review Mandatory)**: `backend/core/**`, `backend-nest/prisma/schema.prisma`, `backend/*/migrations/**`, `.github/workflows/**`, `docker-compose*.yml`, and the gate configs (`ruff.toml`, `*/eslint.config.mjs`, `*/eslint.legacy.mjs`, `.jscpd.json`, `*/knip.json`, `.githooks/**`, `.mcp.json`).
 
