@@ -89,25 +89,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      - name: Migrate the CI database (the Postgres MCP server reads its schema)
+      - name: Migrate the CI database (so the agent can run the app and tests against it)
         working-directory: backend
         run: python manage.py migrate --noinput
-
-      - name: Configure MCP servers for the agent
-        # Postgres MCP Pro, pinned, in restricted mode: read-only transactions with a time limit,
-        # against this job's throwaway database only. GitHub tools come built into the action.
-        run: |
-          python -m pip install postgres-mcp==0.3.0
-          python - <<'PY'
-          import json, os
-          config = {"mcpServers": {"postgres": {
-              "command": "postgres-mcp",
-              "args": ["--access-mode=restricted"],
-              "env": {"DATABASE_URI": os.environ["DATABASE_URL"]},
-          }}}
-          with open(os.path.join(os.environ["RUNNER_TEMP"], "mcp-config.json"), "w") as f:
-              json.dump(config, f)
-          PY
 
       - name: Run Claude Code Implementer Loop
         id: implementer
@@ -117,10 +101,13 @@ jobs:
           # and store it as the CLAUDE_CODE_OAUTH_TOKEN repository secret. To pay per use
           # instead, replace this input with anthropic_api_key, read from an ANTHROPIC_API_KEY secret.
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # The agent must edit files and run the gates itself; without an explicit allow,
+          # claude-code-action denies writes. It only runs after a maintainer adds `agent`.
+          # --strict-mcp-config keeps the repo's local-only .mcp.json servers out of CI.
           claude_args: >-
             --max-turns 100
-            --mcp-config ${{ runner.temp }}/mcp-config.json
-            --allowedTools mcp__postgres
+            --allowedTools "Edit,MultiEdit,Write,Bash"
+            --strict-mcp-config
           prompt: |
             You are the TeamFlow Automated Implementer Agent.
             Follow all repository engineering rules and conventions in CLAUDE.md.

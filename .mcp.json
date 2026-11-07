@@ -8,8 +8,8 @@
       }
     },
     "postgres": {
-      "command": "uvx",
-      "args": ["--from", "postgres-mcp==0.3.0", "postgres-mcp", "--access-mode=restricted"],
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "DATABASE_URI", "crystaldba/postgres-mcp:0.3.0", "--access-mode=restricted"],
       "env": {
         "DATABASE_URI": "${TEAMFLOW_DATABASE_URI}"
       }

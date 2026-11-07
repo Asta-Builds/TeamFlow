@@ -78,7 +78,7 @@ Claude Code asks you to approve these the first time. Secrets come from your env
 | Server | What it gives an agent | Set up |
 |---|---|---|
 | `github` | Read-only GitHub: issues, PRs, CI runs (`/mcp/readonly`) | Export `GITHUB_MCP_PAT`, a fine-grained token with read access to this repo |
-| `postgres` | Read-only SQL on your local dev database (`--access-mode=restricted`) | Install `uv`; export `TEAMFLOW_DATABASE_URI=postgresql://USER:PASSWORD@localhost:5532/DB` with the values from `.env` |
+| `postgres` | Read-only SQL on your local dev database (`--access-mode=restricted`) | Docker running; export `TEAMFLOW_DATABASE_URI=postgresql://USER:PASSWORD@host.docker.internal:5532/DB` with the values from `.env` (the server runs in the pinned `crystaldba/postgres-mcp:0.3.0` image, whose PyPI release can no longer be installed) |
 | `sentry` | Errors, traces and releases from Sentry | Nothing; the first use opens a Sentry login in the browser |
 
 Never point the `postgres` server at production, and never switch it to `unrestricted`.
