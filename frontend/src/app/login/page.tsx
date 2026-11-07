@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { ApiError, register } from "@/lib/api";
@@ -20,6 +20,7 @@ export default function LoginPage() {
   const [organizationName, setOrganizationName] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const baseId = useId();
 
   useEffect(() => {
     if (!loading && user) router.replace("/dashboard");
@@ -148,10 +149,11 @@ export default function LoginPage() {
             {mode === "register" && (
               <>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <label htmlFor={`${baseId}-name`} className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Full Name
                   </label>
                   <input
+                    id={`${baseId}-name`}
                     type="text"
                     required
                     value={name}
@@ -162,10 +164,11 @@ export default function LoginPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <label htmlFor={`${baseId}-organization`} className="text-xs font-bold text-slate-700 dark:text-slate-300">
                     Company / Organization
                   </label>
                   <input
+                    id={`${baseId}-organization`}
                     type="text"
                     required
                     value={organizationName}
@@ -178,10 +181,11 @@ export default function LoginPage() {
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              <label htmlFor={`${baseId}-email`} className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 Email
               </label>
               <input
+                id={`${baseId}-email`}
                 type="email"
                 required
                 value={email}
@@ -192,10 +196,11 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              <label htmlFor={`${baseId}-password`} className="text-xs font-bold text-slate-700 dark:text-slate-300">
                 Password
               </label>
               <input
+                id={`${baseId}-password`}
                 type="password"
                 required
                 value={password}
