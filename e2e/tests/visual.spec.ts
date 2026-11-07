@@ -19,7 +19,11 @@ test.describe('Visual', () => {
     // The account's name and organization differ every run.
     await expect(page).toHaveScreenshot('projects-empty.png', {
       fullPage: true,
-      mask: [page.getByLabel('User profile settings'), page.getByLabel('View My Profile')],
+      mask: [
+        page.getByLabel('User profile settings'),
+        page.getByLabel('View My Profile'),
+        page.getByText(account.organization),
+      ],
     });
   });
 });
