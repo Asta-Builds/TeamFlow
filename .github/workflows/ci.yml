@@ -187,7 +187,8 @@ jobs:
 
       - name: Dead code and unused dependencies (knip)
         working-directory: backend-nest
-        run: npx --no-install knip
+        # knip is not a devDependency; pin it so the gate cannot change under us.
+        run: npx --yes knip@6.44.1
 
       - name: Unit tests
         working-directory: backend-nest
@@ -222,7 +223,8 @@ jobs:
 
       - name: Dead code and unused dependencies (knip)
         working-directory: frontend
-        run: npx --no-install knip
+        # knip is not a devDependency; pin it so the gate cannot change under us.
+        run: npx --yes knip@6.44.1
 
       - name: Unit tests
         working-directory: frontend
