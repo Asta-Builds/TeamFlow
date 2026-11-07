@@ -139,6 +139,7 @@ jobs:
             6. Dead Code & Duplication: Ensure Knip (0 unused exports/deps) and JSCPD (0 duplicate blocks) pass cleanly.
             7. Django Gate: Ensure `python manage.py check` and `python manage.py makemigrations --check --dry-run` pass with 0 errors.
             8. Testing: Run and verify all unit tests in affected modules pass before completing.
+            9. Secrets: NEVER hardcode passwords, API keys, JWT secrets or tokens, and never commit `.env` files. Read them from the environment. A Gitleaks scan of your changes runs before any PR is opened.
 
       # Final deterministic re-check after the agent finishes. No AI decides pass/fail here.
       - name: "Gate: Prisma Schema Validation & Client Generation"
@@ -189,6 +190,20 @@ jobs:
           if [ ! -f ruff.toml ]; then echo "No ruff.toml yet; skipping."; exit 0; fi
           python -m pip install ruff==0.17.4
           ruff check backend cli
+
+      - name: "Gate: Secret & Credential Leak Scan (Gitleaks)"
+        env:
+          GITLEAKS_VERSION: "8.24.0"
+        run: |
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfLO "${base}/${archive}"
+          curl -sSfL "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt" | grep " ${archive}$" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/gitleaks" && tar -xzf "$archive" -C "$RUNNER_TEMP/gitleaks" gitleaks && rm "$archive"
+          # The agent's work is still uncommitted here: stage it and scan exactly that diff,
+          # not the repo history (an old leak must not block every run).
+          git add -A
+          "$RUNNER_TEMP/gitleaks/gitleaks" git --pre-commit --staged --config .gitleaks.toml --redact --verbose
 
       - name: Create Pull Request
         id: cpr
