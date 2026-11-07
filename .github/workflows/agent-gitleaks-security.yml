@@ -81,7 +81,9 @@ jobs:
           # The reviewer only reads the diff and writes one file, so the job's own token is
           # enough; it needs neither the Claude GitHub App nor an OIDC exchange.
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          claude_args: "--max-turns 15"
+          # Reading is allowed by default; writing the verdict file and running git diff are not.
+          # Nothing in this job commits or pushes, and the verdict step can only raise severity.
+          claude_args: '--max-turns 15 --allowedTools "Write,Bash(git diff:*)"'
           prompt: |
             You are the factory's secret and credential reviewer. Read-only: do not edit any file except the verdict file.
             Inspect the PR diff (`git diff ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }}`) and `gitleaks-report.json`.
