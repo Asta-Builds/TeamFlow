@@ -1,0 +1,10 @@
+# The CLI is a client: it talks to TeamFlow over HTTP and never imports the backend.
+extend = "../ruff.toml"
+
+[lint]
+extend-select = ["TID251"]
+
+[lint.flake8-tidy-imports.banned-api]
+"django".msg = "The CLI talks to TeamFlow over HTTP; it never imports the Django backend."
+"rest_framework".msg = "The CLI talks to TeamFlow over HTTP; it never imports the Django backend."
+"celery".msg = "The CLI talks to TeamFlow over HTTP; it never imports backend workers."
