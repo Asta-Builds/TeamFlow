@@ -1,0 +1,2 @@
+# Git hooks run under bash everywhere, including Git for Windows: keep LF.
+.githooks/* text eol=lf

@@ -9,7 +9,7 @@
 # ==============================================================================
 
 # Global fallback: Default owner for all files across TeamFlow
-* @abdelilah
+* @Asta-Builds
 
 # ==============================================================================
 # RED ZONE: Database Schemas & Migrations (MANDATORY APPROVAL)
@@ -17,34 +17,34 @@
 # ==============================================================================
 
 # Prisma schema & generator definitions (NestJS API Gateway)
-/backend-nest/prisma/                         @abdelilah
-/backend-nest/prisma/schema.prisma            @abdelilah
+/backend-nest/prisma/                         @Asta-Builds
+/backend-nest/prisma/schema.prisma            @Asta-Builds
 
 # Django Migrations: Wildcard pattern & all 11 individual app migration trees
-/backend/*/migrations/                        @abdelilah
-/backend/accounts/migrations/                 @abdelilah
-/backend/agents/migrations/                   @abdelilah
-/backend/deployments/migrations/              @abdelilah
-/backend/integrations/migrations/             @abdelilah
-/backend/notifications/migrations/            @abdelilah
-/backend/organizations/migrations/            @abdelilah
-/backend/projects/migrations/                 @abdelilah
-/backend/pulse/migrations/                    @abdelilah
-/backend/queues/migrations/                   @abdelilah
-/backend/seo/migrations/                      @abdelilah
-/backend/tasks/migrations/                    @abdelilah
+/backend/*/migrations/                        @Asta-Builds
+/backend/accounts/migrations/                 @Asta-Builds
+/backend/agents/migrations/                   @Asta-Builds
+/backend/deployments/migrations/              @Asta-Builds
+/backend/integrations/migrations/             @Asta-Builds
+/backend/notifications/migrations/            @Asta-Builds
+/backend/organizations/migrations/            @Asta-Builds
+/backend/projects/migrations/                 @Asta-Builds
+/backend/pulse/migrations/                    @Asta-Builds
+/backend/queues/migrations/                   @Asta-Builds
+/backend/seo/migrations/                      @Asta-Builds
+/backend/tasks/migrations/                    @Asta-Builds
 
 # ==============================================================================
 # RED ZONE: CI/CD Workflows, Automation & Ownership Guardrails
 # Workflows control deployment pipelines, security secrets, and gate automation.
 # ==============================================================================
 
-/.github/                                     @abdelilah
-/.github/CODEOWNERS                           @abdelilah
-/.github/workflows/                           @abdelilah
-/.github/workflows/*                          @abdelilah
-/.github/workflows/*.yml                      @abdelilah
-/.github/workflows/*.yaml                     @abdelilah
+/.github/                                     @Asta-Builds
+/.github/CODEOWNERS                           @Asta-Builds
+/.github/workflows/                           @Asta-Builds
+/.github/workflows/*                          @Asta-Builds
+/.github/workflows/*.yml                      @Asta-Builds
+/.github/workflows/*.yaml                     @Asta-Builds
 
 # ==============================================================================
 # RED ZONE: Docker & Container Infrastructure
@@ -52,39 +52,39 @@
 # ==============================================================================
 
 # Compose manifests
-/docker-compose*.yml                          @abdelilah
-/docker-compose.yml                           @abdelilah
-/docker-compose.prod.yml                      @abdelilah
+/docker-compose*.yml                          @Asta-Builds
+/docker-compose.yml                           @Asta-Builds
+/docker-compose.prod.yml                      @Asta-Builds
 
 # Docker ignore files
-/.dockerignore                                @abdelilah
-/backend/.dockerignore                        @abdelilah
-/backend-nest/.dockerignore                   @abdelilah
-/frontend/.dockerignore                       @abdelilah
+/.dockerignore                                @Asta-Builds
+/backend/.dockerignore                        @Asta-Builds
+/backend-nest/.dockerignore                   @Asta-Builds
+/frontend/.dockerignore                       @Asta-Builds
 
 # Container definition files
-Dockerfile                                    @abdelilah
-**/Dockerfile                                 @abdelilah
-/backend/Dockerfile                           @abdelilah
-/backend-nest/Dockerfile                      @abdelilah
-/frontend/Dockerfile                          @abdelilah
-/nginx/Dockerfile                             @abdelilah
-/deploy-receiver/Dockerfile                   @abdelilah
+Dockerfile                                    @Asta-Builds
+**/Dockerfile                                 @Asta-Builds
+/backend/Dockerfile                           @Asta-Builds
+/backend-nest/Dockerfile                      @Asta-Builds
+/frontend/Dockerfile                          @Asta-Builds
+/nginx/Dockerfile                             @Asta-Builds
+/deploy-receiver/Dockerfile                   @Asta-Builds
 
 # Container entrypoints
-/backend/docker-entrypoint.sh                 @abdelilah
+/backend/docker-entrypoint.sh                 @Asta-Builds
 
 # ==============================================================================
 # RED ZONE: Nginx Reverse Proxy Configuration
 # Reverse proxy routing rules, SSL termination, and SSE streaming endpoints.
 # ==============================================================================
 
-/nginx/                                       @abdelilah
-/nginx/*                                      @abdelilah
-/nginx/default.conf                           @abdelilah
-/nginx/nginx.conf                             @abdelilah
-/nginx/railway-entrypoint.sh                  @abdelilah
-/nginx/railway.conf.template                  @abdelilah
+/nginx/                                       @Asta-Builds
+/nginx/*                                      @Asta-Builds
+/nginx/default.conf                           @Asta-Builds
+/nginx/nginx.conf                             @Asta-Builds
+/nginx/railway-entrypoint.sh                  @Asta-Builds
+/nginx/railway.conf.template                  @Asta-Builds
 
 # ==============================================================================
 # RED ZONE: Core Architecture & Authentication
@@ -92,15 +92,29 @@ Dockerfile                                    @abdelilah
 # ==============================================================================
 
 # Core Django settings, URLs, WSGI/ASGI entrypoints, and permissions
-/backend/teamflow/                            @abdelilah
-/backend/teamflow/settings.py                 @abdelilah
-/backend/teamflow/urls.py                     @abdelilah
-/backend/teamflow/asgi.py                     @abdelilah
-/backend/teamflow/wsgi.py                     @abdelilah
-/backend/teamflow/celery.py                   @abdelilah
-/backend/teamflow/permissions.py              @abdelilah
-/backend/teamflow/admin_operations.py         @abdelilah
+/backend/teamflow/                            @Asta-Builds
+/backend/teamflow/settings.py                 @Asta-Builds
+/backend/teamflow/urls.py                     @Asta-Builds
+/backend/teamflow/asgi.py                     @Asta-Builds
+/backend/teamflow/wsgi.py                     @Asta-Builds
+/backend/teamflow/celery.py                   @Asta-Builds
+/backend/teamflow/permissions.py              @Asta-Builds
+/backend/teamflow/admin_operations.py         @Asta-Builds
 
 # Core NestJS Auth Module
-/backend-nest/src/auth/                       @abdelilah
-/backend-nest/src/modules/auth/               @abdelilah
+/backend-nest/src/auth/                       @Asta-Builds
+/backend-nest/src/modules/auth/               @Asta-Builds
+
+# RED ZONE: factory quality gates. Loosening a rule or growing a legacy list
+# to get a PR green defeats the gate, so a human signs off on every change.
+/ruff.toml                                    @Asta-Builds
+/cli/ruff.toml                                @Asta-Builds
+/frontend/eslint.config.mjs                   @Asta-Builds
+/frontend/eslint.legacy.mjs                   @Asta-Builds
+/backend-nest/eslint.config.mjs               @Asta-Builds
+/backend-nest/eslint.legacy.mjs               @Asta-Builds
+/.jscpd.json                                  @Asta-Builds
+/frontend/knip.json                           @Asta-Builds
+/backend-nest/knip.json                       @Asta-Builds
+/.githooks/                                   @Asta-Builds
+/.mcp.json                                    @Asta-Builds

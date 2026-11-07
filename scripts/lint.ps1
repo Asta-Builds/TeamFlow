@@ -42,7 +42,7 @@ function Invoke-Py {
 }
 
 # 1. Frontend ESLint
-Write-Host "`n>> [1/8] Running Frontend ESLint..." -ForegroundColor Yellow
+Write-Host "`n>> [1/9] Running Frontend ESLint..." -ForegroundColor Yellow
 Push-Location (Join-Path $RepoRoot "frontend")
 try {
     npm run lint
@@ -53,7 +53,7 @@ try {
 Write-Host "Frontend ESLint passed with 0 errors/warnings." -ForegroundColor Green
 
 # 2. Backend-Nest ESLint
-Write-Host "`n>> [2/8] Running Backend-Nest ESLint..." -ForegroundColor Yellow
+Write-Host "`n>> [2/9] Running Backend-Nest ESLint..." -ForegroundColor Yellow
 Push-Location (Join-Path $RepoRoot "backend-nest")
 try {
     npm run lint
@@ -64,13 +64,13 @@ try {
 Write-Host "Backend-nest ESLint passed with 0 errors/warnings." -ForegroundColor Green
 
 # 3. Monorepo JSCPD Code Duplication Gate
-Write-Host "`n>> [3/8] Running Monorepo JSCPD Duplication Gate..." -ForegroundColor Yellow
+Write-Host "`n>> [3/9] Running Monorepo JSCPD Duplication Gate..." -ForegroundColor Yellow
 npx jscpd .
 if ($LASTEXITCODE -ne 0) { throw "JSCPD clone detection failed with exit code $LASTEXITCODE" }
 Write-Host "JSCPD duplication check passed within threshold." -ForegroundColor Green
 
 # 4. Frontend Knip Dead Code Detection
-Write-Host "`n>> [4/8] Running Frontend Knip Dead Code Check..." -ForegroundColor Yellow
+Write-Host "`n>> [4/9] Running Frontend Knip Dead Code Check..." -ForegroundColor Yellow
 Push-Location (Join-Path $RepoRoot "frontend")
 try {
     npx knip
@@ -81,7 +81,7 @@ try {
 Write-Host "Frontend Knip passed with zero unused exports." -ForegroundColor Green
 
 # 5. Backend-Nest Knip Dead Code Detection
-Write-Host "`n>> [5/8] Running Backend-Nest Knip Dead Code Check..." -ForegroundColor Yellow
+Write-Host "`n>> [5/9] Running Backend-Nest Knip Dead Code Check..." -ForegroundColor Yellow
 Push-Location (Join-Path $RepoRoot "backend-nest")
 try {
     npx knip
@@ -92,7 +92,7 @@ try {
 Write-Host "Backend-nest Knip passed with zero unused exports." -ForegroundColor Green
 
 # 6. Prisma Schema Validation
-Write-Host "`n>> [6/8] Validating Prisma schema in backend-nest..." -ForegroundColor Yellow
+Write-Host "`n>> [6/9] Validating Prisma schema in backend-nest..." -ForegroundColor Yellow
 Push-Location (Join-Path $RepoRoot "backend-nest")
 try {
     if (-not $env:DATABASE_URL) {
@@ -106,7 +106,7 @@ try {
 Write-Host "Prisma schema is valid." -ForegroundColor Green
 
 # 7. Django System Check
-Write-Host "`n>> [7/8] Running Django System Check..." -ForegroundColor Yellow
+Write-Host "`n>> [7/9] Running Django System Check..." -ForegroundColor Yellow
 if (-not $env:SECRET_KEY) {
     $env:SECRET_KEY = "test-secret-key-for-local-check-32chars"
 }
@@ -114,9 +114,26 @@ Invoke-Py (Join-Path $RepoRoot "backend\manage.py") @("check")
 Write-Host "Django system check identified 0 issues." -ForegroundColor Green
 
 # 8. Django Migration Drift
-Write-Host "`n>> [8/8] Checking Django migration drift..." -ForegroundColor Yellow
+Write-Host "`n>> [8/9] Checking Django migration drift..." -ForegroundColor Yellow
 Invoke-Py (Join-Path $RepoRoot "backend\manage.py") @("makemigrations", "--check", "--dry-run")
 Write-Host "No unapplied model changes." -ForegroundColor Green
+
+# 9. Python lint (ruff) for backend/ and cli/
+Write-Host "`n>> [9/9] Running ruff on backend/ and cli/..." -ForegroundColor Yellow
+Push-Location $RepoRoot
+try {
+    if (Get-Command ruff -ErrorAction SilentlyContinue) {
+        ruff check backend cli
+    } elseif (Get-Command uvx -ErrorAction SilentlyContinue) {
+        uvx ruff@0.17.4 check backend cli
+    } else {
+        Invoke-Py "-m" @("ruff", "check", "backend", "cli")
+    }
+    if ($LASTEXITCODE -ne 0) { throw "ruff failed with exit code $LASTEXITCODE" }
+} finally {
+    Pop-Location
+}
+Write-Host "Ruff passed." -ForegroundColor Green
 
 Write-Host "`n==================================================" -ForegroundColor Cyan
 Write-Host " ALL LINT AND GATE CHECKS PASSED CLEANLY!" -ForegroundColor Green

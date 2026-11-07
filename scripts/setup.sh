@@ -86,6 +86,12 @@ echo ">> [4/4] Setting up frontend dependencies..."
 (cd "$REPO_ROOT/frontend" && npm ci --legacy-peer-deps)
 echo "Frontend dependencies installed."
 
+# Factory pre-commit hook (staged files only; CI runs every gate)
+echo ""
+echo ">> Installing the git pre-commit hook..."
+git -C "$REPO_ROOT" config core.hooksPath .githooks
+echo "Pre-commit hook active (.githooks/pre-commit)."
+
 echo ""
 echo "=================================================="
 echo " TEAMFLOW SETUP COMPLETED SUCCESSFULLY!"

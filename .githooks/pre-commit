@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Fast factory gates on staged files only: ESLint for TypeScript, ruff for Python.
+# The full set (knip, jscpd, prisma, Django checks) runs in scripts/lint.sh and in CI.
+#
+# Installed by scripts/setup.sh / setup.ps1:  git config core.hooksPath .githooks
+# Skip once, only when you must:              git commit --no-verify   (CI still runs every gate)
+
+set -euo pipefail
+root="$(git rev-parse --show-toplevel)"
+
+# Staged, still-existing files under $1 matching the extension regex $2, relative to $1.
+staged_in() {
+  git diff --cached --name-only --diff-filter=ACMR -- "$1" | grep -E "$2" | sed "s#^$1/##" || true
+}
+
+lint_ts() {
+  local package="$1" files
+  files="$(staged_in "$package" '\.(ts|tsx|mjs)$')"
+  [ -z "$files" ] && return 0
+  echo "pre-commit: ESLint on staged $package files"
+  # shellcheck disable=SC2086  # word-splitting the file list is intended; repo paths have no spaces
+  (cd "$root/$package" && npx --no-install eslint --max-warnings 0 --no-warn-ignored $files)
+}
+
+lint_py() {
+  local files
+  files="$(git diff --cached --name-only --diff-filter=ACMR -- backend cli | grep -E '\.py$' || true)"
+  [ -z "$files" ] && return 0
+  echo "pre-commit: ruff on staged Python files"
+  if command -v ruff >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    (cd "$root" && ruff check $files)
+  elif command -v uvx >/dev/null 2>&1; then
+    # shellcheck disable=SC2086
+    (cd "$root" && uvx ruff@0.17.4 check $files)
+  else
+    echo "pre-commit: ruff is not installed (pip install ruff==0.17.4); skipping Python lint. CI still runs it." >&2
+  fi
+}
+
+lint_ts frontend
+lint_ts backend-nest
+lint_py
