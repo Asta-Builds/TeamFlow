@@ -167,6 +167,15 @@ jobs:
               await github.rest.pulls
                 .createReview({ owner, repo, pull_number: prNumber, event: 'REQUEST_CHANGES', body: verdict.summary })
                 .catch((error) => core.warning(`Could not request changes: ${error.message}`));
+            } else {
+              // A fixed PR must not stay blocked by this workflow's earlier verdict.
+              const reviews = await github.paginate(github.rest.pulls.listReviews, { owner, repo, pull_number: prNumber });
+              for (const review of reviews) {
+                if (review.user?.login !== 'github-actions[bot]' || review.state !== 'CHANGES_REQUESTED') continue;
+                await github.rest.pulls
+                  .dismissReview({ owner, repo, pull_number: prNumber, review_id: review.id, message: 'A later secret scan passed.' })
+                  .catch((error) => core.warning(`Could not dismiss review ${review.id}: ${error.message}`));
+              }
             }
 
       - name: Fail on leaks or a scanner error

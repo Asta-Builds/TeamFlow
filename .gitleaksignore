@@ -1,0 +1,6 @@
+# Gitleaks findings reviewed by a human and confirmed not to be secrets.
+# One fingerprint per line: <commit>:<file>:<rule-id>:<line>. Red zone: every entry needs
+# a code owner's review, and a real secret is never ignored here; remove and rotate it instead.
+
+# PR #7: a placeholder in the CLAUDE.md MCP table (USER:PASSWORD@host.docker.internal), since replaced.
+d611aa61e3f7cfd0febc03688854f2d5252c3ca2:CLAUDE.md:hardcoded-database-password:81

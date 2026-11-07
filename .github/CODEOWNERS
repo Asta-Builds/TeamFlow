@@ -118,3 +118,5 @@ Dockerfile                                    @Asta-Builds
 /backend-nest/knip.json                       @Asta-Builds
 /.githooks/                                   @Asta-Builds
 /.mcp.json                                    @Asta-Builds
+/.gitleaks.toml                               @Asta-Builds
+/.gitleaksignore                              @Asta-Builds
