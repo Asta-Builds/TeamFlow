@@ -1,0 +1,29 @@
+{
+  "threshold": 3.0,
+  "reporters": ["console"],
+  "ignore": [
+    "**/node_modules/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "**/coverage/**",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.e2e-spec.ts",
+    "**/loading.tsx",
+    "**/dto/**",
+    "**/*.json",
+    "**/*.lock",
+    "**/migrations/**",
+    "**/.git/**",
+    "**/scripts/**",
+    "**/tests/**",
+    "**/test_*.py",
+    "**/tests_*.py",
+    "**/tests.py"
+  ],
+  "format": ["typescript", "tsx", "python"],
+  "minLines": 10,
+  "minTokens": 50
+}

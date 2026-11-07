@@ -1,0 +1,106 @@
+# ==============================================================================
+# TeamFlow Repository CODEOWNERS
+# ==============================================================================
+# This file defines individuals or teams responsible for reviewing code changes.
+# GitHub automatically requests review from owners when a PR touches these paths.
+#
+# Format reference:
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# ==============================================================================
+
+# Global fallback: Default owner for all files across TeamFlow
+* @abdelilah
+
+# ==============================================================================
+# RED ZONE: Database Schemas & Migrations (MANDATORY APPROVAL)
+# Modifying schemas or migrations carries high risk of database corruption or drift.
+# ==============================================================================
+
+# Prisma schema & generator definitions (NestJS API Gateway)
+/backend-nest/prisma/                         @abdelilah
+/backend-nest/prisma/schema.prisma            @abdelilah
+
+# Django Migrations: Wildcard pattern & all 11 individual app migration trees
+/backend/*/migrations/                        @abdelilah
+/backend/accounts/migrations/                 @abdelilah
+/backend/agents/migrations/                   @abdelilah
+/backend/deployments/migrations/              @abdelilah
+/backend/integrations/migrations/             @abdelilah
+/backend/notifications/migrations/            @abdelilah
+/backend/organizations/migrations/            @abdelilah
+/backend/projects/migrations/                 @abdelilah
+/backend/pulse/migrations/                    @abdelilah
+/backend/queues/migrations/                   @abdelilah
+/backend/seo/migrations/                      @abdelilah
+/backend/tasks/migrations/                    @abdelilah
+
+# ==============================================================================
+# RED ZONE: CI/CD Workflows, Automation & Ownership Guardrails
+# Workflows control deployment pipelines, security secrets, and gate automation.
+# ==============================================================================
+
+/.github/                                     @abdelilah
+/.github/CODEOWNERS                           @abdelilah
+/.github/workflows/                           @abdelilah
+/.github/workflows/*                          @abdelilah
+/.github/workflows/*.yml                      @abdelilah
+/.github/workflows/*.yaml                     @abdelilah
+
+# ==============================================================================
+# RED ZONE: Docker & Container Infrastructure
+# Controls runtime base images, port allocations, secrets, and deployment artifacts.
+# ==============================================================================
+
+# Compose manifests
+/docker-compose*.yml                          @abdelilah
+/docker-compose.yml                           @abdelilah
+/docker-compose.prod.yml                      @abdelilah
+
+# Docker ignore files
+/.dockerignore                                @abdelilah
+/backend/.dockerignore                        @abdelilah
+/backend-nest/.dockerignore                   @abdelilah
+/frontend/.dockerignore                       @abdelilah
+
+# Container definition files
+Dockerfile                                    @abdelilah
+**/Dockerfile                                 @abdelilah
+/backend/Dockerfile                           @abdelilah
+/backend-nest/Dockerfile                      @abdelilah
+/frontend/Dockerfile                          @abdelilah
+/nginx/Dockerfile                             @abdelilah
+/deploy-receiver/Dockerfile                   @abdelilah
+
+# Container entrypoints
+/backend/docker-entrypoint.sh                 @abdelilah
+
+# ==============================================================================
+# RED ZONE: Nginx Reverse Proxy Configuration
+# Reverse proxy routing rules, SSL termination, and SSE streaming endpoints.
+# ==============================================================================
+
+/nginx/                                       @abdelilah
+/nginx/*                                      @abdelilah
+/nginx/default.conf                           @abdelilah
+/nginx/nginx.conf                             @abdelilah
+/nginx/railway-entrypoint.sh                  @abdelilah
+/nginx/railway.conf.template                  @abdelilah
+
+# ==============================================================================
+# RED ZONE: Core Architecture & Authentication
+# Security boundaries, JWT verification, session tokens, and core settings.
+# ==============================================================================
+
+# Core Django settings, URLs, WSGI/ASGI entrypoints, and permissions
+/backend/teamflow/                            @abdelilah
+/backend/teamflow/settings.py                 @abdelilah
+/backend/teamflow/urls.py                     @abdelilah
+/backend/teamflow/asgi.py                     @abdelilah
+/backend/teamflow/wsgi.py                     @abdelilah
+/backend/teamflow/celery.py                   @abdelilah
+/backend/teamflow/permissions.py              @abdelilah
+/backend/teamflow/admin_operations.py         @abdelilah
+
+# Core NestJS Auth Module
+/backend-nest/src/auth/                       @abdelilah
+/backend-nest/src/modules/auth/               @abdelilah

@@ -121,5 +121,3 @@ export function ThemeToggle({ showLabel = false, className = "", variant = "icon
     </button>
   );
 }
-
-export default ThemeToggle;
