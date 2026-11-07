@@ -9,7 +9,8 @@ permissions:
   pull-requests: write
   issues: write
   id-token: write
-  # Lets the stuck handler name the step that actually failed.
+  # Lets the stuck handler name the step that actually failed. Only the start-checks
+  # job, where the agent does not run, gets `actions: write`.
   actions: read
 
 concurrency:
@@ -22,6 +23,10 @@ jobs:
     if: github.event.label.name == 'agent' || github.event.label.name == 'agent:implement'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    outputs:
+      pr_number: ${{ steps.cpr.outputs.pull-request-number }}
+      pr_branch: ${{ steps.cpr.outputs.pull-request-branch }}
+      pr_operation: ${{ steps.cpr.outputs.pull-request-operation }}
 
     services:
       postgres:
@@ -210,6 +215,10 @@ jobs:
             - [x] Monorepo code duplication detection (`jscpd`)
             - [x] Django system check (`python manage.py check`)
             - [x] Django zero-drift migration check (`python manage.py makemigrations --check --dry-run`)
+            - [x] Python lint (`ruff`)
+            - [x] Secret scan of the changes (`gitleaks`)
+
+            The implementer run starts this PR's checks itself (CI, the secret scan, and E2E where its workflow exists): a PR opened with the workflow token starts no workflows on its own.
 
             Closes #${{ github.event.issue.number }}
           labels: |
@@ -297,3 +306,67 @@ jobs:
               issue_number: issueNumber,
               body: commentBody
             });
+
+  # GitHub starts no workflows for a PR opened or updated with GITHUB_TOKEN, so the PR's
+  # required checks would never report. workflow_dispatch is the exception: start them on
+  # the PR's branch, and their results land on its head commit, where branch protection
+  # reads them. A separate job, so the job the agent runs in never holds `actions: write`.
+  start-checks:
+    name: Start the PR's checks
+    needs: implement
+    if: needs.implement.outputs.pr_number != '' && needs.implement.outputs.pr_operation != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      pull-requests: write
+    steps:
+      - name: Dispatch CI, the secret scan and E2E on the PR's branch
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ needs.implement.outputs.pr_number }}
+          PR_BRANCH: ${{ needs.implement.outputs.pr_branch }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = Number(process.env.PR_NUMBER);
+            const ref = process.env.PR_BRANCH;
+            const workflows = [
+              { file: 'ci.yml', required: true },
+              { file: 'agent-gitleaks-security.yml', required: true, inputs: { pr_number: String(prNumber) } },
+              // Not a required check yet, and absent until the Phase 2 PR is merged.
+              { file: 'e2e.yml', required: false },
+            ];
+
+            const failures = [];
+            for (const { file, required, inputs } of workflows) {
+              try {
+                await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: file, ref, inputs });
+                core.info(`Started ${file} on ${ref}.`);
+              } catch (error) {
+                if (!required && (error.status === 404 || error.status === 422)) {
+                  core.info(`Skipped ${file}: ${error.message}`);
+                  continue;
+                }
+                failures.push(`${file}: ${error.message}`);
+              }
+            }
+            if (failures.length === 0) return;
+
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: prNumber,
+              body: [
+                '### Checks were not started',
+                '',
+                `The [implementer run](${runUrl}) could not start these checks, so they will not report and this PR cannot merge yet:`,
+                '',
+                ...failures.map((failure) => `- \`${failure}\``),
+                '',
+                `Start each from Actions with **Run workflow** on \`${ref}\` (the secret scan asks for PR number ${prNumber}), or re-run the job that failed.`,
+              ].join('\n'),
+            });
+            core.setFailed(`Could not start: ${failures.join('; ')}`);
