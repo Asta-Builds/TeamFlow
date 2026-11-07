@@ -178,6 +178,18 @@ jobs:
         working-directory: backend-nest
         run: npx tsc --noEmit -p tsconfig.json
 
+      - name: Prisma schema
+        working-directory: backend-nest
+        env:
+          # validate only parses the schema; it never connects
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+        run: npx prisma validate
+
+      - name: Dead code and unused dependencies (knip)
+        working-directory: backend-nest
+        # knip is not a devDependency; pin it so the gate cannot change under us.
+        run: npx --yes knip@6.44.1
+
       - name: Unit tests
         working-directory: backend-nest
         run: npm test
@@ -209,6 +221,11 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
+      - name: Dead code and unused dependencies (knip)
+        working-directory: frontend
+        # knip is not a devDependency; pin it so the gate cannot change under us.
+        run: npx --yes knip@6.44.1
+
       - name: Unit tests
         working-directory: frontend
         run: npm test
@@ -218,6 +235,32 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: /api
         run: npm run build
+
+  static-gates:
+    name: Static gates (duplication, Python lint)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Duplication under 3% (jscpd, settings in .jscpd.json)
+        run: npx --yes jscpd@5.4.2 .
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Python lint for backend/ and cli/ (ruff, settings in ruff.toml)
+        run: |
+          python -m pip install ruff==0.17.4
+          ruff check backend cli
 
   cli:
     name: CLI (tests, Python ${{ matrix.python-version }})

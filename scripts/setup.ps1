@@ -82,6 +82,11 @@ try {
 }
 Write-Host "Frontend dependencies installed." -ForegroundColor Green
 
+# Factory pre-commit hook (staged files only; CI runs every gate)
+Write-Host "`n>> Installing the git pre-commit hook..." -ForegroundColor Yellow
+git -C $RepoRoot config core.hooksPath .githooks
+Write-Host "Pre-commit hook active (.githooks/pre-commit)." -ForegroundColor Green
+
 Write-Host "`n==================================================" -ForegroundColor Cyan
 Write-Host " TEAMFLOW SETUP COMPLETED SUCCESSFULLY!" -ForegroundColor Green
 Write-Host "==================================================" -ForegroundColor Cyan

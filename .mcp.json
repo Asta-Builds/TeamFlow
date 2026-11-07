@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/readonly",
+      "headers": {
+        "Authorization": "Bearer ${GITHUB_MCP_PAT}"
+      }
+    },
+    "postgres": {
+      "command": "uvx",
+      "args": ["--from", "postgres-mcp==0.3.0", "postgres-mcp", "--access-mode=restricted"],
+      "env": {
+        "DATABASE_URI": "${TEAMFLOW_DATABASE_URI}"
+      }
+    },
+    "sentry": {
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp"
+    }
+  }
+}
