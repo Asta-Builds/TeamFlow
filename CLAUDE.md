@@ -71,8 +71,19 @@ TeamFlow is an autonomous AI software company platform where specialized agents 
   python manage.py test --noinput
   ```
 - **Python lint** (repo root): `ruff check backend cli` (CI uses ruff 0.17.4).
+- **End-to-end journeys** (with the stack running): `cd e2e && npm ci && npm run test:smoke`. CI runs
+  `@smoke` and `@visual` on every PR and the full suite nightly (`.github/workflows/e2e.yml`).
 
-### 2.5 MCP servers (`.mcp.json`)
+### 2.5 Critical user journeys (`e2e/`)
+- The journeys that must never break are listed in `e2e/README.md`, each with its Playwright test.
+- If you change one of those flows, update its test in the same PR. If you add a user-facing flow,
+  add a journey and tag it `@smoke` if every PR should run it.
+- E2E tests use the real stack: never mock the API or the database there. Each test creates its own
+  account with a random password; never commit credentials or reuse accounts between tests.
+- A failing `toHaveScreenshot` is a visual change. If it's intended, delete the old baseline and
+  commit the one CI records (`visual-baselines` artifact). Never raise the tolerance to get green.
+
+### 2.6 MCP servers (`.mcp.json`)
 Claude Code asks you to approve these the first time. Secrets come from your environment, never the file.
 
 | Server | What it gives an agent | Set up |

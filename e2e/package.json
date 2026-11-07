@@ -1,0 +1,13 @@
+{
+  "name": "teamflow-e2e",
+  "private": true,
+  "description": "Playwright tests for TeamFlow's critical user journeys (factory Phase 2). See README.md.",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --grep @smoke",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

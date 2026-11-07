@@ -1,0 +1,155 @@
+name: E2E
+
+# Factory Phase 2: the critical user journeys (e2e/README.md) against the real stack.
+# Pull requests run @smoke and @visual; the full suite runs nightly against main.
+
+"on":
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: test_teamflow
+          POSTGRES_USER: teamflow
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # A throwaway database, seeded by the tests themselves (each creates its own account).
+      DATABASE_URL: postgres://teamflow:test_password@localhost:5432/test_teamflow
+      SECRET_KEY: "ci-secret-key-minimum-32-characters-length-security"
+      DEBUG: "True"
+      AGENT_EMAIL_DOMAIN: "example.invalid"
+      JWT_SECRET: "ci-secret-jwt-key-minimum-32-characters-length"
+      JWT_REFRESH_SECRET: "ci-refresh-secret-jwt-key-minimum-32-chars"
+      PYTHON_AI_JWT_SECRET: "ci-bridge-secret-key-32-characters-minimum"
+      # next.config.ts proxies /api/* here; rewrites are fixed at build time.
+      INTERNAL_API_URL: http://127.0.0.1:8001
+      E2E_BASE_URL: http://127.0.0.1:3000
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Migrate the database (Django owns the schema)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          cd backend
+          python manage.py migrate --noinput
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: |
+            backend-nest/package-lock.json
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Build and start the NestJS API (production mode)
+        working-directory: backend-nest
+        env:
+          NODE_ENV: production
+          PORT: "8001"
+          CORS_ALLOWED_ORIGINS: http://127.0.0.1:3000
+        run: |
+          npm ci --legacy-peer-deps
+          npx prisma generate
+          npm run build
+          nohup node dist/main > "$RUNNER_TEMP/nest.log" 2>&1 &
+
+      - name: Build and start the frontend (production standalone build)
+        working-directory: frontend
+        run: |
+          npm ci --legacy-peer-deps
+          npm run build
+          # Same layout as frontend/Dockerfile.
+          cp -r public .next/standalone/public
+          cp -r .next/static .next/standalone/.next/static
+          cd .next/standalone
+          PORT=3000 HOSTNAME=127.0.0.1 nohup node server.js > "$RUNNER_TEMP/next.log" 2>&1 &
+
+      - name: Wait for both servers
+        run: |
+          for url in http://127.0.0.1:8001/api/health http://127.0.0.1:3000/login; do
+            for _ in $(seq 1 60); do curl -sf -o /dev/null "$url" && break; sleep 2; done
+            if ! curl -sf -o /dev/null "$url"; then
+              echo "::error::$url did not come up"
+              tail -n 60 "$RUNNER_TEMP/nest.log" "$RUNNER_TEMP/next.log"
+              exit 1
+            fi
+          done
+
+      - name: Install Playwright and Chromium
+        working-directory: e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run the journeys
+        working-directory: e2e
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            npx playwright test --grep "@smoke|@visual"
+          else
+            npx playwright test
+          fi
+
+      - name: Upload the report (traces, screenshots, visual diffs)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+          retention-days: 14
+
+      - name: Upload newly recorded screenshot baselines
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: visual-baselines
+          path: e2e/tests/__screenshots__/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload server logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: server-logs
+          path: |
+            ${{ runner.temp }}/nest.log
+            ${{ runner.temp }}/next.log
+          retention-days: 7
