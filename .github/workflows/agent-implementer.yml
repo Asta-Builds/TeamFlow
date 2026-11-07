@@ -93,7 +93,10 @@ jobs:
         id: implementer
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Runs on the owner's Claude Pro/Max plan. Create the token with `claude setup-token`
+          # and store it as the CLAUDE_CODE_OAUTH_TOKEN repository secret. To pay per use
+          # instead, replace this input with anthropic_api_key, read from an ANTHROPIC_API_KEY secret.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: "--max-turns 100"
           prompt: |
             You are the TeamFlow Automated Implementer Agent.
