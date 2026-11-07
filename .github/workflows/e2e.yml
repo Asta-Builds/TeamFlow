@@ -81,14 +81,15 @@ jobs:
       - name: Build and start the NestJS API (production mode)
         working-directory: backend-nest
         env:
-          NODE_ENV: production
           PORT: "8001"
           CORS_ALLOWED_ORIGINS: http://127.0.0.1:3000
         run: |
+          # Dev dependencies (the Prisma CLI, the Nest builder) are needed to build:
+          # production mode applies to the running server only.
           npm ci --legacy-peer-deps
           npx prisma generate
           npm run build
-          nohup node dist/main > "$RUNNER_TEMP/nest.log" 2>&1 &
+          NODE_ENV=production nohup node dist/main > "$RUNNER_TEMP/nest.log" 2>&1 &
 
       - name: Build and start the frontend (production standalone build)
         working-directory: frontend
