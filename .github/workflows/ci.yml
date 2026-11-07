@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  # The implementer agent opens its PRs with GITHUB_TOKEN, which starts no workflows,
+  # so it dispatches this one on the PR's branch instead (see agent-implementer.yml).
+  workflow_dispatch:
 
 permissions:
   contents: read
