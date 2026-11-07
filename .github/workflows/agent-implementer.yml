@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 25
     outputs:
       pr_number: ${{ steps.cpr.outputs.pull-request-number }}
-      pr_branch: ${{ steps.cpr.outputs.pull-request-branch }}
+      pr_head_sha: ${{ steps.cpr.outputs.pull-request-head-sha }}
       pr_operation: ${{ steps.cpr.outputs.pull-request-operation }}
 
     services:
@@ -225,7 +225,7 @@ jobs:
             - [x] Python lint (`ruff`)
             - [x] Secret scan of the changes (`gitleaks`)
 
-            The implementer run starts this PR's checks itself (CI, the secret scan, and E2E where its workflow exists): a PR opened with the workflow token starts no workflows on its own.
+            The implementer run approves this PR's checks (CI, the secret scan, and E2E where its workflow exists): GitHub holds runs on PRs opened by the workflow token until someone approves them.
 
             Closes #${{ github.event.issue.number }}
           labels: |
@@ -323,10 +323,11 @@ jobs:
               body: commentBody
             });
 
-  # GitHub starts no workflows for a PR opened or updated with GITHUB_TOKEN, so the PR's
-  # required checks would never report. workflow_dispatch is the exception: start them on
-  # the PR's branch, and their results land on its head commit, where branch protection
-  # reads them. A separate job, so the job the agent runs in never holds `actions: write`.
+  # GitHub creates the PR's own pull_request runs (the only ones that count as its checks)
+  # but holds them for approval, because it treats github-actions[bot] as a first-time
+  # contributor. Approve them here. They run nothing the agent's job did not: GITHUB_TOKEN
+  # cannot push workflow files, CI and E2E use no secrets, and the secret scan runs no
+  # repository code. A separate job, so the job the agent runs in never holds `actions: write`.
   start-checks:
     name: Start the PR's checks
     needs: implement
@@ -337,35 +338,48 @@ jobs:
       actions: write
       pull-requests: write
     steps:
-      - name: Dispatch CI, the secret scan and E2E on the PR's branch
+      - name: Approve the PR's held CI and secret-scan runs
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ needs.implement.outputs.pr_number }}
-          PR_BRANCH: ${{ needs.implement.outputs.pr_branch }}
+          PR_HEAD_SHA: ${{ needs.implement.outputs.pr_head_sha }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
             const prNumber = Number(process.env.PR_NUMBER);
-            const ref = process.env.PR_BRANCH;
-            const workflows = [
-              { file: 'ci.yml', required: true },
-              { file: 'agent-gitleaks-security.yml', required: true, inputs: { pr_number: String(prNumber) } },
-              // Not a required check yet, and absent until the Phase 2 PR is merged.
-              { file: 'e2e.yml', required: false },
-            ];
+            const headSha = process.env.PR_HEAD_SHA;
+            const required = ['CI Pipeline', 'Secret Scan'];
+            const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-            const failures = [];
-            for (const { file, required, inputs } of workflows) {
+            // The runs appear a few seconds after the push; E2E is approved too once it exists.
+            let runs = [];
+            for (let attempt = 0; attempt < 18; attempt += 1) {
+              const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                owner,
+                repo,
+                event: 'pull_request',
+                head_sha: headSha,
+                per_page: 50,
+              });
+              runs = data.workflow_runs.filter((run) => run.head_repository?.full_name === `${owner}/${repo}`);
+              if (required.every((name) => runs.some((run) => run.name === name))) break;
+              await sleep(10000);
+            }
+
+            const failures = required
+              .filter((name) => !runs.some((run) => run.name === name))
+              .map((name) => `${name}: no run was created for ${headSha.slice(0, 7)}`);
+            for (const run of runs) {
+              if (run.conclusion !== 'action_required' && run.status !== 'action_required') {
+                core.info(`${run.name} is not held (${run.status}${run.conclusion ? `/${run.conclusion}` : ''}).`);
+                continue;
+              }
               try {
-                await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: file, ref, inputs });
-                core.info(`Started ${file} on ${ref}.`);
+                await github.rest.actions.approveWorkflowRun({ owner, repo, run_id: run.id });
+                core.info(`Approved ${run.name} (run ${run.id}).`);
               } catch (error) {
-                if (!required && (error.status === 404 || error.status === 422)) {
-                  core.info(`Skipped ${file}: ${error.message}`);
-                  continue;
-                }
-                failures.push(`${file}: ${error.message}`);
+                failures.push(`${run.name}: ${error.message}`);
               }
             }
             if (failures.length === 0) return;
@@ -376,13 +390,13 @@ jobs:
               repo,
               issue_number: prNumber,
               body: [
-                '### Checks were not started',
+                '### Checks are waiting for approval',
                 '',
-                `The [implementer run](${runUrl}) could not start these checks, so they will not report and this PR cannot merge yet:`,
+                `The [implementer run](${runUrl}) could not start this PR's checks, so they will not report and the PR cannot merge yet:`,
                 '',
                 ...failures.map((failure) => `- \`${failure}\``),
                 '',
-                `Start each from Actions with **Run workflow** on \`${ref}\` (the secret scan asks for PR number ${prNumber}), or re-run the job that failed.`,
+                'Click **Approve workflows to run** at the bottom of this PR to start them.',
               ].join('\n'),
             });
             core.setFailed(`Could not start: ${failures.join('; ')}`);

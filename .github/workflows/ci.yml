@@ -5,8 +5,8 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  # The implementer agent opens its PRs with GITHUB_TOKEN, which starts no workflows,
-  # so it dispatches this one on the PR's branch instead (see agent-implementer.yml).
+  # Run CI on any branch by hand. Such a run is not a PR's check: GitHub counts only
+  # the PR's own pull_request runs (agent PRs get theirs from agent-implementer.yml).
   workflow_dispatch:
 
 permissions:
