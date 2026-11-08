@@ -73,6 +73,7 @@ TeamFlow is an autonomous AI software company platform where specialized agents 
 - **Python lint** (repo root): `ruff check backend cli` (CI uses ruff 0.17.4).
 - **End-to-end journeys** (with the stack running): `cd e2e && npm ci && npm run test:smoke`. CI runs
   `@smoke` and `@visual` on every PR and the full suite nightly (`.github/workflows/e2e.yml`).
+  "E2E (Playwright)" is a required check: a PR cannot merge until those journeys pass.
 
 ### 2.5 Critical user journeys (`e2e/`)
 - The journeys that must never break are listed in `e2e/README.md`, each with its Playwright test.

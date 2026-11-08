@@ -225,7 +225,7 @@ jobs:
             - [x] Python lint (`ruff`)
             - [x] Secret scan of the changes (`gitleaks`)
 
-            The implementer run approves this PR's checks (CI, the secret scan, and E2E where its workflow exists): GitHub holds runs on PRs opened by the workflow token until someone approves them.
+            The implementer run approves this PR's checks (CI, the secret scan and E2E): GitHub holds runs on PRs opened by the workflow token until someone approves them.
 
             Closes #${{ github.event.issue.number }}
           labels: |
@@ -338,7 +338,7 @@ jobs:
       actions: write
       pull-requests: write
     steps:
-      - name: Approve the PR's held CI and secret-scan runs
+      - name: Approve the PR's held CI, secret-scan and E2E runs
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ needs.implement.outputs.pr_number }}
@@ -349,10 +349,11 @@ jobs:
             const { owner, repo } = context.repo;
             const prNumber = Number(process.env.PR_NUMBER);
             const headSha = process.env.PR_HEAD_SHA;
-            const required = ['CI Pipeline', 'Secret Scan'];
+            // Workflow names (not job names) of every run that holds a required check on main.
+            const required = ['CI Pipeline', 'Secret Scan', 'E2E'];
             const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-            // The runs appear a few seconds after the push; E2E is approved too once it exists.
+            // The runs appear a few seconds after the push; wait until all of them exist.
             let runs = [];
             for (let attempt = 0; attempt < 18; attempt += 1) {
               const { data } = await github.rest.actions.listWorkflowRunsForRepo({
